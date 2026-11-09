@@ -50,7 +50,7 @@ label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:p
 .forge-grid{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:14px;align-items:start}
 .forge-stage{position:relative;background:radial-gradient(ellipse at 50% 85%,#3a2416 0%,#1a1411 60%);border:1px solid var(--line);
   border-radius:var(--radius);padding:10px;display:flex;justify-content:center}
-#forgeCanvas{display:block;height:min(66vh,600px);max-width:100%;aspect-ratio:96/150;touch-action:none;cursor:grab;border-radius:6px}
+#forgeCanvas{display:block;height:min(66vh,600px);max-width:100%;aspect-ratio:128/150;touch-action:none;cursor:grab;border-radius:6px}
 #forgeCanvas:active{cursor:grabbing}
 #stoneSeg{flex-wrap:wrap}
 .stage-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;
@@ -168,6 +168,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
           <div class="row" style="margin-bottom:10px">
             <span class="muted">型</span>
             <select id="typeSel"></select>
+            <select id="pairSel" aria-label="取り数"><option value="1">1振り</option><option value="2">2振り（1枚から）</option></select>
             <span class="muted">材料</span>
             <select id="matSel"></select>
             <span class="muted">持ち手</span>
@@ -485,12 +486,15 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 
 ## 鍛造コスト
 
+「2振り（1枚から）」を選ぶと、1 枚の大きな鉱石から同じ型の剣を 2 振り打ちます。そのときは鉱石を「2振りの追加鉱石」だけ多く使います。
+
 | 項目 | 値 |
 | --- | --- |
 | 鉱石 | 3 |
 | 星鉄の補正 | 80 |
 | 鉱石の値段 | 15 |
 | 武器庫の上限 | 24 |
+| 2振りの追加鉱石 | 1 |
 </script>
 <script type="text/markdown" id="md-fusion">
 # fusion.md — Markdown 合成の換算ルール
@@ -902,8 +906,7 @@ const DEFAULT_HILT = { name: '木の柄', guard: '#8d96a3', grip: '#8a6a45', wra
 function hilts() { const l = DEFS.balance.hilts; return l && l.length ? l : [DEFAULT_HILT]; }
 function hiltByName(n) { return hilts().find(m => m.name === n) || hilts()[0]; }
 /* 鍔・持ち手のマスの色。鍔は金属、柄は斜めの巻き模様、柄頭は鍔と同じ色 */
-function hiltPixel(i, h, gd) {
-  const x = i % GW, y = (i / GW) | 0;
+function hiltPixel(x, y, h, gd) {
   const bottom = gd.pts.reduce((a, p) => Math.max(a, p[1]), 0);
   const metal = y < gd.guardB || y >= bottom - 6;
   const c = hexRGB(metal ? h.guard : ((x + y) % 4 < 2 ? h.wrap : h.grip));
@@ -1033,49 +1036,91 @@ function hydrateIcons(root) {
 /* =========================================================
    鍛造
    ========================================================= */
+/* 鍛造グリッド：剣 1 振りぶん（GW×GH）を 2 つ並べられる幅。1 振りなら真ん中、2 振りなら左右に置く */
+const FW = 84;
+const PAIR_SPLIT = 42; // 2 振りのとき、この列より左が 1 振り目
 const F = {
-  active: false, showDone: false, mask: new Uint8Array(GW * GH), start: null, heat: new Float32Array(GW * GH),
-  shade: new Float32Array(GW * GH), vein: new Uint8Array(GW * GH),
+  active: false, showDone: false, mask: new Uint8Array(FW * GH), start: null, heat: new Float32Array(FW * GH),
+  shade: new Float32Array(FW * GH), vein: new Uint8Array(FW * GH), pieces: [18],
   sparks: [], drawing: false, lastPt: null, dirty: true, match: 0, lastMatchAt: 0,
   ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null, angle: 0, mat: null, sheath: null, hilt: null, hiltDef: null, hiltCells: []
 };
-const WW = 96, WH = 150;          // 作業台の広さ（マス）
-const STONE_X = 72, STONE_Y = 75; // 砥石の位置（マス）
-const ORE_HOME = [4, (WH - GH) / 2];
+const WW = 128, WH = 150;         // 作業台の広さ（マス）
+const STONE_X = 104, STONE_Y = 75; // 砥石の位置（マス）
+function pieceOf(x) { return F.pieces.length === 1 ? 0 : (x < PAIR_SPLIT ? 0 : 1); }
+function slabRange() { return F.pieces.length === 1 ? [18, 18 + GW] : [2, FW - 2]; }
+function oreHome() { return [4 - slabRange()[0], (WH - GH) / 2]; }
+/* 鍛造グリッドから k 振り目を、剣 1 振りぶんのグリッドに取り出す */
+function extractPiece(src, k) {
+  const off = F.pieces[k], out = new Uint8Array(GW * GH);
+  for (let y = 0; y < GH; y++) for (let px = 0; px < GW; px++) {
+    const X = off + px; if (X < 0 || X >= FW || pieceOf(X) !== k) continue;
+    out[y * GW + px] = src[y * FW + X];
+  }
+  return out;
+}
+function placePiece(src, k, dst) {
+  const off = F.pieces[k];
+  for (let y = 0; y < GH; y++) for (let px = 0; px < GW; px++) {
+    const X = off + px; if (X < 0 || X >= FW || pieceOf(X) !== k) continue;
+    if (src[y * GW + px]) dst[y * FW + X] = 1;
+  }
+}
+/* 持ち手につながった刀身を、1 振りずつ取り出す */
+function forgeParts(mask) {
+  return F.pieces.map((_, k) => {
+    const comp = weaponComponent(extractPiece(mask, k), F.hilt ? extractPiece(F.hilt, k) : null);
+    return { k, comp, match: bladeIoU(comp.mask, forgeType()) };
+  });
+}
+function forgeMatch(mask) { const ps = forgeParts(mask); return ps.reduce((a, p) => a + p.match, 0) / ps.length; }
+function pairCount() { return $('#pairSel') && $('#pairSel').value === '2' ? 2 : 1; }
+function pairExtraOre() { const v = DEFS.balance.cost['2振りの追加鉱石']; return isFinite(v) ? +v : 1; }
 const fc = $('#forgeCanvas'), fg = fc.getContext('2d');
 const CS = 6; // 1マスあたりの描画ピクセル
 fc.width = WW * CS; fc.height = WH * CS;
-const small = document.createElement('canvas'); small.width = GW; small.height = GH;
-const sg = small.getContext('2d'); const img = sg.createImageData(GW, GH);
+const small = document.createElement('canvas'); small.width = FW; small.height = GH;
+const sg = small.getContext('2d'); const img = sg.createImageData(FW, GH);
 
 function makeOre(type) {
-  const m = new Uint8Array(GW * GH), gd = guideFor(type || forgeType()), hy = gd.hiltY, hm = hiltMask(type || forgeType());
-  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-    const i = y * GW + x;
+  type = type || forgeType();
+  const m = new Uint8Array(FW * GH), gd = guideFor(type), hy = gd.hiltY, hm = hiltMask(type);
+  const [x0, x1] = slabRange(), cx = (x0 + x1) / 2, hw = (x1 - x0) / 2;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < FW; x++) {
+    const i = y * FW + x;
     F.shade[i] = .82 + Math.random() * .3 + Math.sin(x * .5 + y * .2) * .06;
     F.vein[i] = Math.random() < .035 ? 1 : 0;
-    if (y >= hy) continue;
-    // 鉱石は鍔の上までの塊。下の端は鍔にしっかり付くよう、角だけ丸める
-    const dx = (x + .5 - GW / 2) / (GW / 2 - 1), dy = (y + .5 - hy / 2) / (hy / 2);
+    if (y >= hy || x < x0 || x >= x1) continue;
+    // 鉱石は鍔の上までの 1 枚の塊。下の端は鍔にしっかり付くよう、角だけ丸める
+    const dx = (x + .5 - cx) / (hw - 1), dy = (y + .5 - hy / 2) / (hy / 2);
     const n = Math.sin(x * .9 + y * .37) * .05 + Math.sin(y * .23) * .04 + Math.random() * .04;
     m[i] = (y >= hy - 4 && Math.abs(dx) < .7) || Math.pow(Math.abs(dx), 4) + Math.pow(Math.abs(dy), 4) <= 1 + n ? 1 : 0;
   }
-  F.hilt = hm; F.hiltCells = [];
-  for (let i = 0; i < hm.length; i++) if (hm[i]) { m[i] = 1; F.hiltCells.push(i); }
+  // 鍔と持ち手を、剣の数だけ付ける
+  F.hilt = new Uint8Array(FW * GH);
+  F.pieces.forEach((_, k) => placePiece(hm, k, F.hilt));
+  F.hiltCells = [];
+  for (let i = 0; i < F.hilt.length; i++) if (F.hilt[i]) { m[i] = 1; F.hiltCells.push(i); }
   return m;
 }
 function forgeType() { return $('#typeSel').value; }
-function placeOre() {
-  const B = DEFS.balance;
-  if (S.weapons.length >= B.cost['武器庫の上限']) return toast('武器庫がいっぱいです。武器庫で売ってから鍛造してください');
-  if (S.ore < B.cost['鉱石']) return toast(`鉱石が足りません（必要 ${B.cost['鉱石']}）。バトルで集めるか、買ってください`);
+/* 鍛造を始められるか確かめて、鉱石と金を払う。払えなければ null */
+function payForForge() {
+  const B = DEFS.balance, n = pairCount(), ore = B.cost['鉱石'] + (n === 2 ? pairExtraOre() : 0);
+  if (S.weapons.length + n > B.cost['武器庫の上限']) { toast('武器庫がいっぱいです。武器庫で売ってから鍛造してください'); return null; }
+  if (S.ore < ore) { toast(`鉱石が足りません（必要 ${ore}）。バトルで集めるか、買ってください`); return null; }
   const mat = selMat();
-  if (S.gold < mat.gold) return toast(`${mat.name} には ${mat.gold}G 要ります（所持 ${Math.floor(S.gold)}G）`);
-  S.ore -= B.cost['鉱石']; S.gold -= mat.gold; save(); updateRes();
+  if (S.gold < mat.gold) { toast(`${mat.name} には ${mat.gold}G 要ります（所持 ${Math.floor(S.gold)}G）`); return null; }
+  S.ore -= ore; S.gold -= mat.gold; save(); updateRes();
+  F.pieces = n === 2 ? [0, 36] : [18];
+  return mat;
+}
+function placeOre() {
+  const mat = payForForge(); if (!mat) return;
   F.mat = mat; F.sheath = selSheath(); F.hiltDef = selHilt(); F.oreRGB = hexRGB(mat.color);
   F.mask = makeOre(); F.start = F.mask.slice(); F.heat.fill(0); F.sparks = [];
-  [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; F.contact = 0;
-  F.active = true; F.showDone = false; F.dirty = true; F.match = bladeIoU(F.mask, forgeType());
+  [F.ox, F.oy] = oreHome(); F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; F.contact = 0;
+  F.active = true; F.showDone = false; F.dirty = true; F.match = forgeMatch(F.mask);
   $('#forgeMsg').style.display = 'none';
   $('#forgeResultPanel').style.display = 'none';
   syncForgeButtons(); updateMatch(true);
@@ -1086,6 +1131,7 @@ function syncForgeButtons() {
   $('#btnDone').textContent = hm ? '仕上げる（残りは叩かない）' : '完成（ハンマーへ）';
   ['#btnFlipX', '#btnFlipY', '#btnHome'].forEach(s => $(s).disabled = !F.active);
   const busy = F.active || hm;
+  $('#pairSel').disabled = busy;
   $('#btnPlace').disabled = busy; $('#btnAuto').disabled = busy; $('#typeSel').disabled = busy;
   $('#matSel').disabled = busy; $('#sheathSel').disabled = busy; $('#hiltSel').disabled = busy;
   const B = DEFS.balance;
@@ -1153,20 +1199,20 @@ function sparkFrom(g, px, py) {
 }
 /* 鉱石のマス(x,y) → 作業台上の中心座標 */
 function cellWorld(x, y) {
-  return [F.ox + (F.flipX ? GW - 1 - x : x) + .5, F.oy + (F.flipY ? GH - 1 - y : y) + .5];
+  return [F.ox + (F.flipX ? FW - 1 - x : x) + .5, F.oy + (F.flipY ? GH - 1 - y : y) + .5];
 }
 function grind() {
   const g = stoneGeom(currentStone()), [bx0, by0, bx1, by1] = stoneBox(g);
-  const lx0 = Math.max(0, Math.floor(bx0 - F.ox) - 1), lx1 = Math.min(GW - 1, Math.ceil(bx1 - F.ox) + 1);
+  const lx0 = Math.max(0, Math.floor(bx0 - F.ox) - 1), lx1 = Math.min(FW - 1, Math.ceil(bx1 - F.ox) + 1);
   const ly0 = Math.max(0, Math.floor(by0 - F.oy) - 1), ly1 = Math.min(GH - 1, Math.ceil(by1 - F.oy) + 1);
   let removed = 0;
   for (let ly = ly0; ly <= ly1; ly++) for (let lx = lx0; lx <= lx1; lx++) {
-    const x = F.flipX ? GW - 1 - lx : lx, y = F.flipY ? GH - 1 - ly : ly, i = y * GW + x;
+    const x = F.flipX ? FW - 1 - lx : lx, y = F.flipY ? GH - 1 - ly : ly, i = y * FW + x;
     if (!F.mask[i] || (F.hilt && F.hilt[i])) continue;
     const px = F.ox + lx + .5, py = F.oy + ly + .5;
     if (!inStone(g, px, py)) continue;
     F.mask[i] = 0; removed++;
-    for (const n of [i - 1, i + 1, i - GW, i + GW]) if (n >= 0 && n < F.heat.length && F.mask[n] && !(F.hilt && F.hilt[n])) F.heat[n] = 1;
+    for (const n of [i - 1, i + 1, i - FW, i + FW]) if (n >= 0 && n < F.heat.length && F.mask[n] && !(F.hilt && F.hilt[n])) F.heat[n] = 1;
     if (F.sparks.length < 420) { sparkFrom(g, px, py); if (Math.random() < .5) sparkFrom(g, px, py); }
   }
   if (removed) F.dirty = true;
@@ -1194,13 +1240,13 @@ function hiltHits() {
   const g = stoneGeom(currentStone());
   for (const i of F.hiltCells) {
     if (!F.mask[i]) continue;
-    const [px, py] = cellWorld(i % GW, (i / GW) | 0);
+    const [px, py] = cellWorld(i % FW, (i / FW) | 0);
     if (inStone(g, px, py)) return true;
   }
   return false;
 }
 function clampTarget() {
-  F.tx = clamp(F.tx, -GW + 8, WW - 8); F.ty = clamp(F.ty, -GH + 8, WH - 8);
+  F.tx = clamp(F.tx, -FW + 8, WW - 8); F.ty = clamp(F.ty, -GH + 8, WH - 8);
 }
 /* マウス操作：チェックを入れると、ボタンを押さなくても鉱石がマウスの動きに付いてくる（初期はオフ） */
 let mouseMode = false;
@@ -1287,14 +1333,13 @@ $('#btnRotR').onclick = () => setStoneAngle(F.angle + 15);
 $('#btnRot0').onclick = () => setStoneAngle(0);
 $('#btnFlipX').onclick = () => { if (F.active) F.flipX = !F.flipX; };
 $('#btnFlipY').onclick = () => { if (F.active) F.flipY = !F.flipY; };
-$('#btnHome').onclick = () => { if (!F.active) return; [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; };
+$('#btnHome').onclick = () => { if (!F.active) return; [F.ox, F.oy] = oreHome(); F.tx = F.ox; F.ty = F.oy; };
 
 function updateMatch(force) {
   const now = performance.now();
   if (!force && now - F.lastMatchAt < 250) return;
   F.lastMatchAt = now;
-  const comp = weaponComponent(F.mask, F.hilt);
-  F.match = bladeIoU(comp.mask, forgeType());
+  F.match = forgeMatch(F.mask);
   showMatch(F.match);
 }
 function showMatch(m) {
@@ -1356,11 +1401,11 @@ function drawForge(dt) {
   for (let i = 0; i < F.heat.length; i++) if (F.heat[i] > 0) { F.heat[i] = Math.max(0, F.heat[i] - dt * 1.4); hot = true; }
   if (F.dirty || hot) {
     const d = img.data;
-    for (let i = 0; i < GW * GH; i++) {
+    for (let i = 0; i < FW * GH; i++) {
       const o = i * 4;
       if (!F.mask[i]) { d[o + 3] = 0; continue; }
       if (F.hilt && F.hilt[i]) {
-        const c = hiltPixel(i, F.hiltDef || selHilt(), guideFor(forgeType()));
+        const c = hiltPixel(i % FW, (i / FW) | 0, F.hiltDef || selHilt(), guideFor(forgeType()));
         d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; continue;
       }
       const s = F.shade[i], h = F.heat[i];
@@ -1380,12 +1425,13 @@ function drawForge(dt) {
     const j = F.contact > 0 ? rand(-.25, .25) : 0;
     fg.save();
     fg.translate((F.ox + j) * CS, (F.oy + j) * CS);
-    if (F.flipX) { fg.translate(GW * CS, 0); fg.scale(-1, 1); }
+    if (F.flipX) { fg.translate(FW * CS, 0); fg.scale(-1, 1); }
     if (F.flipY) { fg.translate(0, GH * CS); fg.scale(1, -1); }
-    fg.imageSmoothingEnabled = false; fg.drawImage(small, 0, 0, GW * CS, GH * CS);
+    fg.imageSmoothingEnabled = false; fg.drawImage(small, 0, 0, FW * CS, GH * CS);
     if (F.active) {
       const pts = guideFor(forgeType()).pts;
-      fg.beginPath(); pts.forEach(([x, y], i) => i ? fg.lineTo(x * CS, y * CS) : fg.moveTo(x * CS, y * CS)); fg.closePath();
+      fg.beginPath();
+      for (const off of F.pieces) { pts.forEach(([x, y], i) => i ? fg.lineTo((x + off) * CS, y * CS) : fg.moveTo((x + off) * CS, y * CS)); fg.closePath(); }
       fg.fillStyle = 'rgba(255,214,150,.07)'; fg.fill();
       fg.setLineDash([7, 6]); fg.lineWidth = 2; fg.strokeStyle = 'rgba(255,220,160,.75)'; fg.stroke(); fg.setLineDash([]);
     }
@@ -1425,36 +1471,48 @@ function hammerCfg() {
   return { n: Math.round(v('叩く回数', 5, 1, 20)), dur: v('輪が縮む秒数', 1.1, .3, 5), perfect: v('会心の幅', 10, 1, 60), good: v('良いの幅', 26, 2, 90) };
 }
 const HAMMER_SWEET = .78; // 輪が光る点に重なる位置（縮み始めからの割合）
+/* 削り終えた形が武器になるか確かめ、なれば 1 振りずつの形を返す */
+function checkParts(mask) {
+  const parts = forgeParts(mask);
+  const bad = parts.find(p => F.hilt ? p.comp.blade < 30 : p.comp.count < 60);
+  if (bad) { toast(parts.length === 2 ? `${bad.k === 0 ? '左' : '右'}の刀身が小さすぎます。もう少し残して削ってください` : '刀身が小さすぎます。もう少し残して削ってください'); return null; }
+  return parts;
+}
+function unionParts(parts) { const m = new Uint8Array(FW * GH); parts.forEach(p => placePiece(p.comp.mask, p.k, m)); return m; }
 function startHammer() {
-  const comp = weaponComponent(F.mask, F.hilt);
-  if (F.hilt ? comp.blade < 30 : comp.count < 60) { toast('刀身が小さすぎます。もう少し残して削ってください'); return; }
-  F.mask = comp.mask; F.active = false; F.drawing = false; F.dirty = true;
+  const parts = checkParts(F.mask); if (!parts) return;
+  F.mask = unionParts(parts); F.active = false; F.drawing = false; F.dirty = true;
   // 金床の上、作業台の真ん中に置き直す
-  F.flipX = F.flipY = false; F.ox = F.tx = (WW - GW) / 2; F.oy = F.ty = (WH - GH) / 2;
+  F.flipX = F.flipY = false; F.ox = F.tx = (WW - FW) / 2; F.oy = F.ty = (WH - GH) / 2;
   const blade = [];
   for (let i = 0; i < F.mask.length; i++) if (F.mask[i] && !(F.hilt && F.hilt[i])) { blade.push(i); F.heat[i] = .55; }
-  const cfg = hammerCfg();
-  F.hammer = { cfg, blade, left: cfg.n, p: 0, spot: null, perfect: 0, good: 0, miss: 0, bonus: {}, swing: 0, pops: [], wait: .35 };
+  const cfg = hammerCfg(), n = F.pieces.length;
+  // 2 振りなら叩く回数も 2 振りぶん。光る点は左右の刀身に交互に出る
+  F.hammer = { cfg, blade, left: cfg.n * n, total: cfg.n * n, p: 0, spot: null, swing: 0, pops: [], wait: .35,
+    stat: F.pieces.map(() => ({ perfect: 0, good: 0, miss: 0, bonus: {} })) };
   nextSpot(); syncForgeButtons();
 }
 function nextSpot() {
   const H = F.hammer;
   // 刀身の内側寄りのマスを選ぶ（縁だと見づらいので）
-  let i = H.blade[(Math.random() * H.blade.length) | 0];
+  const want = (H.total - H.left) % F.pieces.length;
+  const pool = H.blade.filter(c => pieceOf(c % FW) === want);
+  const list = pool.length ? pool : H.blade;
+  let i = list[(Math.random() * list.length) | 0];
   for (let k = 0; k < 12; k++) {
-    const c = H.blade[(Math.random() * H.blade.length) | 0];
+    const c = list[(Math.random() * list.length) | 0];
     if (F.mask[c - 1] && F.mask[c + 1] && F.mask[c - 2] && F.mask[c + 2]) { i = c; break; }
   }
-  H.spot = { i, def: pickWeighted(hammerDefs(), d => d.w) }; H.p = 0; H.lastPos = cellWorld(i % GW, (i / GW) | 0);
+  H.spot = { i, k: pieceOf(i % FW), def: pickWeighted(hammerDefs(), d => d.w) }; H.p = 0; H.lastPos = cellWorld(i % FW, (i / FW) | 0);
 }
 function strike() {
   const H = F.hammer; if (!H || !H.spot || H.wait > 0) return;
   const diff = Math.abs(H.p - HAMMER_SWEET) * 100, d = H.spot.def;
-  const [wx, wy] = cellWorld(H.spot.i % GW, (H.spot.i / GW) | 0);
+  const [wx, wy] = cellWorld(H.spot.i % FW, (H.spot.i / FW) | 0), st = H.stat[H.spot.k];
   let label, color;
-  if (diff <= H.cfg.perfect / 2) { H.perfect++; H.bonus[d.kind] = (H.bonus[d.kind] || 0) + d.perfect; label = `会心の一打！ ${effLabel(d.kind, d.perfect)}`; color = '#ffd54a'; }
-  else if (diff <= H.cfg.good / 2) { H.good++; H.bonus[d.kind] = (H.bonus[d.kind] || 0) + d.good; label = `良い一打 ${effLabel(d.kind, d.good)}`; color = d.color; }
-  else { H.miss++; label = H.p < HAMMER_SWEET ? '早すぎた' : '遅すぎた'; color = '#aab'; }
+  if (diff <= H.cfg.perfect / 2) { st.perfect++; st.bonus[d.kind] = (st.bonus[d.kind] || 0) + d.perfect; label = `会心の一打！ ${effLabel(d.kind, d.perfect)}`; color = '#ffd54a'; }
+  else if (diff <= H.cfg.good / 2) { st.good++; st.bonus[d.kind] = (st.bonus[d.kind] || 0) + d.good; label = `良い一打 ${effLabel(d.kind, d.good)}`; color = d.color; }
+  else { st.miss++; label = H.p < HAMMER_SWEET ? '早すぎた' : '遅すぎた'; color = '#aab'; }
   hammerHit(wx, wy, label, color, diff <= H.cfg.good / 2);
 }
 function hammerHit(wx, wy, label, color, good) {
@@ -1466,9 +1524,9 @@ function hammerHit(wx, wy, label, color, good) {
     F.sparks.push({ x: wx, y: wy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(.2, .7) });
   }
   // 叩いた所が赤く光る
-  const cx = H.spot.i % GW, cy = (H.spot.i / GW) | 0;
+  const cx = H.spot.i % FW, cy = (H.spot.i / FW) | 0;
   for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) {
-    const i = y * GW + x; if (x < 0 || x >= GW || y < 0 || y >= GH || !F.mask[i] || (F.hilt && F.hilt[i])) continue;
+    const i = y * FW + x; if (x < 0 || x >= FW || y < 0 || y >= GH || !F.mask[i] || (F.hilt && F.hilt[i])) continue;
     F.heat[i] = Math.max(F.heat[i], 1 - Math.hypot(x - cx, y - cy) / 6);
   }
   H.left--; H.spot = null; H.wait = .45;
@@ -1483,7 +1541,7 @@ function hammerStep(dt) {
   if (!H.spot) return;
   H.p += dt / H.cfg.dur;
   if (H.p > 1) { // 叩かないまま輪が消えた
-    H.miss++; const [wx, wy] = cellWorld(H.spot.i % GW, (H.spot.i / GW) | 0);
+    H.stat[H.spot.k].miss++; const [wx, wy] = cellWorld(H.spot.i % FW, (H.spot.i / FW) | 0);
     H.pops.push({ text: '見逃した', x: wx, y: wy - 4, t: 0, color: '#aab' });
     H.left--; H.spot = null; H.wait = .3;
     if (H.left <= 0) setTimeout(() => F.hammer && endHammer(), 500);
@@ -1492,13 +1550,15 @@ function hammerStep(dt) {
 function endHammer() {
   const H = F.hammer; if (!H) return;
   F.hammer = null;
-  finishForge(F.mask, false, { perfect: H.perfect, good: H.good, miss: H.miss + Math.max(0, H.left), bonus: H.bonus });
+  // 叩かなかった残りは空振り（左右に交互に数える）
+  for (let r = 0; r < Math.max(0, H.left); r++) H.stat[(H.total - H.left + r) % H.stat.length].miss++;
+  finishForge(F.mask, false, H.stat);
 }
 function drawHammer() {
   const H = F.hammer; if (!H) return;
   const C = CS;
   if (H.spot) {
-    const [wx, wy] = cellWorld(H.spot.i % GW, (H.spot.i / GW) | 0), d = H.spot.def;
+    const [wx, wy] = cellWorld(H.spot.i % FW, (H.spot.i / FW) | 0), d = H.spot.def;
     const core = 2.2, R = 13, r = Math.max(.3, core + (R - core) * (1 - H.p / HAMMER_SWEET));
     const near = Math.abs(H.p - HAMMER_SWEET) * 100 <= H.cfg.good / 2;
     fg.save();
@@ -1538,57 +1598,57 @@ function drawHammer() {
   fg.fillText('輪が光る点に重なった瞬間にタップ（スペースキー）', WW * C / 2, 76);
   fg.restore();
 }
-function finishForge(mask, auto, hammerRes) {
+function finishForge(mask, auto, hammerStats) {
   const type = forgeType();
-  const comp = weaponComponent(mask, F.hilt);
-  if (F.hilt ? comp.blade < 30 : comp.count < 60) { toast('刀身が小さすぎます。もう少し残して削ってください'); return false; }
-  const match = bladeIoU(comp.mask, type);
-  const outline = traceOutline(comp.mask);
+  const parts = checkParts(mask); if (!parts) return false;
   const useStar = $('#useStar').checked && S.star > 0;
   if (useStar) S.star--;
-  const w = rollWeapon({ type, match, useStar, outline, mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt() });
-  w.auto = !!auto;
-  if (hammerRes) {
-    const add = [];
-    for (const [kind, v] of Object.entries(hammerRes.bonus)) if (v) { applyEffect(w, kind, r1(v)); add.push(effLabel(kind, r1(v))); }
-    w.hammer = { perfect: hammerRes.perfect, good: hammerRes.good, miss: hammerRes.miss };
-    w.notes.unshift(`ハンマー：会心の一打 ${hammerRes.perfect}・良い一打 ${hammerRes.good}・空振り ${hammerRes.miss}${add.length ? ' → ' + add.join('、') : ''}`);
+  const made = parts.map(p => {
+    const w = rollWeapon({ type, match: p.match, useStar, outline: traceOutline(p.comp.mask), mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt() });
+    w.auto = !!auto;
+    const hr = hammerStats && hammerStats[p.k];
+    if (hr) {
+      const add = [];
+      for (const [kind, v] of Object.entries(hr.bonus)) if (v) { applyEffect(w, kind, r1(v)); add.push(effLabel(kind, r1(v))); }
+      w.hammer = { perfect: hr.perfect, good: hr.good, miss: hr.miss };
+      w.notes.unshift(`ハンマー：会心の一打 ${hr.perfect}・良い一打 ${hr.good}・空振り ${hr.miss}${add.length ? ' → ' + add.join('、') : ''}`);
+    }
+    return w;
+  });
+  if (made.length === 2) {
+    const [a, b] = made; a.twin = b.id; b.twin = a.id;
+    a.notes.push(`1枚の鉱石から打った対の剣（もう一振りは No.${b.no}）`);
+    b.notes.push(`1枚の鉱石から打った対の剣（もう一振りは No.${a.no}）`);
   }
-  if (w.mei) toast(`共鳴！ 銘「${w.mei}」が刻まれました`);
+  const meis = made.filter(w => w.mei).map(w => `「${w.mei}」`);
+  if (meis.length) toast(`共鳴！ 銘${meis.join('・')}が刻まれました`);
   renderComboNote();
-  S.weapons.unshift(w);
-  if (!S.equipped) S.equipped = w.id;
+  S.weapons.unshift(...made);
+  if (!S.equipped) S.equipped = made[0].id;
   save(); updateRes();
-  F.active = false; showMatch(match);
+  F.active = false; showMatch(parts.reduce((x, p) => x + p.match, 0) / parts.length);
   // 表示用：完成形だけを残す
-  F.mask = comp.mask; F.dirty = true; F.showDone = true;
-  showForgeResult(w);
+  F.mask = unionParts(parts); F.dirty = true; F.showDone = true;
+  showForgeResult(made);
   for (let k = 0; k < 90; k++) {
     const a = rand(0, Math.PI * 2), sp = rand(8, 30);
-    F.sparks.push({ x: F.ox + GW / 2 + rand(-8, 8), y: F.oy + GH * .45 + rand(-30, 30), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(.3, .9) });
+    F.sparks.push({ x: F.ox + (slabRange()[0] + slabRange()[1]) / 2 + rand(-8, 8), y: F.oy + GH * .45 + rand(-30, 30), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(.3, .9) });
   }
   syncForgeButtons(); renderAll();
   battle.onWeaponChanged();
   return true;
 }
-function showForgeResult(w) {
+function showForgeResult(list) {
   $('#forgeResultPanel').style.display = '';
-  $('#forgeResult').innerHTML = weaponCardHTML(w,
+  $('#forgeResult').innerHTML = list.map(w => weaponCardHTML(w,
     `${S.equipped === w.id ? '' : `<button class="small" data-act="equip" data-id="${w.id}">装備する</button>`}<button class="small" data-act="tofuse" data-id="${w.id}">合成へ</button>`) +
     (w.notes && w.notes.length ? `<div style="margin:8px 0 0;font-size:13px">${w.notes.map(n => `<div${n.startsWith('共鳴') ? ' style="color:#ffc247;font-weight:700"' : ''}>${esc(n)}</div>`).join('')}</div>` : '') +
-    `<p class="muted" style="margin:8px 0 0">${w.auto ? '自動鍛造' : '手で鍛造'}・完成度 ${w.match}%${w.star ? '・星鉄使用' : ''}。抽選は balance.md の定義に従いました。</p>`;
+    `<p class="muted" style="margin:8px 0 14px">${w.auto ? '自動鍛造' : '手で鍛造'}・完成度 ${w.match}%${w.star ? '・星鉄使用' : ''}。抽選は balance.md の定義に従いました。</p>`).join('');
   hydrateIcons($('#forgeResult'));
 }
-function autoForge() {
-  const B = DEFS.balance;
-  if (S.weapons.length >= B.cost['武器庫の上限']) return toast('武器庫がいっぱいです。武器庫で売ってから鍛造してください');
-  if (S.ore < B.cost['鉱石']) return toast(`鉱石が足りません（必要 ${B.cost['鉱石']}）`);
-  const mat = selMat();
-  if (S.gold < mat.gold) return toast(`${mat.name} には ${mat.gold}G 要ります（所持 ${Math.floor(S.gold)}G）`);
-  S.ore -= B.cost['鉱石']; S.gold -= mat.gold;
-  F.mat = mat; F.sheath = selSheath(); F.hiltDef = selHilt(); F.oreRGB = hexRGB(mat.color);
+function autoShape(type) {
   // ガイドの形を元に、輪郭を少し乱した形を自動で作る
-  const g = guideMask(forgeType()); let m = g.slice();
+  const g = guideMask(type); let m = g.slice();
   for (let pass = 0; pass < 2; pass++) {
     const nm = m.slice();
     for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
@@ -1603,11 +1663,18 @@ function autoForge() {
     let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += m[(y + dy) * GW + x + dx];
     sm[y * GW + x] = s >= 5 ? 1 : 0;
   }
-  m = sm;
-  F.mask = makeOre(); F.heat.fill(0);
-  [F.ox, F.oy] = ORE_HOME; F.flipX = F.flipY = false;
-  for (let i = 0; i < m.length; i++) if (!m[i] && !F.hilt[i]) F.mask[i] = 0;
-  for (let i = GW; i < m.length - GW; i++) if (m[i] && !F.hilt[i] && (!m[i - 1] || !m[i + 1] || !m[i - GW] || !m[i + GW])) F.heat[i] = 1;
+  return sm;
+}
+function autoForge() {
+  const mat = payForForge(); if (!mat) return;
+  F.mat = mat; F.sheath = selSheath(); F.hiltDef = selHilt(); F.oreRGB = hexRGB(mat.color);
+  const type = forgeType(), shape = new Uint8Array(FW * GH);
+  F.pieces.forEach((_, k) => placePiece(autoShape(type), k, shape));
+  F.mask = makeOre(type); F.heat.fill(0);
+  [F.ox, F.oy] = oreHome(); F.flipX = F.flipY = false;
+  for (let i = 0; i < F.mask.length; i++) if (!shape[i] && !F.hilt[i]) F.mask[i] = 0;
+  const M = F.mask;
+  for (let i = FW; i < M.length - FW; i++) if (M[i] && !F.hilt[i] && (!M[i - 1] || !M[i + 1] || !M[i - FW] || !M[i + FW])) F.heat[i] = 1;
   $('#forgeMsg').style.display = 'none';
   finishForge(F.mask, true);
 }
@@ -1616,7 +1683,7 @@ $('#btnDone').onclick = () => { if (F.active) startHammer(); else if (F.hammer) 
 $('#btnRedo').onclick = () => {
   if (!F.active) return;
   F.mask = F.start.slice(); F.heat.fill(0); F.dirty = true;
-  [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; updateMatch(true);
+  [F.ox, F.oy] = oreHome(); F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; updateMatch(true);
 };
 $('#btnAuto').onclick = autoForge;
 $('#btnBuyOre').onclick = () => {

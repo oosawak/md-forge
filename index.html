@@ -1,0 +1,1904 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Markdown鍛造（仮）</title>
+<style>
+:root{
+  --bg:#14110f; --panel:#1f1a17; --panel2:#2a231f; --line:#3a312b;
+  --text:#f3e9df; --muted:#b3a393; --accent:#ff8a3d; --accent2:#ffc247;
+  --good:#6ee7a0; --bad:#ff5d73; --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:0;z-index:20;background:rgba(20,17,15,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0 6px}
+h1{font-size:18px;margin:0;letter-spacing:.04em;white-space:nowrap}
+h1 small{color:var(--muted);font-weight:400;font-size:12px;margin-left:6px}
+.res{display:flex;gap:6px;margin-left:auto;font-size:13px;flex-wrap:wrap}
+.res span{background:var(--panel2);border:1px solid var(--line);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.res b{color:var(--accent2);font-variant-numeric:tabular-nums}
+nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+button{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  padding:8px 14px;cursor:pointer;touch-action:manipulation;transition:border-color .15s,background .15s}
+button:hover:not(:disabled){border-color:#6a5646}
+button:disabled{opacity:.42;cursor:not-allowed}
+button.primary{background:linear-gradient(180deg,#ffa057,#e6662a);border-color:#ffa057;color:#1b0f08;font-weight:700}
+button.small{padding:5px 10px;font-size:13px;border-radius:8px}
+nav button{flex:0 0 auto}
+nav button.on{background:var(--accent);color:#1b0f08;border-color:var(--accent);font-weight:700}
+main{padding:16px 0 80px}
+section.tab{display:none}
+section.tab.on{display:block}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.panel h2{font-size:15px;margin:0 0 10px;letter-spacing:.03em}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted);font-size:13px;line-height:1.6}
+select,textarea,input[type=text]{font:inherit;color:var(--text);background:#17130f;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+textarea{width:100%;min-height:150px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5}
+label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:6px 11px;font-size:13px}
+.seg button.on{background:#4a3a2e;color:var(--accent2)}
+
+/* forge */
+.forge-grid{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:14px;align-items:start}
+.forge-stage{position:relative;background:radial-gradient(ellipse at 50% 85%,#3a2416 0%,#1a1411 60%);border:1px solid var(--line);
+  border-radius:var(--radius);padding:10px;display:flex;justify-content:center}
+#forgeCanvas{display:block;height:min(66vh,600px);max-width:100%;aspect-ratio:96/150;touch-action:none;cursor:grab;border-radius:6px}
+#forgeCanvas:active{cursor:grabbing}
+#stoneSeg{flex-wrap:wrap}
+.stage-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;
+  color:var(--muted);font-size:14px;line-height:1.7;pointer-events:none}
+.meter{height:8px;background:#120f0c;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.meter i{display:block;height:100%;background:linear-gradient(90deg,#ff8a3d,#ffc247);width:0%;transition:width .2s}
+.stat-line{display:flex;justify-content:space-between;font-size:14px;padding:3px 0;border-bottom:1px dashed #3a312b}
+.stat-line:last-child{border-bottom:0}
+.stat-line b{font-variant-numeric:tabular-nums}
+.plus{color:var(--good);font-size:12px;margin-left:4px}
+
+/* weapon cards */
+.wcard{display:flex;gap:12px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;position:relative}
+.wcard.eq{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.wcard canvas{flex:0 0 auto;width:42px;height:112px;background:#15110e;border-radius:8px}
+.wcard .info{flex:1;min-width:0}
+.wcard .name{font-weight:700;font-size:15px;margin-bottom:2px}
+.rar{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:6px;color:#14110f;margin-right:6px;vertical-align:1px}
+.elem{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;border:1px solid currentColor;margin-left:4px}
+.kv{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:1px 8px;font-size:12.5px;margin:6px 0}
+.kv span:nth-child(odd){color:var(--muted)}
+.wcard .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.armory{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.badge-eq{position:absolute;top:8px;right:10px;font-size:11px;color:var(--accent);font-weight:700}
+
+/* fusion */
+.drop{border:2px dashed #5a4636;border-radius:12px;padding:18px;text-align:center;color:var(--muted);transition:.15s;margin-bottom:10px}
+.drop.over{border-color:var(--accent);background:rgba(255,138,61,.08);color:var(--text)}
+.analysis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0}
+.analysis div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.analysis small{display:block;color:var(--muted);font-size:11.5px}
+.analysis b{font-size:17px}
+.analysis em{display:block;font-style:normal;color:var(--good);font-size:12px;margin-top:2px}
+.fuse-log{font-size:13px;line-height:1.7}
+.fuse-flash{animation:flash .9s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 0 rgba(255,194,71,.9)}100%{box-shadow:0 0 0 18px rgba(255,194,71,0)}}
+
+/* battle */
+.battle-view{position:relative;height:min(58vh,460px);min-height:280px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:#20262e}
+.battle-view canvas{display:block;width:100%;height:100%}
+.hud{position:absolute;left:10px;right:10px;top:10px;display:flex;gap:10px;align-items:flex-start;pointer-events:none;flex-wrap:wrap}
+.hud .box{background:rgba(10,10,12,.62);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 10px;font-size:13px}
+.hpbar{width:160px;height:8px;background:#2b2b2b;border-radius:99px;overflow:hidden;margin-top:4px}
+.hpbar i{display:block;height:100%;background:linear-gradient(90deg,#4ade80,#a3e635);width:100%}
+.overlay{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.floater{position:absolute;transform:translate(-50%,-50%);font-weight:800;font-size:16px;text-shadow:0 2px 3px #000,0 0 2px #000;white-space:nowrap}
+.ebar{position:absolute;transform:translate(-50%,-100%);width:56px;height:6px;background:#2a1b1b;border-radius:99px;overflow:hidden;border:1px solid rgba(0,0,0,.5)}
+.ebar i{display:block;height:100%;background:#ff5d73}
+.ebar.boss{width:110px;height:9px}
+.banner{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:24px;font-weight:900;letter-spacing:.06em;
+  text-shadow:0 3px 8px #000;pointer-events:none;opacity:0;transition:opacity .3s;text-align:center;white-space:nowrap}
+.banner.show{opacity:1}
+.log{font-size:12.5px;line-height:1.65;max-height:150px;overflow:auto;color:var(--muted)}
+.log b{color:var(--text)}
+
+/* defs */
+pre.md{white-space:pre-wrap;background:#120f0c;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;max-height:340px;overflow:auto}
+table.mini{border-collapse:collapse;font-size:13px;width:100%}
+table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2f261f;border:1px solid var(--accent);
+  color:var(--text);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.25s;z-index:50;max-width:calc(100vw - 32px);pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:700px){
+  .forge-grid{grid-template-columns:1fr}
+  #forgeCanvas{height:min(56vh,480px)}
+  h1{font-size:16px}
+  .res{margin-left:0;width:100%}
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.0/lib/three-vrm.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1>Markdown鍛造<small>試作</small></h1>
+      <div class="res">
+        <span>金 <b id="rGold">0</b></span>
+        <span>鉱石 <b id="rOre">0</b></span>
+        <span>星鉄 <b id="rStar">0</b></span>
+        <span>到達 <b id="rWave">0</b></span>
+      </div>
+    </div>
+    <nav id="tabs">
+      <button data-tab="forge" class="on">鍛造</button>
+      <button data-tab="fusion">合成</button>
+      <button data-tab="armory">武器庫</button>
+      <button data-tab="battle">バトル</button>
+      <button data-tab="defs">定義</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- 鍛造 -->
+  <section class="tab on" id="tab-forge">
+    <div class="forge-grid">
+      <div class="forge-stage">
+        <canvas id="forgeCanvas" width="576" height="900"></canvas>
+        <div class="stage-msg" id="forgeMsg">「鉱石を置く」を押して、<br>鉱石をドラッグして<br>回っている砥石に押し当てよう。<br>点線のガイドに近づけるほど良い武器に</div>
+      </div>
+      <div>
+        <div class="panel">
+          <h2>鍛造台</h2>
+          <div class="row" style="margin-bottom:10px">
+            <span class="muted">型</span>
+            <select id="typeSel"></select>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <span class="muted">砥石</span>
+            <span class="seg" id="stoneSeg"></span>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <span class="muted">持ち替え</span>
+            <button class="small" id="btnFlipX">左右</button>
+            <button class="small" id="btnFlipY">上下</button>
+            <button class="small" id="btnHome">手元に戻す</button>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <button class="primary" id="btnPlace">鉱石を置く</button>
+            <button id="btnDone" disabled>完成</button>
+            <button id="btnRedo" disabled>やり直し</button>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <button id="btnAuto">自動鍛造</button>
+            <button id="btnBuyOre" class="small">鉱石を買う</button>
+            <label class="chk"><input type="checkbox" id="useStar"> 星鉄を使う</label>
+          </div>
+          <div class="muted" id="costNote"></div>
+          <div style="margin-top:12px">
+            <div class="row" style="justify-content:space-between"><span class="muted">完成度（ガイドとの一致率）</span><b id="matchVal">—</b></div>
+            <div class="meter" style="margin-top:4px"><i id="matchBar"></i></div>
+            <div class="muted" id="matchNote" style="margin-top:4px"></div>
+          </div>
+        </div>
+        <div class="panel" id="forgeResultPanel" style="display:none">
+          <h2>できあがった武器</h2>
+          <div id="forgeResult"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 合成 -->
+  <section class="tab" id="tab-fusion">
+    <div class="panel">
+      <h2>Markdown 合成</h2>
+      <p class="muted" style="margin-top:0">武器に Markdown を合成すると強くなります。換算ルールは <code>fusion.md</code> の定義に従います（「定義」タブで確認・差し替えできます）。</p>
+      <div class="row" style="margin-bottom:10px">
+        <span class="muted">合成する武器</span>
+        <select id="fuseTarget" style="max-width:100%"></select>
+      </div>
+      <div id="fuseCard" style="margin-bottom:12px"></div>
+      <div class="drop" id="dropZone">.md ファイルをここへドラッグ＆ドロップ<br><span style="font-size:12px">または下の欄に貼り付け</span></div>
+      <textarea id="mdInput" placeholder="# 例：炎の章&#10;&#10;ここに Markdown を貼り付けます。"></textarea>
+      <div class="analysis" id="analysis"></div>
+      <div class="row">
+        <button class="primary" id="btnFuse" disabled>合成する</button>
+        <button id="btnClearMd" class="small">欄を空にする</button>
+        <span class="muted" id="fuseNote"></span>
+      </div>
+    </div>
+    <div class="panel" id="fuseResultPanel" style="display:none">
+      <h2>合成の結果</h2>
+      <div id="fuseResult" class="fuse-log"></div>
+    </div>
+  </section>
+
+  <!-- 武器庫 -->
+  <section class="tab" id="tab-armory">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <h2 style="margin:0">武器庫 <span class="muted" id="armoryCount"></span></h2>
+        <span class="muted">装備した武器でバトルします</span>
+      </div>
+      <div class="armory" id="armory"></div>
+    </div>
+  </section>
+
+  <!-- バトル -->
+  <section class="tab" id="tab-battle">
+    <div class="battle-view" id="battleView">
+      <div class="overlay" id="overlay"></div>
+      <div class="hud">
+        <div class="box"><b id="hudWave">ウェーブ 1</b><div class="hpbar"><i id="hudHp"></i></div><span class="muted" id="hudHpText" style="font-size:11.5px"></span></div>
+        <div class="box" id="hudWeapon" style="max-width:260px"></div>
+      </div>
+      <div class="banner" id="banner"></div>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <div class="row" style="margin-bottom:8px">
+        <button class="primary" id="btnSortie">出撃</button>
+        <button id="btnRetreat" disabled>撤退</button>
+        <span class="seg" id="speedSeg"><button data-s="1" class="on">×1</button><button data-s="2">×2</button></span>
+        <span class="muted" id="rendererNote"></span>
+      </div>
+      <div class="row" style="margin-bottom:8px">
+        <span class="muted">主人公（VRM）</span>
+        <input type="file" id="vrmFile" accept=".vrm">
+        <button class="small" id="btnVrmReset">簡易モデルに戻す</button>
+      </div>
+      <div class="muted" id="vrmNote">VRM が読み込まれていないときは、箱と球の簡易モデルで表示します。VRM ファイルは端末の中だけで使い、保存はしません。</div>
+    </div>
+    <div class="panel">
+      <h2>記録</h2>
+      <div class="log" id="battleLog"></div>
+    </div>
+  </section>
+
+  <!-- 定義 -->
+  <section class="tab" id="tab-defs">
+    <div class="panel">
+      <h2>Markdown 定義</h2>
+      <p class="muted" style="margin-top:0">鍛造の抽選は <code>balance.md</code>、合成の換算は <code>fusion.md</code> に従います。
+        同じフォルダの .md が読めないとき（file:// で開いたときなど）は、ゲームに内蔵した同じ内容の初期値を使います。
+        書き換えた .md をここで読み込むと、その内容で遊べます。</p>
+      <div class="row" style="margin-bottom:10px">
+        <input type="file" id="defFile" accept=".md,text/markdown" multiple>
+        <button class="small" id="btnDefReset">初期値に戻す</button>
+      </div>
+      <div id="defStatus" class="muted"></div>
+    </div>
+    <div class="panel">
+      <h2>レアリティの確率（いまの定義）</h2>
+      <div id="rarityTable"></div>
+    </div>
+    <div class="panel"><h2>balance.md</h2><pre class="md" id="balanceText"></pre></div>
+    <div class="panel"><h2>fusion.md</h2><pre class="md" id="fusionText"></pre></div>
+    <div class="panel">
+      <h2>データ</h2>
+      <div class="row"><button class="small" id="btnWipe">記録を消して最初から</button></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- balance.md / fusion.md が読めないとき用の内蔵初期値（同じ内容） -->
+<script type="text/markdown" id="md-balance">
+# balance.md — 鍛造の抽選テーブル
+
+Markdown鍛造（仮）が鍛造のときに読む定義です。
+`## 見出し` の下にある最初の表を、その項目の定義として読みます。表の行を書き換えて保存すると、次に読み込んだときから反映されます。
+確率の列は「重み」です。合計が 100 でなくても、比率で抽選します。
+
+## レアリティ
+
+| レアリティ | 確率 | 攻撃倍率 | スキル倍率 | 売値 | 色 |
+| --- | --- | --- | --- | --- | --- |
+| N | 52 | 1.0 | 1.0 | 10 | #a8b0b8 |
+| R | 28 | 1.25 | 1.2 | 25 | #5fb3ff |
+| SR | 13 | 1.6 | 1.5 | 60 | #c77dff |
+| SSR | 5.5 | 2.1 | 1.9 | 150 | #ffc247 |
+| UR | 1.5 | 2.8 | 2.5 | 400 | #ff5d73 |
+
+## 基礎性能
+
+| 項目 | 最小 | 最大 |
+| --- | --- | --- |
+| 攻撃力 | 10 | 18 |
+| 攻撃速度 | 0.8 | 1.3 |
+| 会心率 | 3 | 10 |
+
+## 武器の型
+
+鍛造画面で選ぶガイドの形です。倍率は基礎性能に掛かります。
+
+| 型 | 攻撃倍率 | 速度倍率 | 会心加算 |
+| --- | --- | --- | --- |
+| 長剣 | 1.0 | 1.0 | 0 |
+| 大剣 | 1.35 | 0.72 | 0 |
+| 短剣 | 0.75 | 1.4 | 4 |
+
+## 砥石
+
+鍛造台で選べる砥石です。鉱石をドラッグして砥石に押し当てると、当たった所が削れます。
+形は「円」（回転砥石）「帯」（ベルト）「三角」（先の細い砥石）。大きさはマス数（円は半径）。削る速さは、押し当てている間に鉱石が進む速さ（マス/秒）です。
+
+| 砥石 | 形 | 大きさ | 削る速さ |
+| --- | --- | --- | --- |
+| 大砥石 | 円 | 18 | 22 |
+| 小砥石 | 円 | 7 | 14 |
+| 平砥石 | 帯 | 10 | 18 |
+| 尖り砥石 | 三角 | 12 | 10 |
+
+## 属性
+
+| 属性 | 確率 | 色 |
+| --- | --- | --- |
+| 無 | 40 | #d9dde3 |
+| 炎 | 15 | #ff6a3d |
+| 氷 | 15 | #6fd3ff |
+| 雷 | 15 | #ffe14d |
+| 風 | 15 | #6ee7a0 |
+
+## 属性相性
+
+左の属性で攻撃すると、右の属性の相手に強い。
+
+| 攻撃 | 有利な相手 | 倍率 |
+| --- | --- | --- |
+| 炎 | 風 | 1.5 |
+| 風 | 雷 | 1.5 |
+| 雷 | 氷 | 1.5 |
+| 氷 | 炎 | 1.5 |
+
+## パッシブスキル
+
+効果値は「基本値 × レアリティのスキル倍率」で決まります。
+
+| スキル | 確率 | 基本値 | 説明 |
+| --- | --- | --- | --- |
+| 連撃 | 20 | 12 | 攻撃が もう1回 出る確率(%) |
+| 吸命 | 15 | 6 | 与えたダメージの一部を回復(%) |
+| 鉄壁 | 15 | 10 | 受けるダメージを軽減(%) |
+| 会心強化 | 15 | 30 | 会心ダメージを上乗せ(%) |
+| 黄金 | 15 | 20 | ウェーブ報酬の金を上乗せ(%) |
+| 守護 | 20 | 15 | 最大HPを上乗せ(%) |
+
+## 完成度ボーナス
+
+ガイドとの一致率（完成度）が「補正開始」を超えると、N 以外の重みが少しずつ上がります。一致率 100% で「最大補正」になります。
+
+| 項目 | 値 |
+| --- | --- |
+| 補正開始 | 60 |
+| 最大補正 | 40 |
+
+## 鍛造コスト
+
+| 項目 | 値 |
+| --- | --- |
+| 鉱石 | 3 |
+| 星鉄の補正 | 80 |
+| 鉱石の値段 | 15 |
+| 武器庫の上限 | 24 |
+</script>
+<script type="text/markdown" id="md-fusion">
+# fusion.md — Markdown 合成の換算ルール
+
+Markdown鍛造（仮）が、武器に Markdown を合成するときに読む定義です。
+`## 見出し` の下にある最初の表を、その項目の定義として読みます。
+
+## 文字数
+
+空白と改行を除いた文字数で数えます。
+攻撃力の上昇 = 単位あたりの加算 ×（文字数 ÷ 単位文字数）^ 逓減指数。逓減指数を 1 より小さくすると、量が多いほど 1 字あたりの伸びが小さくなります。
+
+| 項目 | 値 |
+| --- | --- |
+| 単位文字数 | 100 |
+| 単位あたりの加算 | 1 |
+| 逓減指数 | 0.75 |
+| 上限 | 30 |
+
+## 見出し
+
+`#` で始まる行を 1 つと数えます（コードブロックの中は数えません）。見出し 1 つごとにパッシブスキルの効果値が上がります。
+
+| 項目 | 値 |
+| --- | --- |
+| スキル効果加算 | 4 |
+| 上限 | 8 |
+
+## コードブロック
+
+| 項目 | 値 |
+| --- | --- |
+| 会心率加算 | 1 |
+| 上限 | 12 |
+
+## 表
+
+区切り行（`| --- |`）を持つ表を 1 つと数えます。表 1 つごとに防御が上がります（受けるダメージから差し引く値）。
+
+| 項目 | 値 |
+| --- | --- |
+| 防御加算 | 2 |
+| 上限 | 10 |
+
+## 属性キーワード
+
+本文に出てくる回数を属性ごとに合計します。いちばん多い属性が、武器が無属性なら付き、同じ属性なら強くなります（属性レベル +1、出現回数が多ければ +2）。違う属性の武器には付きません。
+
+| 単語 | 属性 |
+| --- | --- |
+| 炎 | 炎 |
+| 火 | 炎 |
+| 焔 | 炎 |
+| 氷 | 氷 |
+| 雪 | 氷 |
+| 冬 | 氷 |
+| 雷 | 雷 |
+| 稲妻 | 雷 |
+| 電 | 雷 |
+| 風 | 風 |
+| 嵐 | 風 |
+| 疾風 | 風 |
+
+## 合成の制限
+
+| 項目 | 値 |
+| --- | --- |
+| 1本あたりの合成回数 | 5 |
+| 属性レベル2になる出現回数 | 5 |
+| 属性レベルの上限 | 5 |
+| 属性レベル1あたりの倍率加算 | 0.1 |
+</script>
+
+<script>
+'use strict';
+/* =========================================================
+   共通
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const r1 = v => Math.round(v * 10) / 10;
+const r2 = v => Math.round(v * 100) / 100;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function pickWeighted(list, wf) {
+  const total = list.reduce((s, x) => s + Math.max(0, wf(x)), 0);
+  let r = Math.random() * total;
+  for (const x of list) { r -= Math.max(0, wf(x)); if (r <= 0) return x; }
+  return list[list.length - 1];
+}
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+
+/* =========================================================
+   Markdown 定義の読み取り
+   ========================================================= */
+function splitRow(line) {
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(s => s.trim());
+}
+const SEP_RE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
+function parseMdTables(text) {
+  const lines = text.split(/\r?\n/);
+  const sections = {};
+  let cur = null, inCode = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*```/.test(line)) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    const h = line.match(/^##\s+(.+?)\s*$/);
+    if (h) { cur = h[1]; continue; }
+    if (cur && !sections[cur] && /^\s*\|/.test(line) && i + 1 < lines.length && SEP_RE.test(lines[i + 1])) {
+      const header = splitRow(line), rows = [];
+      let j = i + 2;
+      while (j < lines.length && /^\s*\|/.test(lines[j])) {
+        const cells = splitRow(lines[j]); const o = {};
+        header.forEach((k, n) => o[k] = cells[n] ?? '');
+        rows.push(o); j++;
+      }
+      sections[cur] = { header, rows };
+      i = j - 1;
+    }
+  }
+  return sections;
+}
+function need(sec, name) {
+  if (!sec[name] || !sec[name].rows.length) throw new Error(`「## ${name}」の表が見つかりません`);
+  return sec[name].rows;
+}
+function num(v, where) {
+  const n = parseFloat(String(v).replace(/[,%]/g, ''));
+  if (!isFinite(n)) throw new Error(`${where} の値「${v}」が数値として読めません`);
+  return n;
+}
+function kv(sec, name) {
+  const o = {};
+  for (const r of need(sec, name)) {
+    const k = r[sec[name].header[0]], v = r[sec[name].header[1]];
+    o[k] = num(v, `${name} / ${k}`);
+  }
+  return o;
+}
+function req(o, keys, name) { for (const k of keys) if (!(k in o)) throw new Error(`「## ${name}」に「${k}」の行がありません`); return o; }
+
+function buildBalance(text) {
+  const s = parseMdTables(text);
+  const rarities = need(s, 'レアリティ').map(r => ({
+    name: r['レアリティ'], w: num(r['確率'], 'レアリティ/確率'), atk: num(r['攻撃倍率'], 'レアリティ/攻撃倍率'),
+    skill: num(r['スキル倍率'], 'レアリティ/スキル倍率'), price: num(r['売値'], 'レアリティ/売値'), color: r['色'] || '#ccc'
+  }));
+  const base = {};
+  for (const r of need(s, '基礎性能')) base[r['項目']] = { min: num(r['最小'], '基礎性能'), max: num(r['最大'], '基礎性能') };
+  req(base, ['攻撃力', '攻撃速度', '会心率'], '基礎性能');
+  const types = need(s, '武器の型').map(r => ({ name: r['型'], atk: num(r['攻撃倍率'], '武器の型'), spd: num(r['速度倍率'], '武器の型'), crit: num(r['会心加算'], '武器の型') }));
+  const elements = need(s, '属性').map(r => ({ name: r['属性'], w: num(r['確率'], '属性/確率'), color: r['色'] || '#ddd' }));
+  const affinity = {};
+  for (const r of need(s, '属性相性')) affinity[r['攻撃']] = { target: r['有利な相手'], mult: num(r['倍率'], '属性相性') };
+  const skills = need(s, 'パッシブスキル').map(r => ({ name: r['スキル'], w: num(r['確率'], 'パッシブスキル'), base: num(r['基本値'], 'パッシブスキル'), desc: r['説明'] || '' }));
+  const match = req(kv(s, '完成度ボーナス'), ['補正開始', '最大補正'], '完成度ボーナス');
+  const cost = req(kv(s, '鍛造コスト'), ['鉱石', '星鉄の補正', '鉱石の値段', '武器庫の上限'], '鍛造コスト');
+  // 砥石は任意（古い balance.md には無いので、無ければ初期値を使う）
+  const stones = s['砥石'] ? s['砥石'].rows.map(r => ({
+    name: r['砥石'], shape: ['円', '帯', '三角'].includes(r['形']) ? r['形'] : '円',
+    size: clamp(num(r['大きさ'], '砥石/大きさ'), 3, 30), speed: clamp(num(r['削る速さ'], '砥石/削る速さ'), 2, 80)
+  })).filter(x => x.name) : null;
+  return { rarities, base, types, elements, affinity, skills, match, cost, stones };
+}
+function buildFusion(text) {
+  const s = parseMdTables(text);
+  const keywords = need(s, '属性キーワード').map(r => ({ word: r['単語'], elem: r['属性'] })).filter(k => k.word);
+  return {
+    chars: req(kv(s, '文字数'), ['単位文字数', '単位あたりの加算', '逓減指数', '上限'], '文字数'),
+    heading: req(kv(s, '見出し'), ['スキル効果加算', '上限'], '見出し'),
+    code: req(kv(s, 'コードブロック'), ['会心率加算', '上限'], 'コードブロック'),
+    table: req(kv(s, '表'), ['防御加算', '上限'], '表'),
+    keywords,
+    limits: req(kv(s, '合成の制限'), ['1本あたりの合成回数', '属性レベル2になる出現回数', '属性レベルの上限', '属性レベル1あたりの倍率加算'], '合成の制限')
+  };
+}
+
+const DEFS = { balance: null, fusion: null, text: { balance: '', fusion: '' }, src: { balance: '', fusion: '' } };
+const EMBED = {
+  balance: () => $('#md-balance').textContent.replace(/^\n/, ''),
+  fusion: () => $('#md-fusion').textContent.replace(/^\n/, '')
+};
+const BUILD = { balance: buildBalance, fusion: buildFusion };
+
+async function loadDefs() {
+  for (const kind of ['balance', 'fusion']) {
+    const tries = [];
+    const custom = store.get('mdforge.def.' + kind);
+    if (custom) tries.push([custom, '読み込んだ .md（この端末に保存中）']);
+    try {
+      const res = await fetch(kind + '.md', { cache: 'no-store' });
+      if (res.ok) tries.push([await res.text(), `同じフォルダの ${kind}.md`]);
+    } catch (e) { /* file:// など */ }
+    tries.push([EMBED[kind](), '内蔵の初期値（' + kind + '.md と同じ内容）']);
+    for (const [text, src] of tries) {
+      try {
+        DEFS[kind] = BUILD[kind](text); DEFS.text[kind] = text; DEFS.src[kind] = src; break;
+      } catch (e) {
+        DEFS.src[kind + 'Err'] = (DEFS.src[kind + 'Err'] || '') + `${src}: ${e.message}。`;
+      }
+    }
+  }
+}
+function applyDefText(kind, text, srcLabel) {
+  const built = BUILD[kind](text);  // 失敗時は throw
+  DEFS[kind] = built; DEFS.text[kind] = text; DEFS.src[kind] = srcLabel; DEFS.src[kind + 'Err'] = '';
+}
+function detectDefKind(name, text) {
+  if (/balance/i.test(name)) return 'balance';
+  if (/fusion/i.test(name)) return 'fusion';
+  if (/^##\s+レアリティ/m.test(text)) return 'balance';
+  if (/^##\s+文字数/m.test(text)) return 'fusion';
+  return null;
+}
+
+/* =========================================================
+   セーブデータ
+   ========================================================= */
+const SAVE_KEY = 'mdforge.save.v1';
+const S = { gold: 30, ore: 12, star: 0, weapons: [], equipped: null, wave: 1, maxWave: 0, serial: 0 };
+function loadSave() {
+  const raw = store.get(SAVE_KEY); if (!raw) return;
+  try { Object.assign(S, JSON.parse(raw)); } catch (e) {}
+}
+function save() { store.set(SAVE_KEY, JSON.stringify(S)); }
+function weaponById(id) { return S.weapons.find(w => w.id === id) || null; }
+function equippedWeapon() { return weaponById(S.equipped); }
+function updateRes() {
+  $('#rGold').textContent = Math.floor(S.gold);
+  $('#rOre').textContent = S.ore;
+  $('#rStar').textContent = S.star;
+  $('#rWave').textContent = S.maxWave;
+}
+
+/* =========================================================
+   武器の形（ガイド）と輪郭処理
+   ========================================================= */
+const GW = 48, GH = 128;
+const GUIDES = {
+  '長剣': { grip: [24, 102], pts: [[24,6],[29,16],[29,86],[38,86],[38,92],[27,92],[27,112],[30,112],[30,118],[18,118],[18,112],[21,112],[21,92],[10,92],[10,86],[19,86],[19,16]] },
+  '大剣': { grip: [24, 102], pts: [[24,4],[33,14],[33,84],[42,84],[42,91],[28,91],[28,113],[31,113],[31,121],[17,121],[17,113],[20,113],[20,91],[6,91],[6,84],[15,84],[15,14]] },
+  '短剣': { grip: [24, 98],  pts: [[24,30],[28,38],[28,84],[35,84],[35,89],[27,89],[27,108],[29,108],[29,114],[19,114],[19,108],[21,108],[21,89],[13,89],[13,84],[20,84],[20,38]] }
+};
+function guideFor(type) { return GUIDES[type] || GUIDES['長剣']; }
+const guideMaskCache = {};
+function guideMask(type) {
+  if (guideMaskCache[type]) return guideMaskCache[type];
+  const c = document.createElement('canvas'); c.width = GW; c.height = GH;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.beginPath();
+  guideFor(type).pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
+  const d = g.getImageData(0, 0, GW, GH).data, m = new Uint8Array(GW * GH);
+  for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3] > 127 ? 1 : 0;
+  return guideMaskCache[type] = m;
+}
+function largestComponent(mask) {
+  const seen = new Int32Array(mask.length).fill(-1); let best = null, bestN = 0, label = 0;
+  const q = new Int32Array(mask.length);
+  for (let i = 0; i < mask.length; i++) {
+    if (!mask[i] || seen[i] >= 0) continue;
+    let h = 0, t = 0; q[t++] = i; seen[i] = label; const cells = [];
+    while (h < t) {
+      const c = q[h++]; cells.push(c); const x = c % GW, y = (c / GW) | 0;
+      const nb = [x > 0 ? c - 1 : -1, x < GW - 1 ? c + 1 : -1, y > 0 ? c - GW : -1, y < GH - 1 ? c + GW : -1];
+      for (const n of nb) if (n >= 0 && mask[n] && seen[n] < 0) { seen[n] = label; q[t++] = n; }
+    }
+    if (cells.length > bestN) { bestN = cells.length; best = cells; }
+    label++;
+  }
+  const out = new Uint8Array(mask.length); if (best) for (const c of best) out[c] = 1;
+  return { mask: out, count: bestN };
+}
+function iou(a, b) {
+  let inter = 0, uni = 0;
+  for (let i = 0; i < a.length; i++) { if (a[i] && b[i]) inter++; if (a[i] || b[i]) uni++; }
+  return uni ? inter / uni * 100 : 0;
+}
+function traceOutline(mask) {
+  const at = (x, y) => x >= 0 && y >= 0 && x < GW && y < GH && mask[y * GW + x];
+  const edges = new Map(); const key = (x, y) => x + ',' + y;
+  const add = (x1, y1, x2, y2) => { const k = key(x1, y1); if (!edges.has(k)) edges.set(k, []); edges.get(k).push([x2, y2]); };
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    if (!at(x, y)) continue;
+    if (!at(x, y - 1)) add(x, y, x + 1, y);
+    if (!at(x + 1, y)) add(x + 1, y, x + 1, y + 1);
+    if (!at(x, y + 1)) add(x + 1, y + 1, x, y + 1);
+    if (!at(x - 1, y)) add(x, y + 1, x, y);
+  }
+  const loops = [];
+  for (const [k0, list] of edges) {
+    while (list.length) {
+      const [sx, sy] = k0.split(',').map(Number); const loop = [[sx, sy]];
+      let [nx, ny] = list.pop(); let guard = 0;
+      while (!(nx === sx && ny === sy) && guard++ < 20000) {
+        loop.push([nx, ny]); const l = edges.get(key(nx, ny));
+        if (!l || !l.length) break;
+        [nx, ny] = l.pop();
+      }
+      if (loop.length > 2) loops.push(loop);
+    }
+  }
+  const area = p => { let a = 0; for (let i = 0; i < p.length; i++) { const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length]; a += x1 * y2 - x2 * y1; } return Math.abs(a / 2); };
+  loops.sort((a, b) => area(b) - area(a));
+  if (!loops.length) return [];
+  return simplifyClosed(loops[0], 0.75);
+}
+function dp(pts, eps) {
+  if (pts.length < 3) return pts.slice();
+  const [ax, ay] = pts[0], [bx, by] = pts[pts.length - 1];
+  const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1;
+  let md = 0, mi = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = Math.abs(dy * pts[i][0] - dx * pts[i][1] + bx * ay - by * ax) / L;
+    if (d > md) { md = d; mi = i; }
+  }
+  if (md <= eps) return [pts[0], pts[pts.length - 1]];
+  const l = dp(pts.slice(0, mi + 1), eps), r = dp(pts.slice(mi), eps);
+  return l.slice(0, -1).concat(r);
+}
+function simplifyClosed(loop, eps) {
+  let far = 0, fd = -1;
+  for (let i = 0; i < loop.length; i++) { const d = Math.hypot(loop[i][0] - loop[0][0], loop[i][1] - loop[0][1]); if (d > fd) { fd = d; far = i; } }
+  const a = dp(loop.slice(0, far + 1), eps), b = dp(loop.slice(far).concat([loop[0]]), eps);
+  const out = a.slice(0, -1).concat(b.slice(0, -1));
+  return out.length >= 3 ? out.map(([x, y]) => [r1(x), r1(y)]) : loop;
+}
+
+/* =========================================================
+   性能の抽選
+   ========================================================= */
+const ELEM_PREFIX = { '炎': '焔の', '氷': '霜の', '雷': '迅雷の', '風': '疾風の' };
+function rarityWeights(match, useStar) {
+  const B = DEFS.balance;
+  let bonus = 0;
+  if (match > B.match['補正開始']) bonus += (match - B.match['補正開始']) / (100 - B.match['補正開始']) * B.match['最大補正'] / 100;
+  if (useStar) bonus += B.cost['星鉄の補正'] / 100;
+  return B.rarities.map((r, i) => ({ r, w: i === 0 ? r.w : r.w * (1 + bonus) }));
+}
+function rollWeapon({ type, match, useStar, outline }) {
+  const B = DEFS.balance;
+  const t = B.types.find(x => x.name === type) || B.types[0];
+  const rar = pickWeighted(rarityWeights(match, useStar), x => x.w).r;
+  const el = pickWeighted(B.elements, x => x.w);
+  const sk = pickWeighted(B.skills, x => x.w);
+  const g = guideFor(type);
+  S.serial = (S.serial || 0) + 1;
+  return {
+    id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    no: S.serial,
+    name: (ELEM_PREFIX[el.name] || '') + type,
+    type, rarity: rar.name, match: r1(match),
+    atk: Math.max(1, Math.round(rand(B.base['攻撃力'].min, B.base['攻撃力'].max) * rar.atk * t.atk)),
+    spd: r2(rand(B.base['攻撃速度'].min, B.base['攻撃速度'].max) * t.spd),
+    crit: r1(rand(B.base['会心率'].min, B.base['会心率'].max) + t.crit),
+    elem: el.name, elemLv: el.name === '無' ? 0 : 1,
+    skill: sk.name, skillVal: r1(sk.base * rar.skill),
+    f: { atk: 0, crit: 0, def: 0, skill: 0, count: 0 },
+    fuseLog: [],
+    outline, grip: g.grip, star: !!useStar
+  };
+}
+function rarityInfo(name) { return DEFS.balance.rarities.find(r => r.name === name) || { color: '#ccc', price: 10, atk: 1, skill: 1 }; }
+function elemColor(name) { const e = DEFS.balance.elements.find(x => x.name === name); return e ? e.color : '#ddd'; }
+function effStats(w) {
+  return {
+    atk: w.atk + w.f.atk, spd: w.spd, crit: r1(w.crit + w.f.crit), def: w.f.def,
+    elem: w.elem, elemLv: w.elemLv, skill: w.skill, skillVal: r1(w.skillVal * (1 + w.f.skill / 100))
+  };
+}
+
+/* =========================================================
+   武器カードの表示
+   ========================================================= */
+function drawWeaponIcon(cv, w) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.clientWidth || 42, H = cv.clientHeight || 112;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  if (!w.outline || !w.outline.length) return;
+  const s = Math.min((W - 6) / GW, (H - 6) / GH), ox = (W - GW * s) / 2, oy = (H - GH * s) / 2;
+  const grad = g.createLinearGradient(ox, 0, ox + GW * s, 0);
+  grad.addColorStop(0, '#6b7280'); grad.addColorStop(.45, '#e5e7eb'); grad.addColorStop(.55, '#f8fafc'); grad.addColorStop(1, '#6b7280');
+  g.beginPath(); w.outline.forEach(([x, y], i) => i ? g.lineTo(ox + x * s, oy + y * s) : g.moveTo(ox + x * s, oy + y * s)); g.closePath();
+  g.fillStyle = grad; g.fill();
+  if (w.elem !== '無') { g.globalAlpha = .28 + .06 * w.elemLv; g.fillStyle = elemColor(w.elem); g.fill(); g.globalAlpha = 1; }
+  g.lineWidth = 1.2; g.strokeStyle = rarityInfo(w.rarity).color; g.stroke();
+}
+function weaponCardHTML(w, acts) {
+  const e = effStats(w), ri = rarityInfo(w.rarity), eq = S.equipped === w.id;
+  const sk = DEFS.balance.skills.find(s => s.name === w.skill);
+  const pl = v => v ? `<span class="plus">+${r1(v)}</span>` : '';
+  return `<div class="wcard${eq ? ' eq' : ''}" data-wid="${w.id}">
+    ${eq ? '<span class="badge-eq">装備中</span>' : ''}
+    <canvas data-icon="${w.id}"></canvas>
+    <div class="info">
+      <div class="name"><span class="rar" style="background:${esc(ri.color)}">${esc(w.rarity)}</span>${esc(w.name)}
+        ${w.elem !== '無' ? `<span class="elem" style="color:${esc(elemColor(w.elem))}">${esc(w.elem)} Lv${w.elemLv}</span>` : ''}</div>
+      <div class="muted" style="font-size:12px">No.${w.no} ・完成度 ${w.match}% ・合成 ${w.f.count}回</div>
+      <div class="kv">
+        <span>攻撃</span><b>${e.atk}${pl(w.f.atk)}</b>
+        <span>速度</span><b>${e.spd}</b>
+        <span>会心</span><b>${e.crit}%${pl(w.f.crit)}</b>
+        <span>防御</span><b>${e.def}</b>
+      </div>
+      <div style="font-size:12.5px"><b>${esc(e.skill)}</b> ${e.skillVal}${w.f.skill ? `<span class="plus">(+${w.f.skill}%)</span>` : ''}
+        <span class="muted">${esc(sk ? sk.desc : '')}</span></div>
+      ${acts ? `<div class="acts">${acts}</div>` : ''}
+    </div></div>`;
+}
+function hydrateIcons(root) {
+  root.querySelectorAll('canvas[data-icon]').forEach(cv => { const w = weaponById(cv.dataset.icon); if (w) drawWeaponIcon(cv, w); });
+}
+
+/* =========================================================
+   鍛造
+   ========================================================= */
+const F = {
+  active: false, showDone: false, mask: new Uint8Array(GW * GH), start: null, heat: new Float32Array(GW * GH),
+  shade: new Float32Array(GW * GH), vein: new Uint8Array(GW * GH),
+  sparks: [], drawing: false, lastPt: null, dirty: true, match: 0, lastMatchAt: 0,
+  ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null
+};
+const WW = 96, WH = 150;          // 作業台の広さ（マス）
+const STONE_X = 72, STONE_Y = 75; // 砥石の位置（マス）
+const ORE_HOME = [4, (WH - GH) / 2];
+const fc = $('#forgeCanvas'), fg = fc.getContext('2d');
+const CS = 6; // 1マスあたりの描画ピクセル
+fc.width = WW * CS; fc.height = WH * CS;
+const small = document.createElement('canvas'); small.width = GW; small.height = GH;
+const sg = small.getContext('2d'); const img = sg.createImageData(GW, GH);
+
+function makeOre() {
+  const m = new Uint8Array(GW * GH);
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const dx = (x + .5 - GW / 2) / (GW / 2 - 1), dy = (y + .5 - GH / 2) / (GH / 2 - 1);
+    const n = Math.sin(x * .9 + y * .37) * .05 + Math.sin(y * .23) * .04 + Math.random() * .04;
+    const i = y * GW + x;
+    m[i] = Math.pow(Math.abs(dx), 4) + Math.pow(Math.abs(dy), 4) <= 1 + n ? 1 : 0;
+    F.shade[i] = .82 + Math.random() * .3 + Math.sin(x * .5 + y * .2) * .06;
+    F.vein[i] = Math.random() < .035 ? 1 : 0;
+  }
+  return m;
+}
+function forgeType() { return $('#typeSel').value; }
+function placeOre() {
+  const B = DEFS.balance;
+  if (S.weapons.length >= B.cost['武器庫の上限']) return toast('武器庫がいっぱいです。武器庫で売ってから鍛造してください');
+  if (S.ore < B.cost['鉱石']) return toast(`鉱石が足りません（必要 ${B.cost['鉱石']}）。バトルで集めるか、買ってください`);
+  S.ore -= B.cost['鉱石']; save(); updateRes();
+  F.mask = makeOre(); F.start = F.mask.slice(); F.heat.fill(0); F.sparks = [];
+  [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; F.contact = 0;
+  F.active = true; F.showDone = false; F.dirty = true; F.match = iou(F.mask, guideMask(forgeType()));
+  $('#forgeMsg').style.display = 'none';
+  $('#forgeResultPanel').style.display = 'none';
+  syncForgeButtons(); updateMatch(true);
+}
+function syncForgeButtons() {
+  $('#btnDone').disabled = !F.active; $('#btnRedo').disabled = !F.active;
+  ['#btnFlipX', '#btnFlipY', '#btnHome'].forEach(s => $(s).disabled = !F.active);
+  $('#btnPlace').disabled = F.active; $('#btnAuto').disabled = F.active; $('#typeSel').disabled = F.active;
+  const B = DEFS.balance;
+  $('#costNote').textContent = `鍛造1回で鉱石 ${B.cost['鉱石']} を使います（鉱石は ${B.cost['鉱石の値段']}G で買えます）。星鉄を使うと、良いレアリティが出やすくなります。`;
+  $('#btnBuyOre').textContent = `鉱石を買う (${B.cost['鉱石の値段']}G)`;
+  $('#useStar').disabled = S.star <= 0; if (S.star <= 0) $('#useStar').checked = false;
+}
+
+/* 砥石：balance.md の「## 砥石」で定義（無ければ初期値） */
+const DEFAULT_STONES = [
+  { name: '大砥石', shape: '円', size: 18, speed: 22 },
+  { name: '小砥石', shape: '円', size: 7, speed: 14 },
+  { name: '平砥石', shape: '帯', size: 10, speed: 18 },
+  { name: '尖り砥石', shape: '三角', size: 12, speed: 10 }
+];
+function stones() { return (DEFS.balance && DEFS.balance.stones && DEFS.balance.stones.length) ? DEFS.balance.stones : DEFAULT_STONES; }
+function currentStone() { const l = stones(); return l.find(s => s.name === F.stoneName) || l[0]; }
+function stoneGeom(s) {
+  const z = s.size;
+  if (s.shape === '帯') { const w = z, h = z * 5.5; return { kind: 'belt', x0: STONE_X - w / 2, x1: STONE_X + w / 2, y0: STONE_Y - h / 2, y1: STONE_Y + h / 2, r: w * .3 }; }
+  if (s.shape === '三角') { const L = z * 2.2, H = z * 1.3; return { kind: 'tri', ax: STONE_X - L * .6, ay: STONE_Y, bx: STONE_X + L * .4, by: STONE_Y - H, cx: STONE_X + L * .4, cy: STONE_Y + H }; }
+  return { kind: 'circle', cx: STONE_X, cy: STONE_Y, r: z };
+}
+function inStone(g, px, py) {
+  if (g.kind === 'circle') return (px - g.cx) ** 2 + (py - g.cy) ** 2 <= g.r * g.r;
+  if (g.kind === 'belt') {
+    const qx = clamp(px, g.x0 + g.r, g.x1 - g.r), qy = clamp(py, g.y0 + g.r, g.y1 - g.r);
+    return (px - qx) ** 2 + (py - qy) ** 2 <= g.r * g.r;
+  }
+  const s1 = (g.bx - g.ax) * (py - g.ay) - (g.by - g.ay) * (px - g.ax);
+  const s2 = (g.cx - g.bx) * (py - g.by) - (g.cy - g.by) * (px - g.bx);
+  const s3 = (g.ax - g.cx) * (py - g.cy) - (g.ay - g.cy) * (px - g.cx);
+  return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
+}
+function stoneBox(g) {
+  if (g.kind === 'circle') return [g.cx - g.r, g.cy - g.r, g.cx + g.r, g.cy + g.r];
+  if (g.kind === 'belt') return [g.x0, g.y0, g.x1, g.y1];
+  return [Math.min(g.ax, g.bx), Math.min(g.by, g.ay), Math.max(g.bx, g.cx), Math.max(g.cy, g.ay)];
+}
+function sparkFrom(g, px, py) {
+  let vx, vy;
+  if (g.kind === 'circle') {
+    // 砥石は「接する面が下へ動く」向きに回る → 火花は下・手前へ飛ぶ
+    const rx = px - g.cx, ry = py - g.cy, L = Math.hypot(rx, ry) || 1, sp = rand(30, 70), out = rand(6, 22);
+    vx = ry / L * sp + rx / L * out; vy = -rx / L * sp + ry / L * out;
+  } else if (g.kind === 'belt') { vx = rand(-26, -4); vy = rand(30, 60); }
+  else { vx = rand(-40, -6); vy = rand(10, 45); }
+  F.sparks.push({ x: px, y: py, vx: vx + rand(-6, 6), vy: vy + rand(-6, 6), life: rand(.3, .8) });
+}
+/* 鉱石のマス(x,y) → 作業台上の中心座標 */
+function cellWorld(x, y) {
+  return [F.ox + (F.flipX ? GW - 1 - x : x) + .5, F.oy + (F.flipY ? GH - 1 - y : y) + .5];
+}
+function grind() {
+  const g = stoneGeom(currentStone()), [bx0, by0, bx1, by1] = stoneBox(g);
+  const lx0 = Math.max(0, Math.floor(bx0 - F.ox) - 1), lx1 = Math.min(GW - 1, Math.ceil(bx1 - F.ox) + 1);
+  const ly0 = Math.max(0, Math.floor(by0 - F.oy) - 1), ly1 = Math.min(GH - 1, Math.ceil(by1 - F.oy) + 1);
+  let removed = 0;
+  for (let ly = ly0; ly <= ly1; ly++) for (let lx = lx0; lx <= lx1; lx++) {
+    const x = F.flipX ? GW - 1 - lx : lx, y = F.flipY ? GH - 1 - ly : ly, i = y * GW + x;
+    if (!F.mask[i]) continue;
+    const px = F.ox + lx + .5, py = F.oy + ly + .5;
+    if (!inStone(g, px, py)) continue;
+    F.mask[i] = 0; removed++;
+    for (const n of [i - 1, i + 1, i - GW, i + GW]) if (n >= 0 && n < F.heat.length && F.mask[n]) F.heat[n] = 1;
+    if (F.sparks.length < 420) { sparkFrom(g, px, py); if (Math.random() < .5) sparkFrom(g, px, py); }
+  }
+  if (removed) F.dirty = true;
+  return removed;
+}
+/* 毎フレーム：鉱石を目標位置へ動かす。砥石に当たっている間は「削る速さ」でしか進まない */
+function forgeStep(dt) {
+  F.spin += dt * 9;
+  F.contact = Math.max(0, F.contact - dt);
+  if (!F.active) return;
+  const s = currentStone();
+  const dx = F.tx - F.ox, dy = F.ty - F.oy, d = Math.hypot(dx, dy);
+  if (d < 1e-3) return;
+  const move = Math.min(d, (F.contact > 0 ? s.speed : 400) * dt);
+  const steps = Math.max(1, Math.ceil(move / .5));
+  for (let k = 0; k < steps; k++) {
+    F.ox += dx / d * move / steps; F.oy += dy / d * move / steps;
+    if (grind()) { F.contact = .12; break; }
+  }
+}
+function clampTarget() {
+  F.tx = clamp(F.tx, -GW + 8, WW - 8); F.ty = clamp(F.ty, -GH + 8, WH - 8);
+}
+fc.addEventListener('pointerdown', e => {
+  if (!F.active) return; e.preventDefault();
+  try { fc.setPointerCapture(e.pointerId); } catch (err) {}
+  F.drawing = true; F.lastPt = { x: e.clientX, y: e.clientY };
+});
+fc.addEventListener('pointermove', e => {
+  if (!F.drawing) return;
+  const r = fc.getBoundingClientRect();
+  F.tx += (e.clientX - F.lastPt.x) * WW / r.width; F.ty += (e.clientY - F.lastPt.y) * WH / r.height;
+  F.lastPt = { x: e.clientX, y: e.clientY };
+  // 砥石に当たっている間は、指より先に鉱石が進みすぎないよう、目標を近くに留める
+  if (F.contact > 0) {
+    const dx = F.tx - F.ox, dy = F.ty - F.oy, d = Math.hypot(dx, dy), lim = 3;
+    if (d > lim) { F.tx = F.ox + dx / d * lim; F.ty = F.oy + dy / d * lim; }
+  }
+  clampTarget();
+});
+const endDraw = () => { if (F.drawing) { F.drawing = false; F.tx = F.ox; F.ty = F.oy; updateMatch(true); } };
+fc.addEventListener('pointerup', endDraw); fc.addEventListener('pointercancel', endDraw);
+document.addEventListener('keydown', e => {
+  if (activeTab !== 'forge' || !F.active || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  const k = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (!k) return; e.preventDefault();
+  const st = e.shiftKey ? 4 : 1; F.tx = F.ox + k[0] * st; F.ty = F.oy + k[1] * st; clampTarget();
+});
+function renderStoneSel() {
+  const icon = sh => sh === '帯' ? '<rect x="7" y="2" width="6" height="16" rx="2"/>' : sh === '三角' ? '<path d="M3 10 L17 3 L17 17 Z"/>' : '<circle cx="10" cy="10" r="7.5"/>';
+  if (!stones().some(s => s.name === F.stoneName)) F.stoneName = stones()[0].name;
+  $('#stoneSeg').innerHTML = stones().map(s =>
+    `<button data-stone="${esc(s.name)}" class="${s.name === F.stoneName ? 'on' : ''}" title="${esc(`${s.shape}・大きさ ${s.size}・削る速さ ${s.speed}`)}"><svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" style="vertical-align:-3px;margin-right:4px">${icon(s.shape)}</svg>${esc(s.name)}</button>`).join('');
+}
+$('#stoneSeg').onclick = e => {
+  const b = e.target.closest('button[data-stone]'); if (!b) return;
+  F.stoneName = b.dataset.stone; F.contact = 0; renderStoneSel();
+};
+$('#btnFlipX').onclick = () => { if (F.active) F.flipX = !F.flipX; };
+$('#btnFlipY').onclick = () => { if (F.active) F.flipY = !F.flipY; };
+$('#btnHome').onclick = () => { if (!F.active) return; [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; };
+
+function updateMatch(force) {
+  const now = performance.now();
+  if (!force && now - F.lastMatchAt < 250) return;
+  F.lastMatchAt = now;
+  const comp = largestComponent(F.mask);
+  F.match = iou(comp.mask, guideMask(forgeType()));
+  showMatch(F.match);
+}
+function showMatch(m) {
+  $('#matchVal').textContent = r1(m) + '%';
+  $('#matchBar').style.width = clamp(m, 0, 100) + '%';
+  const B = DEFS.balance, st = B.match['補正開始'];
+  $('#matchNote').textContent = m > st
+    ? `一致率 ${st}% 超え：N 以外のレアリティの出やすさ +${r1((m - st) / (100 - st) * B.match['最大補正'])}%`
+    : `一致率が ${st}% を超えると、レアリティ抽選が少し良くなります`;
+}
+function drawStone(g) {
+  const C = CS, glow = F.contact > 0;
+  fg.save();
+  // 台座（光らせない）
+  fg.fillStyle = '#3a2c22';
+  if (g.kind === 'circle') fg.fillRect(g.cx * C - Math.max(5, g.r * C * .14), g.cy * C, Math.max(10, g.r * C * .28), WH * C - g.cy * C);
+  if (g.kind === 'belt') fg.fillRect((g.x0 + g.x1) / 2 * C - 6, g.y1 * C, 12, (WH - g.y1) * C);
+  if (g.kind === 'tri') fg.fillRect(g.bx * C, g.ay * C - 6, (WW - g.bx) * C, 12);
+  if (glow) { fg.shadowColor = 'rgba(255,140,40,.9)'; fg.shadowBlur = 24; }
+  if (g.kind === 'circle') {
+    const cx = g.cx * C, cy = g.cy * C, r = g.r * C;
+    const gr = fg.createRadialGradient(cx - r * .3, cy - r * .3, r * .1, cx, cy, r);
+    gr.addColorStop(0, '#b9b2a8'); gr.addColorStop(.7, '#8a8277'); gr.addColorStop(1, '#5d564e');
+    fg.fillStyle = gr; fg.beginPath(); fg.arc(cx, cy, r, 0, Math.PI * 2); fg.fill();
+    fg.shadowBlur = 0;
+    fg.strokeStyle = 'rgba(40,30,25,.35)'; fg.lineWidth = Math.max(1.5, r * .04);
+    for (let k = 0; k < 10; k++) {
+      const a = -F.spin + k * Math.PI / 5;
+      fg.beginPath(); fg.moveTo(cx + Math.cos(a) * r * .3, cy + Math.sin(a) * r * .3); fg.lineTo(cx + Math.cos(a) * r * .9, cy + Math.sin(a) * r * .9); fg.stroke();
+    }
+    fg.fillStyle = '#3a332d'; fg.beginPath(); fg.arc(cx, cy, Math.max(4, r * .16), 0, Math.PI * 2); fg.fill();
+  } else if (g.kind === 'belt') {
+    const x0 = g.x0 * C, y0 = g.y0 * C, w = (g.x1 - g.x0) * C, h = (g.y1 - g.y0) * C, rr = g.r * C;
+    fg.fillStyle = '#6f675e'; fg.beginPath(); fg.roundRect(x0, y0, w, h, rr); fg.fill();
+    fg.shadowBlur = 0; fg.save(); fg.beginPath(); fg.roundRect(x0, y0, w, h, rr); fg.clip();
+    fg.strokeStyle = 'rgba(30,22,18,.4)'; fg.lineWidth = 2;
+    const off = (F.spin * 30) % 14;
+    for (let y = y0 - 14 + off; y < y0 + h; y += 14) { fg.beginPath(); fg.moveTo(x0, y); fg.lineTo(x0 + w, y + 6); fg.stroke(); }
+    fg.restore();
+    fg.fillStyle = '#3a332d';
+    for (const yy of [y0 + rr, y0 + h - rr]) { fg.beginPath(); fg.arc(x0 + w / 2, yy, w * .22, 0, Math.PI * 2); fg.fill(); }
+  } else {
+    const gr = fg.createLinearGradient(g.ax * C, 0, g.bx * C, 0); gr.addColorStop(0, '#a49d93'); gr.addColorStop(1, '#5d564e');
+    fg.fillStyle = gr; fg.beginPath(); fg.moveTo(g.ax * C, g.ay * C); fg.lineTo(g.bx * C, g.by * C); fg.lineTo(g.cx * C, g.cy * C); fg.closePath(); fg.fill();
+    fg.shadowBlur = 0; fg.save(); fg.clip();
+    fg.strokeStyle = 'rgba(30,22,18,.35)'; fg.lineWidth = 2;
+    const off = (F.spin * 4) % 1;
+    for (let k = 0; k < 6; k++) { const t = (k + off) / 6, x = g.ax + (g.bx - g.ax) * t; fg.beginPath(); fg.moveTo(x * C, (g.ay + (g.by - g.ay) * t) * C); fg.lineTo(x * C, (g.ay + (g.cy - g.ay) * t) * C); fg.stroke(); }
+    fg.restore();
+  }
+  fg.restore();
+}
+function drawForge(dt) {
+  forgeStep(dt);
+  // 熱の減衰
+  let hot = false;
+  for (let i = 0; i < F.heat.length; i++) if (F.heat[i] > 0) { F.heat[i] = Math.max(0, F.heat[i] - dt * 1.4); hot = true; }
+  if (F.dirty || hot) {
+    const d = img.data;
+    for (let i = 0; i < GW * GH; i++) {
+      const o = i * 4;
+      if (!F.mask[i]) { d[o + 3] = 0; continue; }
+      const s = F.shade[i], h = F.heat[i];
+      let r = 92 * s, g = 98 * s, b = 110 * s;
+      if (F.vein[i]) { r = 200; g = 170; b = 110; }
+      r = r + (255 - r) * h; g = g + (150 - g) * h; b = b + (50 - b) * h;
+      d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+    }
+    sg.putImageData(img, 0, 0); F.dirty = false;
+  }
+  const W = fc.width, H = fc.height;
+  fg.clearRect(0, 0, W, H);
+  drawStone(stoneGeom(currentStone()));
+  if (F.active || F.showDone) {
+    const j = F.contact > 0 ? rand(-.25, .25) : 0;
+    fg.save();
+    fg.translate((F.ox + j) * CS, (F.oy + j) * CS);
+    if (F.flipX) { fg.translate(GW * CS, 0); fg.scale(-1, 1); }
+    if (F.flipY) { fg.translate(0, GH * CS); fg.scale(1, -1); }
+    fg.imageSmoothingEnabled = false; fg.drawImage(small, 0, 0, GW * CS, GH * CS);
+    if (F.active) {
+      const pts = guideFor(forgeType()).pts;
+      fg.beginPath(); pts.forEach(([x, y], i) => i ? fg.lineTo(x * CS, y * CS) : fg.moveTo(x * CS, y * CS)); fg.closePath();
+      fg.fillStyle = 'rgba(255,214,150,.07)'; fg.fill();
+      fg.setLineDash([7, 6]); fg.lineWidth = 2; fg.strokeStyle = 'rgba(255,220,160,.75)'; fg.stroke(); fg.setLineDash([]);
+    }
+    fg.restore();
+  }
+  // 火花
+  fg.lineCap = 'round';
+  for (let i = F.sparks.length - 1; i >= 0; i--) {
+    const p = F.sparks[i]; p.life -= dt; if (p.life <= 0) { F.sparks.splice(i, 1); continue; }
+    p.vy += 60 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    const a = clamp(p.life * 2.2, 0, 1);
+    fg.strokeStyle = `rgba(255,${190 + 65 * Math.random() | 0},${90 + 80 * Math.random() | 0},${a})`;
+    fg.lineWidth = 2.6; fg.beginPath(); fg.moveTo(p.x * CS, p.y * CS); fg.lineTo((p.x - p.vx * .035) * CS, (p.y - p.vy * .035) * CS); fg.stroke();
+  }
+  if (F.drawing || F.contact > 0) updateMatch(false);
+}
+function finishForge(mask, auto) {
+  const type = forgeType();
+  const comp = largestComponent(mask);
+  if (comp.count < 60) { toast('形が小さすぎます。もう少し残して削ってください'); return false; }
+  const match = iou(comp.mask, guideMask(type));
+  const outline = traceOutline(comp.mask);
+  const useStar = $('#useStar').checked && S.star > 0;
+  if (useStar) S.star--;
+  const w = rollWeapon({ type, match, useStar, outline });
+  w.auto = !!auto;
+  S.weapons.unshift(w);
+  if (!S.equipped) S.equipped = w.id;
+  save(); updateRes();
+  F.active = false; showMatch(match);
+  // 表示用：完成形だけを残す
+  F.mask = comp.mask; F.dirty = true; F.showDone = true;
+  showForgeResult(w);
+  for (let k = 0; k < 90; k++) {
+    const a = rand(0, Math.PI * 2), sp = rand(8, 30);
+    F.sparks.push({ x: F.ox + GW / 2 + rand(-8, 8), y: F.oy + GH * .45 + rand(-30, 30), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(.3, .9) });
+  }
+  syncForgeButtons(); renderAll();
+  battle.onWeaponChanged();
+  return true;
+}
+function showForgeResult(w) {
+  $('#forgeResultPanel').style.display = '';
+  $('#forgeResult').innerHTML = weaponCardHTML(w,
+    `${S.equipped === w.id ? '' : `<button class="small" data-act="equip" data-id="${w.id}">装備する</button>`}<button class="small" data-act="tofuse" data-id="${w.id}">合成へ</button>`) +
+    `<p class="muted" style="margin:8px 0 0">${w.auto ? '自動鍛造' : '手で鍛造'}・完成度 ${w.match}%${w.star ? '・星鉄使用' : ''}。抽選は balance.md の定義に従いました。</p>`;
+  hydrateIcons($('#forgeResult'));
+}
+function autoForge() {
+  const B = DEFS.balance;
+  if (S.weapons.length >= B.cost['武器庫の上限']) return toast('武器庫がいっぱいです。武器庫で売ってから鍛造してください');
+  if (S.ore < B.cost['鉱石']) return toast(`鉱石が足りません（必要 ${B.cost['鉱石']}）`);
+  S.ore -= B.cost['鉱石'];
+  // ガイドの形を元に、輪郭を少し乱した形を自動で作る
+  const g = guideMask(forgeType()); let m = g.slice();
+  for (let pass = 0; pass < 2; pass++) {
+    const nm = m.slice();
+    for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+      const i = y * GW + x, edge = m[i] !== m[i - 1] || m[i] !== m[i + 1] || m[i] !== m[i - GW] || m[i] !== m[i + GW];
+      if (edge && Math.random() < .3) nm[i] = m[i] ? 0 : 1;
+    }
+    m = nm;
+  }
+  // 3×3 の多数決でギザギザをならす
+  const sm = m.slice();
+  for (let y = 1; y < GH - 1; y++) for (let x = 1; x < GW - 1; x++) {
+    let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += m[(y + dy) * GW + x + dx];
+    sm[y * GW + x] = s >= 5 ? 1 : 0;
+  }
+  m = sm;
+  F.mask = makeOre(); F.heat.fill(0);
+  [F.ox, F.oy] = ORE_HOME; F.flipX = F.flipY = false;
+  for (let i = 0; i < m.length; i++) if (!m[i]) F.mask[i] = 0;
+  for (let i = GW; i < m.length - GW; i++) if (m[i] && (!m[i - 1] || !m[i + 1] || !m[i - GW] || !m[i + GW])) F.heat[i] = 1;
+  $('#forgeMsg').style.display = 'none';
+  finishForge(F.mask, true);
+}
+$('#btnPlace').onclick = placeOre;
+$('#btnDone').onclick = () => { if (F.active) finishForge(F.mask, false); };
+$('#btnRedo').onclick = () => {
+  if (!F.active) return;
+  F.mask = F.start.slice(); F.heat.fill(0); F.dirty = true;
+  [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; updateMatch(true);
+};
+$('#btnAuto').onclick = autoForge;
+$('#btnBuyOre').onclick = () => {
+  const p = DEFS.balance.cost['鉱石の値段'];
+  if (S.gold < p) return toast(`金が足りません（${p}G 必要）`);
+  S.gold -= p; S.ore++; save(); updateRes(); toast('鉱石を 1 つ買いました');
+};
+$('#typeSel').onchange = () => { F.dirty = true; };
+
+/* =========================================================
+   Markdown 合成
+   ========================================================= */
+function analyzeMd(text) {
+  const lines = text.split(/\r?\n/);
+  let inCode = false, code = 0, heads = 0, tables = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (/^\s*(```|~~~)/.test(l)) { if (inCode) code++; inCode = !inCode; continue; }
+    if (inCode) continue;
+    if (/^#{1,6}\s+\S/.test(l)) heads++;
+    if (/^\s*\|.*\|/.test(l) && i + 1 < lines.length && SEP_RE.test(lines[i + 1]) && !(i > 0 && /^\s*\|/.test(lines[i - 1]))) tables++;
+  }
+  const chars = Array.from(text.replace(/\s/g, '')).length;
+  // 属性キーワード：長い単語から数え、数えた分は取り除く（「疾風」と「風」の二重計上を防ぐ）
+  let rest = text; const elemCount = {};
+  for (const k of [...DEFS.fusion.keywords].sort((a, b) => b.word.length - a.word.length)) {
+    const n = rest.split(k.word).length - 1;
+    if (n) { elemCount[k.elem] = (elemCount[k.elem] || 0) + n; rest = rest.split(k.word).join(' '); }
+  }
+  return { chars, heads, code, tables, elemCount };
+}
+function fusionGains(an, w) {
+  const Fu = DEFS.fusion;
+  const c = Fu.chars;
+  const atk = Math.min(c['上限'], Math.round(c['単位あたりの加算'] * Math.pow(an.chars / c['単位文字数'], c['逓減指数'])));
+  const skill = Math.min(Fu.heading['上限'], an.heads) * Fu.heading['スキル効果加算'];
+  const crit = Math.min(Fu.code['上限'], an.code) * Fu.code['会心率加算'];
+  const def = Math.min(Fu.table['上限'], an.tables) * Fu.table['防御加算'];
+  let elem = null, elemCnt = 0;
+  for (const [k, v] of Object.entries(an.elemCount)) if (v > elemCnt) { elem = k; elemCnt = v; }
+  let elemResult = null;
+  if (elem && w) {
+    const L = Fu.limits, up = elemCnt >= L['属性レベル2になる出現回数'] ? 2 : 1;
+    if (w.elem === '無') elemResult = { kind: 'new', elem, lv: Math.min(L['属性レベルの上限'], up), cnt: elemCnt };
+    else if (w.elem === elem) elemResult = { kind: 'up', elem, lv: Math.min(L['属性レベルの上限'], w.elemLv + up), cnt: elemCnt };
+    else elemResult = { kind: 'mismatch', elem, cnt: elemCnt };
+  }
+  return { atk: Math.max(0, atk), skill, crit, def, elemResult };
+}
+function fuseTarget() { return weaponById($('#fuseTarget').value); }
+function renderFusion() {
+  const sel = $('#fuseTarget'), cur = sel.value || S.equipped;
+  sel.innerHTML = S.weapons.length
+    ? S.weapons.map(w => `<option value="${w.id}">${esc(`[${w.rarity}] ${w.name} No.${w.no}（合成 ${w.f.count}/${DEFS.fusion.limits['1本あたりの合成回数']}）`)}</option>`).join('')
+    : '<option value="">（武器がありません。先に鍛造してください）</option>';
+  if (weaponById(cur)) sel.value = cur;
+  const w = fuseTarget();
+  $('#fuseCard').innerHTML = w ? weaponCardHTML(w) : '';
+  hydrateIcons($('#fuseCard'));
+  renderAnalysis();
+}
+function renderAnalysis() {
+  const text = $('#mdInput').value, w = fuseTarget(), lim = DEFS.fusion.limits['1本あたりの合成回数'];
+  if (!text.trim()) {
+    $('#analysis').innerHTML = ''; $('#btnFuse').disabled = true;
+    $('#fuseNote').textContent = w ? '' : '';
+    return;
+  }
+  const an = analyzeMd(text), g = fusionGains(an, w);
+  const er = g.elemResult;
+  const elemTxt = !er ? '—' : er.kind === 'new' ? `${er.elem} が付く (Lv${er.lv})` : er.kind === 'up' ? `${er.elem} Lv${er.lv} へ` : `${er.elem}（武器と違うので付かない）`;
+  const elemList = Object.entries(an.elemCount).map(([k, v]) => `${k}×${v}`).join(' ') || 'なし';
+  $('#analysis').innerHTML = `
+    <div><small>文字数</small><b>${an.chars}</b><em>攻撃 +${g.atk}</em></div>
+    <div><small>見出し</small><b>${an.heads}</b><em>スキル効果 +${g.skill}%</em></div>
+    <div><small>コードブロック</small><b>${an.code}</b><em>会心 +${g.crit}%</em></div>
+    <div><small>表</small><b>${an.tables}</b><em>防御 +${g.def}</em></div>
+    <div><small>属性キーワード</small><b style="font-size:14px">${esc(elemList)}</b><em>${esc(elemTxt)}</em></div>`;
+  const full = w && w.f.count >= lim;
+  $('#btnFuse').disabled = !w || full;
+  $('#fuseNote').textContent = !w ? '合成する武器がありません' : full ? `この武器は合成の上限（${lim}回）に達しています` : `この武器はあと ${lim - w.f.count} 回合成できます`;
+}
+function doFuse() {
+  const w = fuseTarget(), text = $('#mdInput').value;
+  if (!w || !text.trim()) return;
+  const lim = DEFS.fusion.limits['1本あたりの合成回数'];
+  if (w.f.count >= lim) return toast('合成の上限に達しています');
+  const an = analyzeMd(text), g = fusionGains(an, w), before = effStats(w);
+  w.f.atk += g.atk; w.f.crit = r1(w.f.crit + g.crit); w.f.def += g.def; w.f.skill += g.skill; w.f.count++;
+  const er = g.elemResult; let elemMsg = '';
+  if (er && er.kind !== 'mismatch') {
+    const was = w.elem; w.elem = er.elem; w.elemLv = er.lv;
+    if (was === '無') w.name = (ELEM_PREFIX[er.elem] || '') + w.type;
+    elemMsg = er.kind === 'new' ? `属性「${er.elem}」が付きました（Lv${er.lv}）` : `属性「${er.elem}」が Lv${er.lv} に強くなりました`;
+  } else if (er) elemMsg = `属性キーワード「${er.elem}」は武器の属性（${w.elem}）と違うため付きませんでした`;
+  const after = effStats(w);
+  const entry = { at: new Date().toLocaleString('ja-JP'), chars: an.chars, heads: an.heads, code: an.code, tables: an.tables, g, elemMsg };
+  w.fuseLog.push(entry);
+  save(); renderAll(); battle.onWeaponChanged();
+  const line = (label, a, b, unit = '') => `<div class="stat-line"><span>${label}</span><b>${a}${unit} → ${b}${unit}${b !== a ? ` <span class="plus">+${r1(b - a)}</span>` : ''}</b></div>`;
+  $('#fuseResultPanel').style.display = '';
+  $('#fuseResult').innerHTML = `
+    <p style="margin:0 0 8px"><b>${esc(w.name)}</b> に Markdown（${an.chars}字・見出し${an.heads}・コード${an.code}・表${an.tables}）を合成しました。（${w.f.count}/${lim} 回目）</p>
+    ${line('攻撃力', before.atk, after.atk)}
+    ${line('会心率', before.crit, after.crit, '%')}
+    ${line('防御', before.def, after.def)}
+    ${line(`スキル「${after.skill}」`, before.skillVal, after.skillVal)}
+    ${elemMsg ? `<p style="margin:8px 0 0">${esc(elemMsg)}</p>` : ''}`;
+  const p = $('#fuseResultPanel'); p.classList.remove('fuse-flash'); void p.offsetWidth; p.classList.add('fuse-flash');
+  toast('合成しました');
+}
+$('#fuseTarget').onchange = () => { const w = fuseTarget(); $('#fuseCard').innerHTML = w ? weaponCardHTML(w) : ''; hydrateIcons($('#fuseCard')); renderAnalysis(); };
+$('#mdInput').addEventListener('input', renderAnalysis);
+$('#btnFuse').onclick = doFuse;
+$('#btnClearMd').onclick = () => { $('#mdInput').value = ''; renderAnalysis(); };
+const dz = $('#dropZone');
+function readFileText(file) { return new Promise((ok, ng) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ng; r.readAsText(file); }); }
+['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); if (activeTab === 'fusion') dz.classList.add('over'); } }));
+['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => { if (ev === 'dragleave' && e.relatedTarget) return; dz.classList.remove('over'); }));
+document.addEventListener('drop', async e => {
+  if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+  e.preventDefault();
+  const files = [...e.dataTransfer.files].filter(f => /\.(md|markdown|txt)$/i.test(f.name) || f.type.startsWith('text/'));
+  if (!files.length) return toast('.md ファイルをドロップしてください');
+  if (activeTab === 'defs') return loadDefFiles(files);
+  const texts = await Promise.all(files.map(readFileText));
+  if (activeTab !== 'fusion') showTab('fusion');
+  $('#mdInput').value = texts.join('\n\n'); renderAnalysis();
+  toast(`${files.map(f => f.name).join('、')} を読み込みました`);
+});
+
+/* =========================================================
+   武器庫
+   ========================================================= */
+function renderArmory() {
+  const cap = DEFS.balance.cost['武器庫の上限'];
+  $('#armoryCount').textContent = `${S.weapons.length} / ${cap}`;
+  if (!S.weapons.length) { $('#armory').innerHTML = '<p class="muted">まだ武器がありません。「鍛造」タブで作りましょう。</p>'; return; }
+  $('#armory').innerHTML = S.weapons.map(w => {
+    const price = rarityInfo(w.rarity).price + w.f.count * 5;
+    return weaponCardHTML(w,
+      `${S.equipped === w.id ? '' : `<button class="small" data-act="equip" data-id="${w.id}">装備</button>`}
+       <button class="small" data-act="tofuse" data-id="${w.id}">合成へ</button>
+       <button class="small" data-act="sell" data-id="${w.id}">売る ${price}G</button>`);
+  }).join('');
+  hydrateIcons($('#armory'));
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const w = weaponById(b.dataset.id); if (!w) return;
+  if (b.dataset.act === 'equip') { S.equipped = w.id; save(); renderAll(); battle.onWeaponChanged(); toast(`${w.name} を装備しました`); }
+  if (b.dataset.act === 'tofuse') { showTab('fusion'); $('#fuseTarget').value = w.id; $('#fuseTarget').onchange(); }
+  if (b.dataset.act === 'sell') {
+    const price = rarityInfo(w.rarity).price + w.f.count * 5;
+    if (!confirm(`${w.name}（${w.rarity}）を ${price}G で売りますか？`)) return;
+    S.weapons = S.weapons.filter(x => x !== w);
+    if (S.equipped === w.id) S.equipped = S.weapons[0] ? S.weapons[0].id : null;
+    S.gold += price; save(); renderAll(); battle.onWeaponChanged(); toast(`${price}G で売りました`);
+  }
+});
+
+/* =========================================================
+   バトル（シミュレーション）
+   ========================================================= */
+const ENEMY_KINDS = [
+  { kind: 'slime', name: 'ぷるん', hp: 1, atk: 1, spd: 1.2 },
+  { kind: 'golem', name: 'いわごろ', hp: 1.5, atk: 1.25, spd: .85 },
+  { kind: 'wisp', name: 'ひのたま', hp: .75, atk: .9, spd: 1.8 }
+];
+const battle = {
+  running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], nextId: 1,
+  hero: { hp: 100, maxHp: 100, cool: 0, anim: -1, animDur: .42, pending: null, hurt: 0 },
+  log: [],
+  stats() {
+    const w = equippedWeapon();
+    const st = w ? effStats(w) : { atk: 4, spd: 1.1, crit: 3, def: 0, elem: '無', elemLv: 0, skill: null, skillVal: 0 };
+    st.maxHp = Math.round(100 * (st.skill === '守護' ? 1 + st.skillVal / 100 : 1));
+    return st;
+  },
+  addLog(html) { this.log.unshift(`<div>${html}</div>`); this.log.length = Math.min(this.log.length, 40); $('#battleLog').innerHTML = this.log.join(''); },
+  float(text, x, h, color, big) { this.floaters.push({ text, x, h, color, big, t: 0, id: this.nextId++ }); },
+  banner(text, color) { const b = $('#banner'); b.textContent = text; b.style.color = color || '#fff'; b.classList.add('show'); clearTimeout(this._bt); this._bt = setTimeout(() => b.classList.remove('show'), 1400); },
+  start() {
+    this.running = true; this.wave = S.wave || 1;
+    const st = this.stats(); this.hero.maxHp = st.maxHp; this.hero.hp = st.maxHp;
+    this.beginWave(); syncBattleButtons();
+    this.addLog(`<b>出撃</b>：ウェーブ ${this.wave} から`);
+  },
+  stop() {
+    this.running = false; this.phase = 'idle'; this.enemies = []; this.queue = []; syncBattleButtons();
+    this.addLog('<b>撤退</b>しました'); renderer && renderer.clearEnemies && renderer.clearEnemies();
+  },
+  isBossWave(w) { return w % 5 === 0; },
+  beginWave() {
+    const w = this.wave, boss = this.isBossWave(w);
+    this.phase = 'fight'; this.queue = []; this.spawnT = .6;
+    const elems = DEFS.balance.elements.map(e => e.name);
+    const hpS = 28 * Math.pow(1.14, w - 1), atkS = 3.5 * Math.pow(1.11, w - 1);
+    const n = boss ? 2 : Math.min(8, 3 + Math.floor((w - 1) / 3));
+    for (let i = 0; i < n; i++) {
+      const k = ENEMY_KINDS[(Math.random() * ENEMY_KINDS.length) | 0];
+      this.queue.push({ ...k, boss: false, elem: elems[(Math.random() * elems.length) | 0], maxHp: Math.round(hpS * k.hp), atk: atkS * k.atk });
+    }
+    if (boss) this.queue.push({ kind: 'golem', name: `第${w / 5}層の番人`, boss: true, hp: 1, spd: .75, elem: elems[1 + ((Math.random() * (elems.length - 1)) | 0)] || '無', maxHp: Math.round(hpS * 7), atk: atkS * 1.7 });
+    $('#hudWave').textContent = `ウェーブ ${w}${boss ? '（ボス）' : ''}`;
+    this.banner(boss ? `ウェーブ ${w}　ボス出現` : `ウェーブ ${w}`, boss ? '#ffc247' : '#fff');
+  },
+  spawn(def) {
+    const e = { ...def, id: this.nextId++, hp: def.maxHp, x: 9.5 + Math.random() * .8, cool: 1 + Math.random() * .5, anim: -1, hit: 0, dead: 0 };
+    this.enemies.push(e);
+  },
+  damageTo(e, st) {
+    let dmg = st.atk * rand(.9, 1.1), crit = Math.random() * 100 < st.crit, adv = false;
+    if (crit) dmg *= 1.5 + (st.skill === '会心強化' ? st.skillVal / 100 : 0);
+    if (st.elem !== '無') {
+      dmg *= 1 + st.elemLv * DEFS.fusion.limits['属性レベル1あたりの倍率加算'];
+      const a = DEFS.balance.affinity[st.elem];
+      if (a && a.target === e.elem) { dmg *= a.mult; adv = true; }
+    }
+    dmg = Math.max(1, Math.round(dmg));
+    e.hp -= dmg; e.hit = .18;
+    this.float((crit ? '会心 ' : '') + dmg + (adv ? ' 有利' : ''), e.x, e.boss ? 2.4 : 1.3, crit ? '#ffc247' : adv ? elemColor(st.elem) : '#fff', crit);
+    if (st.skill === '吸命') this.hero.hp = Math.min(this.hero.maxHp, this.hero.hp + dmg * st.skillVal / 100);
+    if (e.hp <= 0 && !e.dead) { e.dead = .001; }
+  },
+  tick(dtReal) {
+    if (!this.running) return;
+    const dt = dtReal * this.speed, H = this.hero, st = this.stats();
+    if (H.maxHp !== st.maxHp) { H.hp = H.hp * st.maxHp / H.maxHp; H.maxHp = st.maxHp; }
+    H.hurt = Math.max(0, H.hurt - dt);
+    if (H.anim >= 0) { H.anim += dt / H.animDur; if (H.anim >= 1) H.anim = -1; }
+    for (const f of this.floaters) f.t += dtReal / 1.1;
+    this.floaters = this.floaters.filter(f => f.t < 1);
+    for (const e of this.enemies) { if (e.anim >= 0) { e.anim += dt / .45; if (e.anim >= 1) e.anim = -1; } e.hit = Math.max(0, e.hit - dt); if (e.dead) e.dead += dt; }
+    this.enemies = this.enemies.filter(e => !e.dead || e.dead < .7);
+    const alive = this.enemies.filter(e => !e.dead);
+
+    if (this.phase === 'fight') {
+      this.spawnT -= dt;
+      if (this.queue.length && this.spawnT <= 0 && alive.length < 3) { this.spawn(this.queue.shift()); this.spawnT = .9; }
+      // 敵の移動と攻撃
+      alive.sort((a, b) => a.x - b.x);
+      alive.forEach((e, idx) => {
+        const stop = 1.35 + idx * (e.boss ? 1.1 : .75) + (e.boss ? .4 : 0);
+        if (e.x > stop) e.x = Math.max(stop, e.x - e.spd * dt);
+        else {
+          e.cool -= dt;
+          if (e.cool <= 0 && idx === 0) {
+            e.cool = e.boss ? 1.6 : 1.4; e.anim = 0;
+            let d = e.atk * rand(.85, 1.15);
+            d = Math.max(1, d - st.def);
+            if (st.skill === '鉄壁') d *= 1 - st.skillVal / 100;
+            d = Math.max(1, Math.round(d));
+            H.hp -= d; H.hurt = .25;
+            this.float('-' + d, 0, 1.9, '#ff6b6b');
+          }
+        }
+      });
+      // 主人公の攻撃
+      H.cool -= dt;
+      const target = alive[0];
+      if (target && target.x <= 2.2 && H.cool <= 0) {
+        H.cool = 1 / Math.max(.2, st.spd); H.animDur = Math.min(.42, .9 / Math.max(.2, st.spd)); H.anim = 0;
+        H.pending = { t: H.animDur * .5, target: target.id };
+        if (st.skill === '連撃' && Math.random() * 100 < st.skillVal) H.pending2 = { t: H.animDur * .5 + .12, target: target.id };
+      }
+      for (const key of ['pending', 'pending2']) {
+        const p = H[key]; if (!p) continue;
+        p.t -= dt;
+        if (p.t <= 0) {
+          H[key] = null;
+          const e = this.enemies.find(x => x.id === p.target && !x.dead) || this.enemies.find(x => !x.dead && x.x <= 2.4);
+          if (e) { this.damageTo(e, st); if (key === 'pending2') this.float('連撃', e.x, 1.8, '#9ad'); }
+        }
+      }
+      if (H.hp <= 0) {
+        H.hp = 0; this.phase = 'dead'; this.timer = 2.6;
+        const cp = Math.floor((this.wave - 1) / 5) * 5 + 1;
+        this.banner('敗北…', '#ff5d73');
+        this.addLog(`ウェーブ ${this.wave} で<b>敗北</b>。ウェーブ ${cp} からやり直します`);
+        this.wave = cp; S.wave = cp; save();
+      } else if (!this.queue.length && !alive.length && !this.enemies.length) {
+        this.clearWave(st);
+      }
+    } else if (this.phase === 'clear' || this.phase === 'dead') {
+      this.timer -= dt;
+      if (this.timer <= 0) {
+        if (this.phase === 'dead') { H.hp = H.maxHp; }
+        this.beginWave();
+      }
+    }
+  },
+  clearWave(st) {
+    const w = this.wave, boss = this.isBossWave(w);
+    let gold = Math.round((8 + w * 2.5) * (boss ? 3 : 1) * (st.skill === '黄金' ? 1 + st.skillVal / 100 : 1));
+    const ore = 1 + (w % 3 === 0 ? 1 : 0) + (boss ? 3 : 0), star = boss ? 1 : 0;
+    S.gold += gold; S.ore += ore; S.star += star;
+    S.maxWave = Math.max(S.maxWave, w); this.wave = w + 1; S.wave = this.wave;
+    this.hero.hp = Math.min(this.hero.maxHp, this.hero.hp + this.hero.maxHp * .35);
+    save(); updateRes(); syncForgeButtons();
+    this.addLog(`ウェーブ ${w} <b>突破</b>：+${gold}G・鉱石+${ore}${star ? `・<b style="color:#ffc247">星鉄+${star}</b>` : ''}`);
+    this.banner(boss ? `ボス撃破！ +${gold}G` : `突破 +${gold}G`, boss ? '#ffc247' : '#6ee7a0');
+    this.phase = 'clear'; this.timer = 1.4;
+  },
+  onWeaponChanged() { renderer && renderer.setWeapon(equippedWeapon()); updateHudWeapon(); }
+};
+function syncBattleButtons() {
+  $('#btnSortie').disabled = battle.running; $('#btnRetreat').disabled = !battle.running;
+  if (!battle.running) $('#hudWave').textContent = `ウェーブ ${S.wave || 1}`;
+}
+$('#btnSortie').onclick = () => battle.start();
+$('#btnRetreat').onclick = () => battle.stop();
+$('#speedSeg').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  battle.speed = parseFloat(b.dataset.s); $('#speedSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+};
+function updateHudWeapon() {
+  const w = equippedWeapon();
+  $('#hudWeapon').innerHTML = w
+    ? `<b style="color:${esc(rarityInfo(w.rarity).color)}">[${esc(w.rarity)}]</b> ${esc(w.name)}<br><span class="muted" style="font-size:11.5px">攻撃 ${effStats(w).atk}・速度 ${w.spd}・会心 ${effStats(w).crit}%・${esc(w.skill)}</span>`
+    : '素手（武器を鍛造して装備しよう）';
+}
+
+/* 敵とダメージ表示（DOM オーバーレイ） */
+const overlayEls = new Map();
+function updateOverlay() {
+  if (!renderer) return;
+  const layer = $('#overlay'), seen = new Set();
+  const put = (key, cls, html, x, h, style) => {
+    let el = overlayEls.get(key);
+    if (!el) { el = document.createElement('div'); el.className = cls; layer.appendChild(el); overlayEls.set(key, el); el.innerHTML = html; }
+    const p = renderer.project(x, h);
+    el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; el.style.display = p.visible ? '' : 'none';
+    if (style) style(el); seen.add(key);
+  };
+  for (const e of battle.enemies) {
+    if (e.dead) continue;
+    const barH = e.boss ? 2.95 : { slime: .85, wisp: 1.35, golem: 1.5 }[e.kind] || 1.3;
+    put('e' + e.id, 'ebar' + (e.boss ? ' boss' : ''), '<i></i>', e.x, barH, el => el.firstChild.style.width = clamp(e.hp / e.maxHp * 100, 0, 100) + '%');
+  }
+  for (const f of battle.floaters) {
+    put('f' + f.id, 'floater', esc(f.text), f.x, f.h + f.t * .9, el => { el.style.color = f.color; el.style.opacity = 1 - f.t * f.t; el.style.fontSize = f.big ? '21px' : '16px'; });
+  }
+  for (const [k, el] of overlayEls) if (!seen.has(k)) { el.remove(); overlayEls.delete(k); }
+  const H = battle.hero;
+  $('#hudHp').style.width = clamp(H.hp / H.maxHp * 100, 0, 100) + '%';
+  $('#hudHpText').textContent = battle.running ? `HP ${Math.ceil(H.hp)} / ${H.maxHp}` : '待機中（「出撃」で開始）';
+}
+
+/* =========================================================
+   バトル表示：2D（3D が使えないときの代替）
+   ========================================================= */
+function make2DRenderer(container) {
+  const cv = document.createElement('canvas'); container.prepend(cv);
+  const g = cv.getContext('2d'); let W = 0, H = 0, weapon = null;
+  const sx = x => W * .16 + x * (W * .72 / 10), GY = () => H * .78, U = () => Math.min(W / 11, H / 4.2);
+  function resize() { const r = container.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; g.setTransform(d, 0, 0, d, 0, 0); }
+  function drawSword(x, y, ang, u) {
+    if (!weapon || !weapon.outline) return;
+    const s = u * 1.05 / GH * 1.0;
+    g.save(); g.translate(x, y); g.rotate(ang); g.scale(s * 1.6, s * 1.6);
+    g.translate(-weapon.grip[0], -weapon.grip[1]);
+    g.beginPath(); weapon.outline.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath();
+    g.fillStyle = '#dfe4ea'; g.fill();
+    if (weapon.elem !== '無') { g.globalAlpha = .35; g.fillStyle = elemColor(weapon.elem); g.fill(); g.globalAlpha = 1; }
+    g.lineWidth = 1.5; g.strokeStyle = rarityInfo(weapon.rarity).color; g.stroke(); g.restore();
+  }
+  function draw(t) {
+    const u = U(), gy = GY();
+    const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#2b3442'); sky.addColorStop(1, '#4a3a2e');
+    g.fillStyle = sky; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#3a2d23'; g.fillRect(0, gy, W, H - gy);
+    // 主人公
+    const hx = sx(0), Hh = battle.hero;
+    g.fillStyle = Hh.hurt > 0 ? '#ff8080' : '#3b4a6b'; g.fillRect(hx - u * .18, gy - u * 1.45, u * .36, u * .55);
+    g.fillRect(hx - u * .15, gy - u * .9, u * .12, u * .9); g.fillRect(hx + u * .03, gy - u * .9, u * .12, u * .9);
+    g.fillStyle = '#f0c9a5'; g.beginPath(); g.arc(hx, gy - u * 1.62, u * .16, 0, 7); g.fill();
+    let ang = .9;
+    if (Hh.anim >= 0) { const p = Hh.anim; ang = p < .35 ? .9 - 2.6 * (p / .35) : p < .55 ? -1.7 + 3.2 * ((p - .35) / .2) : 1.5 - .6 * ((p - .55) / .45); }
+    drawSword(hx + u * .12, gy - u * 1.2, ang, u);
+    // 敵
+    for (const e of battle.enemies) {
+      const x = sx(e.x) + (e.anim >= 0 ? -Math.sin(e.anim * Math.PI) * u * .3 : 0), sc = (e.boss ? 1.9 : 1) * (e.dead ? Math.max(0, 1 - e.dead / .7) : 1);
+      const col = e.hit > 0 ? '#ffffff' : elemColor(e.elem);
+      g.fillStyle = col;
+      if (e.kind === 'slime') { g.beginPath(); g.ellipse(x, gy - u * .3 * sc, u * .45 * sc, u * .32 * sc, 0, 0, 7); g.fill(); }
+      else if (e.kind === 'wisp') { g.beginPath(); g.arc(x, gy - u * (.9 + Math.sin(t * 3 + e.id) * .1) * sc, u * .28 * sc, 0, 7); g.fill(); }
+      else { g.fillRect(x - u * .35 * sc, gy - u * 1.1 * sc, u * .7 * sc, u * 1.1 * sc); }
+      if (e.boss) { g.fillStyle = '#ffc247'; g.fillRect(x - u * .3 * sc, gy - u * 1.25 * sc, u * .6 * sc, u * .12 * sc); }
+    }
+  }
+  resize();
+  return {
+    kind: '2d', resize, setWeapon(w) { weapon = w; },
+    project(x, h) { return { x: sx(x), y: GY() - h * U() * 1.05, visible: true }; },
+    frame(dt, t) { draw(t); }, clearEnemies() {},
+    loadVRM() { throw new Error('3D 表示が使えないため VRM は読み込めません'); }, resetHero() {}
+  };
+}
+
+/* =========================================================
+   バトル表示：3D（three.js + three-vrm）
+   ========================================================= */
+async function make3DRenderer(container) {
+  const THREE = await import('three');
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+  const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+  const VRMLib = await import('@pixiv/three-vrm');
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  container.prepend(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x2a3240);
+  scene.fog = new THREE.Fog(0x2a3240, 9, 22);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(new RoomEnvironment(renderer), .04).texture;
+  const camera = new THREE.PerspectiveCamera(38, 1, .05, 60);
+  const camTarget = new THREE.Vector3(2.6, .95, 0);
+  camera.position.set(2.6, 2.0, 6.6); camera.lookAt(camTarget);
+
+  scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x5a4030, .9));
+  const sun = new THREE.DirectionalLight(0xffe2c0, 1.6); sun.position.set(-3, 7, 5); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -6, right: 10, top: 6, bottom: -4 });
+  scene.add(sun);
+  const forgeGlow = new THREE.PointLight(0xff7a30, 2.2, 7); forgeGlow.position.set(-2.2, 1.0, -1.6); scene.add(forgeGlow);
+
+  // 地面と小物（すべて図形で自作）
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ color: 0x4b3b2f, roughness: .95 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(16, 2.2), new THREE.MeshStandardMaterial({ color: 0x5d4a3a, roughness: 1 }));
+  path.rotation.x = -Math.PI / 2; path.position.set(4, .005, 0); path.receiveShadow = true; scene.add(path);
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x6b6f78, roughness: .9, flatShading: true });
+  for (let i = 0; i < 14; i++) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.15, .5)), rockMat);
+    r.position.set(rand(-4, 12), rand(0, .1), -rand(1.6, 6)); r.rotation.set(rand(0, 3), rand(0, 3), 0);
+    r.castShadow = true; scene.add(r);
+  }
+  const anvil = new THREE.Group();
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2b2d33, metalness: .8, roughness: .45 });
+  const a1 = new THREE.Mesh(new THREE.BoxGeometry(.7, .22, .35), dark); a1.position.y = .62; anvil.add(a1);
+  const a2 = new THREE.Mesh(new THREE.BoxGeometry(.3, .45, .25), dark); a2.position.y = .3; anvil.add(a2);
+  const a3 = new THREE.Mesh(new THREE.ConeGeometry(.11, .35, 8), dark); a3.rotation.z = Math.PI / 2; a3.position.set(.5, .62, 0); anvil.add(a3);
+  anvil.position.set(-2.0, 0, -1.4); anvil.traverse(o => o.castShadow = true); scene.add(anvil);
+
+  // 主人公
+  const heroHolder = new THREE.Group(); heroHolder.rotation.y = Math.PI / 2; scene.add(heroHolder);
+  let hero = null; let vrm = null; let weaponMesh = null; let currentWeapon = null;
+
+  function buildPrimitiveHero() {
+    const root = new THREE.Group();
+    const cloth = new THREE.MeshStandardMaterial({ color: 0x34507a, roughness: .7 });
+    const cloth2 = new THREE.MeshStandardMaterial({ color: 0x7a3a2a, roughness: .8 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xf0c9a5, roughness: .8 });
+    const hair = new THREE.MeshStandardMaterial({ color: 0x3a2a22, roughness: .9 });
+    const box = (w, h, d, m) => { const x = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); x.castShadow = true; return x; };
+    const hips = new THREE.Group(); hips.position.y = .92; root.add(hips);
+    const spine = new THREE.Group(); hips.add(spine);
+    const torso = box(.36, .5, .22, cloth); torso.position.y = .25; spine.add(torso);
+    const belt = box(.38, .07, .24, cloth2); belt.position.y = .02; spine.add(belt);
+    const head = new THREE.Group(); head.position.y = .58; spine.add(head);
+    const hm = new THREE.Mesh(new THREE.SphereGeometry(.15, 20, 16), skin); hm.position.y = .1; hm.castShadow = true; head.add(hm);
+    const hr = new THREE.Mesh(new THREE.SphereGeometry(.158, 20, 12, 0, Math.PI * 2, 0, Math.PI * .55), hair); hr.position.y = .11; hr.rotation.x = -.25; head.add(hr);
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(.018, 8, 6), new THREE.MeshBasicMaterial({ color: 0x222222 })); e.position.set(s * .05, .11, .14); head.add(e); }
+    for (const s of [-1, 1]) { const l = box(.13, .9, .15, cloth2); l.position.set(s * .09, -.45, 0); hips.add(l); }
+    const arm = side => {
+      const up = new THREE.Group(); up.position.set(side * .2, .45, 0); spine.add(up);
+      const um = box(.28, .1, .1, cloth); um.position.x = side * .14; up.add(um);
+      const lo = new THREE.Group(); lo.position.x = side * .28; up.add(lo);
+      const lm = box(.25, .085, .085, skin); lm.position.x = side * .125; lo.add(lm);
+      const hand = new THREE.Group(); hand.position.x = side * .26; lo.add(hand);
+      const hs = new THREE.Mesh(new THREE.SphereGeometry(.05, 10, 8), skin); hand.add(hs);
+      return { up, lo, hand };
+    };
+    const R = arm(-1), L = arm(1);
+    return { root, isVRM: false, bones: { rightUpperArm: R.up, rightLowerArm: R.lo, rightHand: R.hand, leftUpperArm: L.up, leftLowerArm: L.lo, spine, head } };
+  }
+  function setHero(h) {
+    if (hero) heroHolder.remove(hero.root);
+    hero = h; heroHolder.add(h.root); attachWeapon();
+  }
+  function buildWeaponMesh(w) {
+    if (!w || !w.outline || w.outline.length < 3) return null;
+    const lenCells = { '大剣': 1.15, '短剣': .62 }[w.type] || .95;
+    const s = lenCells / 112;
+    const [gx, gy] = w.grip;
+    const shape = new THREE.Shape(w.outline.map(([x, y]) => new THREE.Vector2((x - gx) * s, (gy - y) * s)));
+    const depth = .022;
+    const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: .006, bevelSize: .004, bevelSegments: 1, curveSegments: 1 });
+    geo.translate(0, 0, -depth / 2); geo.computeVertexNormals();
+    const ec = new THREE.Color(w.elem !== '無' ? elemColor(w.elem) : '#ffffff');
+    const mat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#dfe5ec').lerp(ec, w.elem !== '無' ? .25 : 0), metalness: .9, roughness: .22,
+      emissive: w.elem !== '無' ? ec : new THREE.Color(0), emissiveIntensity: w.elem !== '無' ? .12 + .08 * w.elemLv : 0
+    });
+    const m = new THREE.Mesh(geo, mat); m.castShadow = true;
+    // 刃（+Y）を手の前方（+Z）へ、刃の平らな面を手の Y 方向へ向ける
+    const g = new THREE.Group();
+    m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)));
+    g.add(m);
+    const rc = new THREE.Color(rarityInfo(w.rarity).color);
+    const glow = new THREE.PointLight(rc, ['SSR', 'UR'].includes(w.rarity) ? .8 : 0, 1.6); glow.position.set(0, 0, lenCells * .5); g.add(glow);
+    return g;
+  }
+  function attachWeapon() {
+    if (weaponMesh && weaponMesh.parent) weaponMesh.parent.remove(weaponMesh);
+    weaponMesh = buildWeaponMesh(currentWeapon);
+    if (weaponMesh && hero && hero.bones.rightHand) hero.bones.rightHand.add(weaponMesh);
+  }
+  setHero(buildPrimitiveHero());
+
+  // 敵（図形で自作したオリジナル）
+  const enemyMeshes = new Map();
+  function buildEnemy(e) {
+    const col = new THREE.Color(elemColor(e.elem));
+    const mat = new THREE.MeshStandardMaterial({ color: col, roughness: .5, metalness: .1, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0 });
+    const g = new THREE.Group(); const body = new THREE.Group(); g.add(body);
+    const eye = new THREE.MeshBasicMaterial({ color: 0x111111 });
+    const eyes = (y, z, sp, r) => { for (const s of [-1, 1]) { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), eye); m.position.set(s * sp, y, z); body.add(m); } };
+    if (e.kind === 'slime') {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(.42, 24, 16), mat); m.scale.set(1, .72, 1); m.position.y = .3; m.castShadow = true; body.add(m);
+      eyes(.4, .36, .12, .045);
+    } else if (e.kind === 'wisp') {
+      mat.emissive = col.clone(); mat.emissiveIntensity = .7;
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(.28, 1), mat); m.position.y = .95; m.castShadow = true; body.add(m);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(.18, .5, 12), mat); tail.rotation.x = Math.PI; tail.position.y = .6; body.add(tail);
+      eyes(1.0, .25, .09, .04);
+    } else {
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(.7, .75, .5), mat); torso.position.y = .62; torso.castShadow = true; body.add(torso);
+      const hd = new THREE.Mesh(new THREE.BoxGeometry(.42, .34, .38), mat); hd.position.y = 1.16; hd.castShadow = true; body.add(hd);
+      for (const s of [-1, 1]) { const a = new THREE.Mesh(new THREE.BoxGeometry(.18, .6, .18), mat); a.position.set(s * .48, .55, 0); a.castShadow = true; body.add(a); }
+      eyes(1.18, .2, .1, .04);
+      if (e.boss) {
+        const gold = new THREE.MeshStandardMaterial({ color: 0xffc247, metalness: 1, roughness: .25 });
+        for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(.06, .2, 6), gold); const a = i / 5 * Math.PI * 2; c.position.set(Math.cos(a) * .17, 1.42, Math.sin(a) * .15); body.add(c); }
+      }
+    }
+    g.scale.setScalar(e.boss ? 1.9 : 1);
+    g.rotation.y = -Math.PI / 2; // 主人公（-X 方向）を向く
+    g.userData.mat = mat;
+    scene.add(g); return g;
+  }
+  function clearEnemies() { for (const g of enemyMeshes.values()) scene.remove(g); enemyMeshes.clear(); }
+
+  // ポーズ
+  function pose(dt, t) {
+    if (!hero) return;
+    const b = hero.bones, H = battle.hero;
+    let rx = 0, rz = 1.2, sy = 0;
+    if (H.anim >= 0) {
+      const p = H.anim, ease = x => x * x * (3 - 2 * x);
+      if (p < .35) { rx = -2.5 * ease(p / .35); rz = 1.2 - .35 * ease(p / .35); }
+      else if (p < .55) { const q = ease((p - .35) / .2); rx = -2.5 + 1.9 * q; rz = .85 + .35 * q; sy = .35 * q; }
+      else { const q = ease((p - .55) / .45); rx = -.6 * (1 - q); sy = .35 * (1 - q); }
+    } else rx = Math.sin(t * 1.6) * .04 - .15;
+    if (b.rightUpperArm) b.rightUpperArm.rotation.set(rx, 0, rz);
+    if (b.rightLowerArm) b.rightLowerArm.rotation.set(0, -.25, 0);
+    if (b.leftUpperArm) b.leftUpperArm.rotation.set(Math.sin(t * 1.6) * .04, 0, -1.2);
+    if (b.leftLowerArm) b.leftLowerArm.rotation.set(0, .15, 0);
+    if (b.spine) b.spine.rotation.set(Math.sin(t * 2) * .015, sy, H.hurt > 0 ? .08 : 0);
+    if (vrm) vrm.update(dt);
+  }
+
+  // VRM 読み込み
+  const loader = new GLTFLoader();
+  loader.register(p => new VRMLib.VRMLoaderPlugin(p));
+  async function loadVRM(url) {
+    const gltf = await loader.loadAsync(url);
+    const v = gltf.userData.vrm;
+    if (!v) throw new Error('VRM として読めませんでした');
+    VRMLib.VRMUtils.removeUnnecessaryVertices(gltf.scene);
+    VRMLib.VRMUtils.rotateVRM0(v);
+    v.scene.traverse(o => { o.frustumCulled = false; if (o.isMesh) o.castShadow = true; });
+    const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'spine', 'head'];
+    const bones = {};
+    for (const n of names) bones[n] = v.humanoid.getNormalizedBoneNode(n);
+    if (!bones.rightHand) throw new Error('右手のボーンが見つかりません');
+    if (vrm) VRMLib.VRMUtils.deepDispose(vrm.scene);
+    vrm = v;
+    setHero({ root: v.scene, isVRM: true, bones });
+    const meta = v.meta || {};
+    return { name: meta.name || meta.title || '(名前なし)', version: meta.metaVersion || (meta.title !== undefined ? '0' : '?') };
+  }
+  function resetHero() { if (vrm) { VRMLib.VRMUtils.deepDispose(vrm.scene); vrm = null; } setHero(buildPrimitiveHero()); }
+
+  function resize() {
+    const r = container.getBoundingClientRect(); if (!r.width || !r.height) return;
+    renderer.setSize(r.width, r.height, false);
+    renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
+    const aspect = r.width / r.height;
+    camera.aspect = aspect; camera.fov = 40;
+    // 横方向に x = -0.8〜5.2 が入る距離を、画面の縦横比から決める
+    const dist = Math.max(6.2, 3.0 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect));
+    camTarget.set(2.2, .95, 0);
+    camera.position.set(2.2, 1.25 + dist * .12, dist); camera.lookAt(camTarget);
+    camera.updateProjectionMatrix();
+  }
+  const pv = new THREE.Vector3();
+  function project(x, h) {
+    pv.set(x, h, 0).project(camera);
+    const r = renderer.domElement.getBoundingClientRect();
+    return { x: (pv.x * .5 + .5) * r.width, y: (-pv.y * .5 + .5) * r.height, visible: pv.z < 1 };
+  }
+  function frame(dt, t) {
+    pose(dt, t);
+    const seen = new Set();
+    for (const e of battle.enemies) {
+      let g = enemyMeshes.get(e.id); if (!g) { g = buildEnemy(e); enemyMeshes.set(e.id, g); }
+      seen.add(e.id);
+      const lunge = e.anim >= 0 ? -Math.sin(e.anim * Math.PI) * .35 : 0;
+      g.position.set(e.x + lunge, 0, 0);
+      const body = g.children[0];
+      body.position.y = e.kind === 'wisp' ? Math.sin(t * 3 + e.id) * .08 : Math.abs(Math.sin(t * 5 + e.id)) * (e.x > 1.6 ? .06 : .02);
+      if (e.kind === 'slime') body.scale.set(1 + Math.sin(t * 6 + e.id) * .05, 1 - Math.sin(t * 6 + e.id) * .05, 1);
+      g.userData.mat.emissiveIntensity = e.hit > 0 ? .9 : (e.kind === 'wisp' ? .7 : 0);
+      if (e.hit > 0 && e.kind !== 'wisp') g.userData.mat.emissive.set(0xffffff); else if (e.kind !== 'wisp') g.userData.mat.emissive.set(0x000000);
+      const k = e.dead ? Math.max(.001, 1 - e.dead / .7) : 1;
+      g.scale.setScalar((e.boss ? 1.9 : 1) * k);
+    }
+    for (const [id, g] of enemyMeshes) if (!seen.has(id)) { scene.remove(g); enemyMeshes.delete(id); }
+    forgeGlow.intensity = 2 + Math.sin(t * 7) * .3 + Math.sin(t * 13) * .2;
+    renderer.render(scene, camera);
+  }
+  resize();
+  return {
+    kind: '3d', resize, project, frame, clearEnemies, loadVRM, resetHero,
+    setWeapon(w) { currentWeapon = w; attachWeapon(); },
+    get hasVRM() { return !!vrm; }
+  };
+}
+
+/* =========================================================
+   タブ・描画全体
+   ========================================================= */
+let activeTab = 'forge';
+function showTab(name) {
+  activeTab = name;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('on', s.id === 'tab-' + name));
+  if (name === 'battle' && renderer) requestAnimationFrame(() => renderer.resize());
+  if (name === 'fusion') renderFusion();
+  if (name === 'armory') renderArmory();
+  if (name === 'defs') renderDefs();
+}
+$('#tabs').onclick = e => { const b = e.target.closest('button'); if (b) showTab(b.dataset.tab); };
+function renderAll() {
+  updateRes(); syncForgeButtons(); updateHudWeapon();
+  if (activeTab === 'armory') renderArmory();
+  if (activeTab === 'fusion') renderFusion();
+}
+function renderDefs() {
+  const B = DEFS.balance;
+  const tot = B.rarities.reduce((s, r) => s + r.w, 0);
+  const st = rarityWeights(100, false), stTot = st.reduce((s, x) => s + x.w, 0);
+  $('#rarityTable').innerHTML = `<table class="mini"><tr><th>レアリティ</th><th>通常</th><th>完成度100%</th><th>攻撃倍率</th></tr>${
+    B.rarities.map((r, i) => `<tr><td><span class="rar" style="background:${esc(r.color)}">${esc(r.name)}</span></td><td>${r1(r.w / tot * 100)}%</td><td>${r1(st[i].w / stTot * 100)}%</td><td>×${r.atk}</td></tr>`).join('')}</table>`;
+  $('#balanceText').textContent = DEFS.text.balance;
+  $('#fusionText').textContent = DEFS.text.fusion;
+  $('#defStatus').innerHTML = `balance.md：<b>${esc(DEFS.src.balance)}</b><br>fusion.md：<b>${esc(DEFS.src.fusion)}</b>` +
+    ['balance', 'fusion'].map(k => DEFS.src[k + 'Err'] ? `<br><span style="color:var(--bad)">${esc(DEFS.src[k + 'Err'])}</span>` : '').join('');
+}
+async function loadDefFiles(files) {
+  for (const f of files) {
+    const text = await readFileText(f), kind = detectDefKind(f.name, text);
+    if (!kind) { toast(`${f.name}：balance.md か fusion.md か判別できません`); continue; }
+    try { applyDefText(kind, text, `読み込んだ ${f.name}（この端末に保存中）`); store.set('mdforge.def.' + kind, text); toast(`${f.name} を ${kind}.md として読み込みました`); }
+    catch (e) { toast(`${f.name} を読めませんでした：${e.message}`); }
+  }
+  guideMaskCache; renderDefs(); renderAll(); populateTypes();
+}
+$('#defFile').onchange = e => { loadDefFiles([...e.target.files]); e.target.value = ''; };
+$('#btnDefReset').onclick = async () => { store.del('mdforge.def.balance'); store.del('mdforge.def.fusion'); DEFS.src.balanceErr = DEFS.src.fusionErr = ''; await loadDefs(); renderDefs(); renderAll(); populateTypes(); toast('定義を初期値に戻しました'); };
+$('#btnWipe').onclick = () => {
+  if (!confirm('武器・所持金・記録をすべて消して最初からにします。よろしいですか？')) return;
+  battle.running && battle.stop(); store.del(SAVE_KEY); location.reload();
+};
+function populateTypes() {
+  const cur = $('#typeSel').value;
+  $('#typeSel').innerHTML = DEFS.balance.types.filter(t => GUIDES[t.name]).map(t => `<option>${esc(t.name)}</option>`).join('');
+  if (cur && GUIDES[cur]) $('#typeSel').value = cur;
+  renderStoneSel();
+}
+
+/* VRM */
+$('#vrmFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!renderer || renderer.kind !== '3d') { toast('3D 表示が使えないため VRM は読み込めません'); return; }
+  $('#vrmNote').textContent = `${f.name} を読み込み中…`;
+  const url = URL.createObjectURL(f);
+  try { const info = await renderer.loadVRM(url); $('#vrmNote').textContent = `VRM「${info.name}」を読み込みました。鍛えた武器を右手に持たせています。`; }
+  catch (err) { $('#vrmNote').textContent = `VRM を読み込めませんでした：${err.message}`; }
+  finally { URL.revokeObjectURL(url); }
+};
+$('#btnVrmReset').onclick = () => { renderer && renderer.resetHero(); $('#vrmFile').value = ''; $('#vrmNote').textContent = '簡易モデルに戻しました。'; };
+
+/* =========================================================
+   起動
+   ========================================================= */
+let renderer = null;
+async function initRenderer() {
+  const box = $('#battleView');
+  try {
+    if (/[?&]2d\b/.test(location.search)) throw new Error('?2d 指定のため 2D 表示');
+    renderer = await make3DRenderer(box);
+    $('#rendererNote').textContent = '3D 表示（three.js / three-vrm）';
+  } catch (e) {
+    console.warn('3D を初期化できませんでした', e);
+    renderer = make2DRenderer(box);
+    $('#rendererNote').textContent = /[?&]2d\b/.test(location.search) ? '2D 表示（?2d 指定）' : '2D の代替表示（3D ライブラリを読み込めませんでした）';
+    $('#vrmFile').disabled = true;
+  }
+  renderer.setWeapon(equippedWeapon());
+  new ResizeObserver(() => renderer.resize()).observe(box);
+}
+(async function boot() {
+  loadSave();
+  await loadDefs();
+  populateTypes();
+  renderAll(); syncBattleButtons();
+  showMatch(0); $('#matchVal').textContent = '—';
+  if (!S.weapons.length) battle.addLog('武器を鍛造して装備すると、バトルで強くなります。');
+  initRenderer();
+  let last = performance.now(), t0 = last;
+  function loop(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    battle.tick(dt);
+    if (activeTab === 'forge') drawForge(dt);
+    if (activeTab === 'battle' && renderer) { renderer.frame(dt, (now - t0) / 1000); updateOverlay(); }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  window.mdforge = { S, DEFS, battle, get renderer() { return renderer; }, analyzeMd, fusionGains, loadDefs,
+    async loadVRMFromURL(u) { return renderer.loadVRM(u); } };
+})();
+</script>
+</body>
+</html>

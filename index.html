@@ -345,7 +345,7 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 
 ## 武器の型
 
-鍛造画面で選ぶガイドの形です。倍率は基礎性能に掛かります。
+鍛造画面で選ぶガイドの形です。倍率は基礎性能に掛かります。形はゲームに入っている「長剣」「大剣」「短剣」「斧」「槍」から選びます（それ以外の名前の行は表示されません）。
 
 | 型 | 攻撃倍率 | 速度倍率 | 会心加算 |
 | --- | --- | --- | --- |
@@ -391,6 +391,16 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 輪が縮む秒数 | 1.1 |
 | 会心の幅 | 10 |
 | 良いの幅 | 26 |
+
+## 対の剣
+
+「2振り（1枚から）」で打った 2 本は対の剣です。片方を装備して、もう片方が武器庫に残っていると二刀流になります。
+主の一撃のあと「追撃の確率」（%）で、左手の対の剣が追撃します。追撃のダメージは、対の剣の攻撃力の「追撃の倍率」（%）です。
+
+| 項目 | 値 |
+| --- | --- |
+| 追撃の確率 | 70 |
+| 追撃の倍率 | 50 |
 
 ## 材料
 
@@ -693,7 +703,8 @@ function buildBalance(text) {
     perfect: num(r['会心の一打'] || '0', 'ハンマー/会心の一打'), good: num(r['良い一打'] || '0', 'ハンマー/良い一打')
   })) : null;
   const hammerCfg = s['ハンマーの設定'] ? kv(s, 'ハンマーの設定') : null;
-  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg };
+  const twin = s['対の剣'] ? kv(s, '対の剣') : null;
+  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg, twin };
 }
 function buildFusion(text) {
   const s = parseMdTables(text);
@@ -757,6 +768,13 @@ function loadSave() {
 }
 function save() { store.set(SAVE_KEY, JSON.stringify(S)); }
 function weaponById(id) { return S.weapons.find(w => w.id === id) || null; }
+/* 対の剣：1枚の鉱石から打ったもう一振り。武器庫に残っていれば、装備したとき二刀流になる */
+function twinOf(w) { return w && w.twin ? weaponById(w.twin) : null; }
+function twinCfg() {
+  const c = (DEFS.balance && DEFS.balance.twin) || {};
+  const v = (k, d) => isFinite(c[k]) ? clamp(+c[k], 0, 500) : d;
+  return { p: Math.min(100, v('追撃の確率', 70)), mult: v('追撃の倍率', 50) };
+}
 function equippedWeapon() { return weaponById(S.equipped); }
 function updateRes() {
   $('#rGold').textContent = Math.floor(S.gold);
@@ -1035,6 +1053,7 @@ function weaponCardHTML(w, acts) {
       </div>
       <div style="font-size:12.5px"><b>${esc(e.skill)}</b> ${e.skillVal}${w.f.skill ? `<span class="plus">(+${w.f.skill}%)</span>` : ''}
         <span class="muted">${esc(sk ? sk.desc : '')}</span></div>
+      ${w.twin ? (twinOf(w) ? `<div style="font-size:12px;color:#ffd27a">対の剣 No.${twinOf(w).no} が武器庫にあります。装備すると二刀流になり、${twinCfg().p}% で追撃（対の剣の攻撃の ${twinCfg().mult}%）</div>` : '<div class="muted" style="font-size:12px">対の剣は手放しました</div>') : ''}
       ${acts ? `<div class="acts">${acts}</div>` : ''}
     </div></div>`;
 }
@@ -1864,7 +1883,7 @@ const ENEMY_KINDS = [
 ];
 const battle = {
   running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], nextId: 1,
-  hero: { hp: 100, maxHp: 100, cool: 0, anim: -1, animDur: .42, pending: null, hurt: 0 },
+  hero: { hp: 100, maxHp: 100, cool: 0, anim: -1, anim2: -1, animDur: .42, pending: null, hurt: 0 },
   log: [],
   stats() {
     const w = equippedWeapon();
@@ -1965,9 +1984,27 @@ const battle = {
         if (p.t <= 0) {
           H[key] = null;
           const e = this.enemies.find(x => x.id === p.target && !x.dead) || this.enemies.find(x => !x.dead && x.x <= 2.4);
-          if (e) { this.damageTo(e, st); if (key === 'pending2') this.float('連撃', e.x, 1.8, '#9ad'); }
+          if (e) {
+            this.damageTo(e, st); if (key === 'pending2') this.float('連撃', e.x, 1.8, '#9ad');
+            const tw = twinOf(equippedWeapon()), tc = twinCfg();
+            if (key === 'pending' && tw && Math.random() * 100 < tc.p) H.pending3 = { t: .14, target: e.id };
+          }
         }
       }
+      if (H.pending3) {
+        const p = H.pending3; p.t -= dt;
+        if (p.t <= 0) {
+          H.pending3 = null; H.anim2 = 0;
+          const tw = twinOf(equippedWeapon());
+          const e = this.enemies.find(x => x.id === p.target && !x.dead) || this.enemies.find(x => !x.dead && x.x <= 2.4);
+          if (tw && e) {
+            const ts = effStats(tw);
+            this.damageTo(e, { ...ts, atk: Math.max(1, ts.atk * twinCfg().mult / 100), skill: ts.skill === '連撃' ? null : ts.skill });
+            this.float('二刀の追撃', e.x, 2.1, '#ffd27a');
+          }
+        }
+      }
+      if (H.anim2 >= 0) { H.anim2 += dt / .3; if (H.anim2 >= 1) H.anim2 = -1; }
       if (H.hp <= 0) {
         H.hp = 0; this.phase = 'dead'; this.timer = 2.6;
         const cp = Math.floor((this.wave - 1) / 5) * 5 + 1;
@@ -2012,7 +2049,8 @@ $('#speedSeg').onclick = e => {
 function updateHudWeapon() {
   const w = equippedWeapon();
   $('#hudWeapon').innerHTML = w
-    ? `<b style="color:${esc(rarityInfo(w.rarity).color)}">[${esc(w.rarity)}]</b> ${esc(w.name)}<br><span class="muted" style="font-size:11.5px">攻撃 ${effStats(w).atk}・速度 ${w.spd}・会心 ${effStats(w).crit}%・${esc(w.skill)}</span>`
+    ? `<b style="color:${esc(rarityInfo(w.rarity).color)}">[${esc(w.rarity)}]</b> ${esc(w.name)}<br><span class="muted" style="font-size:11.5px">攻撃 ${effStats(w).atk}・速度 ${w.spd}・会心 ${effStats(w).crit}%・${esc(w.skill)}</span>` +
+      (twinOf(w) ? `<br><span style="font-size:11.5px;color:#ffd27a">二刀流：左手に対の剣 No.${twinOf(w).no}（${twinCfg().p}% で追撃）</span>` : '')
     : '素手（武器を鍛造して装備しよう）';
 }
 
@@ -2170,7 +2208,7 @@ async function make3DRenderer(container) {
       return { up, lo, hand };
     };
     const R = arm(-1), L = arm(1);
-    return { root, isVRM: false, bones: { rightUpperArm: R.up, rightLowerArm: R.lo, rightHand: R.hand, leftUpperArm: L.up, leftLowerArm: L.lo, spine, head, hips } };
+    return { root, isVRM: false, bones: { rightUpperArm: R.up, rightLowerArm: R.lo, rightHand: R.hand, leftUpperArm: L.up, leftLowerArm: L.lo, leftHand: L.hand, spine, head, hips } };
   }
   function setHero(h) {
     if (hero) heroHolder.remove(hero.root);
@@ -2217,7 +2255,7 @@ async function make3DRenderer(container) {
     return g;
   }
   /* 鞘：刀身の長さに合わせた細長い箱を、左の腰に斜めに差す */
-  let sheathMesh = null;
+  let sheathMesh = null, twinMesh = null;
   function buildSheathMesh(w) {
     if (!w || !w.outline || w.type === '斧' || w.type === '槍') return null; // 斧と槍は鞘を腰に差さない
     const len = (WEAPON_LEN[w.type] || .95) * .82;
@@ -2236,6 +2274,9 @@ async function make3DRenderer(container) {
     if (weaponMesh && weaponMesh.parent) weaponMesh.parent.remove(weaponMesh);
     weaponMesh = buildWeaponMesh(currentWeapon);
     if (weaponMesh && hero && hero.bones.rightHand) hero.bones.rightHand.add(weaponMesh);
+    if (twinMesh && twinMesh.parent) twinMesh.parent.remove(twinMesh);
+    twinMesh = buildWeaponMesh(twinOf(currentWeapon));
+    if (twinMesh && hero && hero.bones.leftHand) hero.bones.leftHand.add(twinMesh);
     if (sheathMesh && sheathMesh.parent) sheathMesh.parent.remove(sheathMesh);
     sheathMesh = buildSheathMesh(currentWeapon);
     if (sheathMesh && hero && hero.bones.hips) hero.bones.hips.add(sheathMesh);
@@ -2288,7 +2329,11 @@ async function make3DRenderer(container) {
     } else rx = Math.sin(t * 1.6) * .04 - .15;
     if (b.rightUpperArm) b.rightUpperArm.rotation.set(rx, 0, rz);
     if (b.rightLowerArm) b.rightLowerArm.rotation.set(0, -.25, 0);
-    if (b.leftUpperArm) b.leftUpperArm.rotation.set(Math.sin(t * 1.6) * .04, 0, -1.2);
+    // 左手：対の剣の追撃で、すばやく振る
+    let lx = Math.sin(t * 1.6) * .04, lz = -1.2;
+    if (H.anim2 >= 0) { const p = H.anim2; lx = p < .4 ? -2.2 * (p / .4) : -2.2 + 2.2 * ((p - .4) / .6); lz = -1.2 + .3 * Math.sin(p * Math.PI); }
+    else if (twinOf(currentWeapon)) lx = -.15 + Math.sin(t * 1.6) * .04;
+    if (b.leftUpperArm) b.leftUpperArm.rotation.set(lx, 0, lz);
     if (b.leftLowerArm) b.leftLowerArm.rotation.set(0, .15, 0);
     if (b.spine) b.spine.rotation.set(Math.sin(t * 2) * .015, sy, H.hurt > 0 ? .08 : 0);
     if (vrm) vrm.update(dt);
@@ -2304,7 +2349,7 @@ async function make3DRenderer(container) {
     VRMLib.VRMUtils.removeUnnecessaryVertices(gltf.scene);
     VRMLib.VRMUtils.rotateVRM0(v);
     v.scene.traverse(o => { o.frustumCulled = false; if (o.isMesh) o.castShadow = true; });
-    const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'spine', 'head', 'hips'];
+    const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'leftHand', 'spine', 'head', 'hips'];
     const bones = {};
     for (const n of names) bones[n] = v.humanoid.getNormalizedBoneNode(n);
     if (!bones.rightHand) throw new Error('右手のボーンが見つかりません');

@@ -160,7 +160,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
     <div class="forge-grid">
       <div class="forge-stage">
         <canvas id="forgeCanvas" width="576" height="900"></canvas>
-        <div class="stage-msg" id="forgeMsg">「鉱石を置く」を押して、<br>鉱石をドラッグして<br>回っている砥石に押し当てよう。<br>点線のガイドに近づけるほど良い武器に</div>
+        <div class="stage-msg" id="forgeMsg">「鉱石を置く」を押して、<br>鉱石をドラッグして<br>回っている砥石に押し当てよう。<br>鍔と持ち手は削れません。<br>点線のガイドに近づけるほど良い武器に</div>
       </div>
       <div>
         <div class="panel">
@@ -170,6 +170,8 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
             <select id="typeSel"></select>
             <span class="muted">材料</span>
             <select id="matSel"></select>
+            <span class="muted">持ち手</span>
+            <select id="hiltSel"></select>
             <span class="muted">鞘</span>
             <select id="sheathSel"></select>
           </div>
@@ -374,6 +376,18 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 黒鉄 | #34373e | 1.6 | 1.25 | 0.9 | - | 1 | 30 |
 | 紅鉄 | #9a4a3e | 1.0 | 1.05 | 1.0 | 炎 | 4 | 20 |
 | 青晶 | #6f9fbf | 0.85 | 1.0 | 1.05 | 氷 | 4 | 20 |
+
+## 持ち手
+
+鍛造を始める前に選ぶ、鍔（つば）と柄（つか）の部品です。鉱石に最初から付いていて、砥石では削れません（削るのは刀身だけ）。完成した剣に、効果が 1 つ付きます。効果の書き方は鞘と同じです。
+
+| 持ち手 | 鍔の色 | 柄の色 | 巻きの色 | 効果 | 値 | 説明 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 木の柄 | #8d96a3 | #8a6a45 | #6b5236 | なし | 0 | 素朴で手になじむ |
+| 革巻きの柄 | #6d655c | #5a3b28 | #3a2618 | 速度 | 5 | 滑りにくく、振りが速くなる |
+| 鮫皮の柄 | #c9a64a | #d8d2c4 | #2b2b33 | 会心 | 3 | しっかり握れて、狙いが定まる |
+| 鋼の柄 | #8d96a3 | #5b636e | #3d434c | 攻撃 | 5 | 重く、一撃が強い |
+| 絹巻きの柄 | #c9a64a | #7a2f3a | #e8d8b0 | スキル | 8 | 美しく、スキルの効き目が上がる |
 
 ## 鞘
 
@@ -639,7 +653,11 @@ function buildBalance(text) {
     sheath: r['鞘'], mat: r['材料'], mei: r['銘'] || '無銘', p: clamp(num(r['確率'], '組み合わせ/確率'), 0, 100),
     eff: eff(r['効果']), val: num(r['値'] || '0', '組み合わせ/値')
   })) : [];
-  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos };
+  const hilts = s['持ち手'] ? s['持ち手'].rows.filter(r => r['持ち手']).map(r => ({
+    name: r['持ち手'], guard: r['鍔の色'] || '#8d96a3', grip: r['柄の色'] || '#6b4a32', wrap: r['巻きの色'] || '#3a2618',
+    eff: eff(r['効果']), val: num(r['値'] || '0', '持ち手/値'), desc: r['説明'] || ''
+  })) : null;
+  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts };
 }
 function buildFusion(text) {
   const s = parseMdTables(text);
@@ -716,9 +734,9 @@ function updateRes() {
    ========================================================= */
 const GW = 48, GH = 128;
 const GUIDES = {
-  '長剣': { grip: [24, 102], pts: [[24,6],[29,16],[29,86],[38,86],[38,92],[27,92],[27,112],[30,112],[30,118],[18,118],[18,112],[21,112],[21,92],[10,92],[10,86],[19,86],[19,16]] },
-  '大剣': { grip: [24, 102], pts: [[24,4],[33,14],[33,84],[42,84],[42,91],[28,91],[28,113],[31,113],[31,121],[17,121],[17,113],[20,113],[20,91],[6,91],[6,84],[15,84],[15,14]] },
-  '短剣': { grip: [24, 98],  pts: [[24,30],[28,38],[28,84],[35,84],[35,89],[27,89],[27,108],[29,108],[29,114],[19,114],[19,108],[21,108],[21,89],[13,89],[13,84],[20,84],[20,38]] }
+  '長剣': { grip: [24, 102], hiltY: 86, guardB: 92, pts: [[24,6],[29,16],[29,86],[38,86],[38,92],[27,92],[27,112],[30,112],[30,118],[18,118],[18,112],[21,112],[21,92],[10,92],[10,86],[19,86],[19,16]] },
+  '大剣': { grip: [24, 102], hiltY: 84, guardB: 91, pts: [[24,4],[33,14],[33,84],[42,84],[42,91],[28,91],[28,113],[31,113],[31,121],[17,121],[17,113],[20,113],[20,91],[6,91],[6,84],[15,84],[15,14]] },
+  '短剣': { grip: [24, 98],  hiltY: 84, guardB: 89, pts: [[24,30],[28,38],[28,84],[35,84],[35,89],[27,89],[27,108],[29,108],[29,114],[19,114],[19,108],[21,108],[21,89],[13,89],[13,84],[20,84],[20,38]] }
 };
 function guideFor(type) { return GUIDES[type] || GUIDES['長剣']; }
 const guideMaskCache = {};
@@ -730,6 +748,34 @@ function guideMask(type) {
   const d = g.getImageData(0, 0, GW, GH).data, m = new Uint8Array(GW * GH);
   for (let i = 0; i < m.length; i++) m[i] = d[i * 4 + 3] > 127 ? 1 : 0;
   return guideMaskCache[type] = m;
+}
+/* 鍔と持ち手（ガイドの hiltY より下）。削れない部品として鉱石に付いている */
+const hiltMaskCache = {};
+function hiltMask(type) {
+  if (hiltMaskCache[type]) return hiltMaskCache[type];
+  const g = guideMask(type), hy = guideFor(type).hiltY, m = new Uint8Array(GW * GH);
+  for (let i = hy * GW; i < m.length; i++) m[i] = g[i];
+  return hiltMaskCache[type] = m;
+}
+/* 完成度：刀身（鍔より上）だけで比べる */
+function bladeIoU(mask, type) {
+  const g = guideMask(type), n = guideFor(type).hiltY * GW;
+  let inter = 0, uni = 0;
+  for (let i = 0; i < n; i++) { if (mask[i] && g[i]) inter++; if (mask[i] || g[i]) uni++; }
+  return uni ? inter / uni * 100 : 0;
+}
+/* 持ち手につながっている部分だけを武器にする（持ち手が無ければ、いちばん大きい塊） */
+function weaponComponent(mask, hilt) {
+  if (!hilt) return largestComponent(mask);
+  const out = new Uint8Array(mask.length), q = new Int32Array(mask.length); let h = 0, t = 0;
+  for (let i = 0; i < mask.length; i++) if (hilt[i] && mask[i]) { out[i] = 1; q[t++] = i; }
+  while (h < t) {
+    const c = q[h++], x = c % GW, y = (c / GW) | 0;
+    for (const n of [x > 0 ? c - 1 : -1, x < GW - 1 ? c + 1 : -1, y > 0 ? c - GW : -1, y < GH - 1 ? c + GW : -1])
+      if (n >= 0 && mask[n] && !out[n]) { out[n] = 1; q[t++] = n; }
+  }
+  let blade = 0; for (let i = 0; i < out.length; i++) if (out[i] && !hilt[i]) blade++;
+  return { mask: out, count: t, blade };
 }
 function largestComponent(mask) {
   const seen = new Int32Array(mask.length).fill(-1); let best = null, bestN = 0, label = 0;
@@ -822,6 +868,18 @@ function materials() { const l = DEFS.balance.materials; return l && l.length ? 
 function sheaths() { const l = DEFS.balance.sheaths; return l && l.length ? l : [DEFAULT_SHEATH]; }
 function matByName(n) { return materials().find(m => m.name === n) || materials()[0]; }
 function sheathByName(n) { return sheaths().find(m => m.name === n) || sheaths()[0]; }
+const DEFAULT_HILT = { name: '木の柄', guard: '#8d96a3', grip: '#8a6a45', wrap: '#6b5236', eff: 'なし', val: 0, desc: '' };
+function hilts() { const l = DEFS.balance.hilts; return l && l.length ? l : [DEFAULT_HILT]; }
+function hiltByName(n) { return hilts().find(m => m.name === n) || hilts()[0]; }
+/* 鍔・持ち手のマスの色。鍔は金属、柄は斜めの巻き模様、柄頭は鍔と同じ色 */
+function hiltPixel(i, h, gd) {
+  const x = i % GW, y = (i / GW) | 0;
+  const bottom = gd.pts.reduce((a, p) => Math.max(a, p[1]), 0);
+  const metal = y < gd.guardB || y >= bottom - 6;
+  const c = hexRGB(metal ? h.guard : ((x + y) % 4 < 2 ? h.wrap : h.grip));
+  const k = metal ? .85 + .25 * Math.sin(x * .7) : 1;
+  return [c[0] * k, c[1] * k, c[2] * k];
+}
 function comboFor(sheath, mat) { return (DEFS.balance.combos || []).find(c => c.sheath === sheath && c.mat === mat) || null; }
 function effLabel(kind, v) {
   return { '攻撃': `攻撃 +${v}%`, '速度': `速度 +${v}%`, '会心': `会心 +${v}%`, '防御': `防御 +${v}`, 'スキル': `スキル効果 +${v}%`, '属性': `属性 Lv+${v}`, '売値': `売値 +${v}%` }[kind] || '効果なし';
@@ -840,9 +898,9 @@ function applyEffect(w, kind, v) {
   }
 }
 function sellPrice(w) { return Math.round((rarityInfo(w.rarity).price + w.f.count * 5) * (1 + (w.priceBonus || 0) / 100)); }
-function rollWeapon({ type, match, useStar, outline, mat, sheath }) {
+function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt }) {
   const B = DEFS.balance;
-  mat = mat || materials()[0]; sheath = sheath || sheaths()[0];
+  mat = mat || materials()[0]; sheath = sheath || sheaths()[0]; hilt = hilt || hilts()[0];
   const t = B.types.find(x => x.name === type) || B.types[0];
   const rar = pickWeighted(rarityWeights(match, useStar), x => x.w).r;
   const el = pickWeighted(B.elements, x => x.w * (mat.elem && x.name === mat.elem ? mat.elemW : 1));
@@ -862,8 +920,10 @@ function rollWeapon({ type, match, useStar, outline, mat, sheath }) {
     f: { atk: 0, crit: 0, def: 0, skill: 0, count: 0 },
     fuseLog: [],
     outline, grip: g.grip, star: !!useStar,
-    mat: mat.name, matColor: mat.color, matElem: mat.elem, sheath: sheath.name, sheathColor: sheath.color, mei: null, notes: []
+    mat: mat.name, matColor: mat.color, matElem: mat.elem, sheath: sheath.name, sheathColor: sheath.color, hilt: hilt.name, hiltColors: { guard: hilt.guard, grip: hilt.grip, wrap: hilt.wrap }, mei: null, notes: []
   };
+  applyEffect(w, hilt.eff, hilt.val);
+  w.notes.push(`持ち手「${hilt.name}」：${effLabel(hilt.eff, hilt.val)}`);
   applyEffect(w, sheath.eff, sheath.val);
   w.notes.push(`鞘「${sheath.name}」：${effLabel(sheath.eff, sheath.val)}`);
   const c = comboFor(sheath.name, mat.name);
@@ -901,6 +961,15 @@ function drawWeaponIcon(cv, w) {
   g.beginPath(); w.outline.forEach(([x, y], i) => i ? g.lineTo(ox + x * s, oy + y * s) : g.moveTo(ox + x * s, oy + y * s)); g.closePath();
   g.fillStyle = grad; g.fill();
   if (w.matColor) { g.globalAlpha = .3; g.fillStyle = w.matColor; g.fill(); g.globalAlpha = 1; }
+  const gd = GUIDES[w.type];
+  if (w.hiltColors && gd) {
+    g.save(); g.clip();
+    const bottom = gd.pts.reduce((a, p) => Math.max(a, p[1]), 0);
+    g.fillStyle = w.hiltColors.guard; g.fillRect(0, oy + gd.hiltY * s, W, (gd.guardB - gd.hiltY) * s);
+    g.fillStyle = w.hiltColors.grip; g.fillRect(0, oy + gd.guardB * s, W, (bottom - 6 - gd.guardB) * s);
+    g.fillStyle = w.hiltColors.guard; g.fillRect(0, oy + (bottom - 6) * s, W, 6 * s);
+    g.restore();
+  }
   if (w.elem !== '無') { g.globalAlpha = .28 + .06 * w.elemLv; g.fillStyle = elemColor(w.elem); g.fill(); g.globalAlpha = 1; }
   g.lineWidth = 1.2; g.strokeStyle = rarityInfo(w.rarity).color; g.stroke();
 }
@@ -915,7 +984,7 @@ function weaponCardHTML(w, acts) {
       <div class="name"><span class="rar" style="background:${esc(ri.color)}">${esc(w.rarity)}</span>${esc(w.name)}
         ${w.elem !== '無' ? `<span class="elem" style="color:${esc(elemColor(w.elem))}">${esc(w.elem)} Lv${w.elemLv}</span>` : ''}</div>
       <div class="muted" style="font-size:12px">No.${w.no} ・完成度 ${w.match}% ・合成 ${w.f.count}回</div>
-      ${w.mat ? `<div class="muted" style="font-size:12px">${esc(w.mat)}・<span style="display:inline-block;width:.8em;height:.8em;border-radius:2px;vertical-align:-1px;background:${esc(w.sheathColor || '#8a6a45')}"></span> ${esc(w.sheath)}${w.mei ? `・銘「${esc(w.mei)}」` : ''}</div>` : ''}
+      ${w.mat ? `<div class="muted" style="font-size:12px">${esc(w.mat)}・<span style="display:inline-block;width:.8em;height:.8em;border-radius:2px;vertical-align:-1px;background:${esc(w.sheathColor || '#8a6a45')}"></span> ${esc(w.sheath)}${w.hilt ? `・${esc(w.hilt)}` : ''}${w.mei ? `・銘「${esc(w.mei)}」` : ''}</div>` : ''}
       <div class="kv">
         <span>攻撃</span><b>${e.atk}${pl(w.f.atk)}</b>
         <span>速度</span><b>${e.spd}</b>
@@ -938,7 +1007,7 @@ const F = {
   active: false, showDone: false, mask: new Uint8Array(GW * GH), start: null, heat: new Float32Array(GW * GH),
   shade: new Float32Array(GW * GH), vein: new Uint8Array(GW * GH),
   sparks: [], drawing: false, lastPt: null, dirty: true, match: 0, lastMatchAt: 0,
-  ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null, angle: 0, mat: null, sheath: null
+  ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null, angle: 0, mat: null, sheath: null, hilt: null, hiltDef: null, hiltCells: []
 };
 const WW = 96, WH = 150;          // 作業台の広さ（マス）
 const STONE_X = 72, STONE_Y = 75; // 砥石の位置（マス）
@@ -949,16 +1018,20 @@ fc.width = WW * CS; fc.height = WH * CS;
 const small = document.createElement('canvas'); small.width = GW; small.height = GH;
 const sg = small.getContext('2d'); const img = sg.createImageData(GW, GH);
 
-function makeOre() {
-  const m = new Uint8Array(GW * GH);
+function makeOre(type) {
+  const m = new Uint8Array(GW * GH), gd = guideFor(type || forgeType()), hy = gd.hiltY, hm = hiltMask(type || forgeType());
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-    const dx = (x + .5 - GW / 2) / (GW / 2 - 1), dy = (y + .5 - GH / 2) / (GH / 2 - 1);
-    const n = Math.sin(x * .9 + y * .37) * .05 + Math.sin(y * .23) * .04 + Math.random() * .04;
     const i = y * GW + x;
-    m[i] = Math.pow(Math.abs(dx), 4) + Math.pow(Math.abs(dy), 4) <= 1 + n ? 1 : 0;
     F.shade[i] = .82 + Math.random() * .3 + Math.sin(x * .5 + y * .2) * .06;
     F.vein[i] = Math.random() < .035 ? 1 : 0;
+    if (y >= hy) continue;
+    // 鉱石は鍔の上までの塊。下の端は鍔にしっかり付くよう、角だけ丸める
+    const dx = (x + .5 - GW / 2) / (GW / 2 - 1), dy = (y + .5 - hy / 2) / (hy / 2);
+    const n = Math.sin(x * .9 + y * .37) * .05 + Math.sin(y * .23) * .04 + Math.random() * .04;
+    m[i] = (y >= hy - 4 && Math.abs(dx) < .7) || Math.pow(Math.abs(dx), 4) + Math.pow(Math.abs(dy), 4) <= 1 + n ? 1 : 0;
   }
+  F.hilt = hm; F.hiltCells = [];
+  for (let i = 0; i < hm.length; i++) if (hm[i]) { m[i] = 1; F.hiltCells.push(i); }
   return m;
 }
 function forgeType() { return $('#typeSel').value; }
@@ -969,10 +1042,10 @@ function placeOre() {
   const mat = selMat();
   if (S.gold < mat.gold) return toast(`${mat.name} には ${mat.gold}G 要ります（所持 ${Math.floor(S.gold)}G）`);
   S.ore -= B.cost['鉱石']; S.gold -= mat.gold; save(); updateRes();
-  F.mat = mat; F.sheath = selSheath(); F.oreRGB = hexRGB(mat.color);
+  F.mat = mat; F.sheath = selSheath(); F.hiltDef = selHilt(); F.oreRGB = hexRGB(mat.color);
   F.mask = makeOre(); F.start = F.mask.slice(); F.heat.fill(0); F.sparks = [];
   [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; F.contact = 0;
-  F.active = true; F.showDone = false; F.dirty = true; F.match = iou(F.mask, guideMask(forgeType()));
+  F.active = true; F.showDone = false; F.dirty = true; F.match = bladeIoU(F.mask, forgeType());
   $('#forgeMsg').style.display = 'none';
   $('#forgeResultPanel').style.display = 'none';
   syncForgeButtons(); updateMatch(true);
@@ -981,7 +1054,7 @@ function syncForgeButtons() {
   $('#btnDone').disabled = !F.active; $('#btnRedo').disabled = !F.active;
   ['#btnFlipX', '#btnFlipY', '#btnHome'].forEach(s => $(s).disabled = !F.active);
   $('#btnPlace').disabled = F.active; $('#btnAuto').disabled = F.active; $('#typeSel').disabled = F.active;
-  $('#matSel').disabled = F.active; $('#sheathSel').disabled = F.active;
+  $('#matSel').disabled = F.active; $('#sheathSel').disabled = F.active; $('#hiltSel').disabled = F.active;
   const B = DEFS.balance;
   $('#costNote').textContent = `鍛造1回で鉱石 ${B.cost['鉱石']} を使います（鉱石は ${B.cost['鉱石の値段']}G で買えます）。星鉄を使うと、良いレアリティが出やすくなります。`;
   $('#btnBuyOre').textContent = `鉱石を買う (${B.cost['鉱石の値段']}G)`;
@@ -1056,11 +1129,11 @@ function grind() {
   let removed = 0;
   for (let ly = ly0; ly <= ly1; ly++) for (let lx = lx0; lx <= lx1; lx++) {
     const x = F.flipX ? GW - 1 - lx : lx, y = F.flipY ? GH - 1 - ly : ly, i = y * GW + x;
-    if (!F.mask[i]) continue;
+    if (!F.mask[i] || (F.hilt && F.hilt[i])) continue;
     const px = F.ox + lx + .5, py = F.oy + ly + .5;
     if (!inStone(g, px, py)) continue;
     F.mask[i] = 0; removed++;
-    for (const n of [i - 1, i + 1, i - GW, i + GW]) if (n >= 0 && n < F.heat.length && F.mask[n]) F.heat[n] = 1;
+    for (const n of [i - 1, i + 1, i - GW, i + GW]) if (n >= 0 && n < F.heat.length && F.mask[n] && !(F.hilt && F.hilt[n])) F.heat[n] = 1;
     if (F.sparks.length < 420) { sparkFrom(g, px, py); if (Math.random() < .5) sparkFrom(g, px, py); }
   }
   if (removed) F.dirty = true;
@@ -1069,7 +1142,7 @@ function grind() {
 /* 毎フレーム：鉱石を目標位置へ動かす。砥石に当たっている間は「削る速さ」でしか進まない */
 function forgeStep(dt) {
   F.spin += dt * 9;
-  F.contact = Math.max(0, F.contact - dt);
+  F.contact = Math.max(0, F.contact - dt); F.clank = Math.max(0, (F.clank || 0) - dt);
   if (!F.active) return;
   const s = currentStone();
   const dx = F.tx - F.ox, dy = F.ty - F.oy, d = Math.hypot(dx, dy);
@@ -1077,9 +1150,21 @@ function forgeStep(dt) {
   const move = Math.min(d, (F.contact > 0 ? s.speed / (F.mat ? F.mat.hard : 1) : 400) * dt);
   const steps = Math.max(1, Math.ceil(move / .5));
   for (let k = 0; k < steps; k++) {
-    F.ox += dx / d * move / steps; F.oy += dy / d * move / steps;
+    const sx = dx / d * move / steps, sy = dy / d * move / steps;
+    F.ox += sx; F.oy += sy;
+    if (hiltHits()) { F.ox -= sx; F.oy -= sy; F.tx = F.ox; F.ty = F.oy; F.clank = .25; break; }
     if (grind()) { F.contact = .12; break; }
   }
+}
+function hiltHits() {
+  if (!F.hiltCells.length) return false;
+  const g = stoneGeom(currentStone());
+  for (const i of F.hiltCells) {
+    if (!F.mask[i]) continue;
+    const [px, py] = cellWorld(i % GW, (i / GW) | 0);
+    if (inStone(g, px, py)) return true;
+  }
+  return false;
 }
 function clampTarget() {
   F.tx = clamp(F.tx, -GW + 8, WW - 8); F.ty = clamp(F.ty, -GH + 8, WH - 8);
@@ -1173,8 +1258,8 @@ function updateMatch(force) {
   const now = performance.now();
   if (!force && now - F.lastMatchAt < 250) return;
   F.lastMatchAt = now;
-  const comp = largestComponent(F.mask);
-  F.match = iou(comp.mask, guideMask(forgeType()));
+  const comp = weaponComponent(F.mask, F.hilt);
+  F.match = bladeIoU(comp.mask, forgeType());
   showMatch(F.match);
 }
 function showMatch(m) {
@@ -1239,6 +1324,10 @@ function drawForge(dt) {
     for (let i = 0; i < GW * GH; i++) {
       const o = i * 4;
       if (!F.mask[i]) { d[o + 3] = 0; continue; }
+      if (F.hilt && F.hilt[i]) {
+        const c = hiltPixel(i, F.hiltDef || selHilt(), guideFor(forgeType()));
+        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255; continue;
+      }
       const s = F.shade[i], h = F.heat[i];
       const oc = F.oreRGB || [92, 98, 110];
       let r = oc[0] * s, g = oc[1] * s, b = oc[2] * s;
@@ -1279,13 +1368,13 @@ function drawForge(dt) {
 }
 function finishForge(mask, auto) {
   const type = forgeType();
-  const comp = largestComponent(mask);
-  if (comp.count < 60) { toast('形が小さすぎます。もう少し残して削ってください'); return false; }
-  const match = iou(comp.mask, guideMask(type));
+  const comp = weaponComponent(mask, F.hilt);
+  if (F.hilt ? comp.blade < 30 : comp.count < 60) { toast('刀身が小さすぎます。もう少し残して削ってください'); return false; }
+  const match = bladeIoU(comp.mask, type);
   const outline = traceOutline(comp.mask);
   const useStar = $('#useStar').checked && S.star > 0;
   if (useStar) S.star--;
-  const w = rollWeapon({ type, match, useStar, outline, mat: F.mat || selMat(), sheath: F.sheath || selSheath() });
+  const w = rollWeapon({ type, match, useStar, outline, mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt() });
   w.auto = !!auto;
   if (w.mei) toast(`共鳴！ 銘「${w.mei}」が刻まれました`);
   renderComboNote();
@@ -1319,7 +1408,7 @@ function autoForge() {
   const mat = selMat();
   if (S.gold < mat.gold) return toast(`${mat.name} には ${mat.gold}G 要ります（所持 ${Math.floor(S.gold)}G）`);
   S.ore -= B.cost['鉱石']; S.gold -= mat.gold;
-  F.mat = mat; F.sheath = selSheath(); F.oreRGB = hexRGB(mat.color);
+  F.mat = mat; F.sheath = selSheath(); F.hiltDef = selHilt(); F.oreRGB = hexRGB(mat.color);
   // ガイドの形を元に、輪郭を少し乱した形を自動で作る
   const g = guideMask(forgeType()); let m = g.slice();
   for (let pass = 0; pass < 2; pass++) {
@@ -1339,8 +1428,8 @@ function autoForge() {
   m = sm;
   F.mask = makeOre(); F.heat.fill(0);
   [F.ox, F.oy] = ORE_HOME; F.flipX = F.flipY = false;
-  for (let i = 0; i < m.length; i++) if (!m[i]) F.mask[i] = 0;
-  for (let i = GW; i < m.length - GW; i++) if (m[i] && (!m[i - 1] || !m[i + 1] || !m[i - GW] || !m[i + GW])) F.heat[i] = 1;
+  for (let i = 0; i < m.length; i++) if (!m[i] && !F.hilt[i]) F.mask[i] = 0;
+  for (let i = GW; i < m.length - GW; i++) if (m[i] && !F.hilt[i] && (!m[i - 1] || !m[i + 1] || !m[i - GW] || !m[i + GW])) F.heat[i] = 1;
   $('#forgeMsg').style.display = 'none';
   finishForge(F.mask, true);
 }
@@ -1848,6 +1937,23 @@ async function make3DRenderer(container) {
       emissive: w.elem !== '無' ? ec : new THREE.Color(0), emissiveIntensity: w.elem !== '無' ? .12 + .08 * w.elemLv : 0
     });
     const m = new THREE.Mesh(geo, mat); m.castShadow = true;
+    // 鍔・柄・柄頭を、選んだ持ち手の色の部品として重ねる
+    const gd = GUIDES[w.type];
+    if (w.hiltColors && gd) {
+      const hm = hiltMask(w.type), bottom = gd.pts.reduce((a, p) => Math.max(a, p[1]), 0);
+      const part = (y0, y1, color, thick, rough) => {
+        let x0 = GW, x1 = -1;
+        for (let y = y0; y < y1; y++) for (let x = 0; x < GW; x++) if (hm[y * GW + x]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+        if (x1 < 0) return;
+        const bw = (x1 + 1 - x0) * s, bh = (y1 - y0) * s;
+        const b = new THREE.Mesh(new THREE.BoxGeometry(bw + .004, bh, depth * thick),
+          new THREE.MeshStandardMaterial({ color: new THREE.Color(color), metalness: rough < .5 ? .7 : .1, roughness: rough }));
+        b.position.set(((x0 + x1 + 1) / 2 - gx) * s, (gy - (y0 + y1) / 2) * s, 0); b.castShadow = true; m.add(b);
+      };
+      part(gd.hiltY, gd.guardB, w.hiltColors.guard, 1.8, .35);
+      part(gd.guardB, bottom - 6, w.hiltColors.grip, 2.2, .8);
+      part(bottom - 6, bottom, w.hiltColors.guard, 2, .35);
+    }
     // 刃（+Y）を手の前方（+Z）へ、刃の平らな面を手の Y 方向へ向ける
     const g = new THREE.Group();
     m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)));
@@ -2051,7 +2157,9 @@ function populateTypes() {
   const cur = $('#typeSel').value;
   $('#typeSel').innerHTML = DEFS.balance.types.filter(t => GUIDES[t.name]).map(t => `<option>${esc(t.name)}</option>`).join('');
   if (cur && GUIDES[cur]) $('#typeSel').value = cur;
-  const cm = $('#matSel').value, cs = $('#sheathSel').value;
+  const cm = $('#matSel').value, cs = $('#sheathSel').value, ch = $('#hiltSel').value;
+  $('#hiltSel').innerHTML = hilts().map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
+  if (hilts().some(m => m.name === ch)) $('#hiltSel').value = ch;
   $('#matSel').innerHTML = materials().map(m => `<option value="${esc(m.name)}">${esc(m.name)}${m.gold ? `（+${m.gold}G）` : ''}</option>`).join('');
   $('#sheathSel').innerHTML = sheaths().map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
   if (materials().some(m => m.name === cm)) $('#matSel').value = cm;
@@ -2062,6 +2170,7 @@ function populateTypes() {
 /* 材料・鞘の選択 */
 function selMat() { return matByName($('#matSel').value); }
 function selSheath() { return sheathByName($('#sheathSel').value); }
+function selHilt() { return hiltByName($('#hiltSel').value); }
 function hexRGB(h) {
   const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return [92, 98, 110];
   const n = parseInt(m[1], 16); return [n >> 16 & 255, n >> 8 & 255, n & 255];
@@ -2070,6 +2179,7 @@ function renderComboNote() {
   const m = selMat(), sh = selSheath(), c = comboFor(sh.name, m.name);
   const parts = [];
   parts.push(`${m.name}：硬さ ${m.hard}${m.atk !== 1 ? `・攻撃 ×${m.atk}` : ''}${m.spd !== 1 ? `・速度 ×${m.spd}` : ''}${m.elem ? `・${m.elem}が出やすい` : ''}`);
+  const hl = selHilt(); parts.push(`${hl.name}：${effLabel(hl.eff, hl.val)}`);
   parts.push(`${sh.name}：${effLabel(sh.eff, sh.val)}`);
   let combo = '';
   if (c && S.found && S.found[c.sheath + '|' + c.mat]) combo = `<div style="color:#ffc247">この組み合わせは共鳴したことがある：銘「${esc(c.mei)}」${c.p}%・${esc(effLabel(c.eff, c.val))}</div>`;
@@ -2078,6 +2188,7 @@ function renderComboNote() {
 }
 $('#matSel').onchange = renderComboNote;
 $('#sheathSel').onchange = renderComboNote;
+$('#hiltSel').onchange = () => { renderComboNote(); if (!F.active && !F.showDone) F.dirty = true; };
 
 /* VRM */
 $('#vrmFile').onchange = async e => {

@@ -41,6 +41,7 @@ section.tab.on{display:block}
 .muted{color:var(--muted);font-size:13px;line-height:1.6}
 select,textarea,input[type=text]{font:inherit;color:var(--text);background:#17130f;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
 textarea{width:100%;min-height:150px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5}
+.pick{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
 label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{border:0;border-radius:0;padding:6px 11px;font-size:13px}
@@ -166,15 +167,11 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
         <div class="panel">
           <h2>鍛造台</h2>
           <div class="row" style="margin-bottom:10px">
-            <span class="muted">型</span>
-            <select id="typeSel"></select>
-            <select id="pairSel" aria-label="取り数"><option value="1">1振り</option><option value="2">2振り（1枚から）</option></select>
-            <span class="muted">材料</span>
-            <select id="matSel"></select>
-            <span class="muted">持ち手</span>
-            <select id="hiltSel"></select>
-            <span class="muted">鞘</span>
-            <select id="sheathSel"></select>
+            <span class="pick"><span class="muted">型</span><select id="typeSel"></select></span>
+            <span class="pick"><select id="pairSel" aria-label="取り数"><option value="1">1振り</option><option value="2">2振り（1枚から）</option></select></span>
+            <span class="pick"><span class="muted">材料</span><select id="matSel"></select></span>
+            <span class="pick"><span class="muted">持ち手</span><select id="hiltSel"></select></span>
+            <span class="pick"><span class="muted">鞘</span><select id="sheathSel"></select></span>
           </div>
           <div class="muted" id="comboNote" style="margin:-4px 0 10px;font-size:12.5px"></div>
           <div class="row" style="margin-bottom:10px">

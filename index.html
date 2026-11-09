@@ -168,6 +168,14 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
           <div class="row" style="margin-bottom:10px">
             <span class="muted">型</span>
             <select id="typeSel"></select>
+            <span class="muted">材料</span>
+            <select id="matSel"></select>
+            <span class="muted">鞘</span>
+            <select id="sheathSel"></select>
+          </div>
+          <div class="muted" id="comboNote" style="margin:-4px 0 10px;font-size:12.5px"></div>
+          <div class="row" style="margin-bottom:10px">
+            <label class="chk"><input type="checkbox" id="mouseMode"> マウス操作（ボタンを押さずに鉱石が付いてくる・ホイールで砥石の角度）</label>
           </div>
           <div class="row" style="margin-bottom:10px">
             <span class="muted">砥石</span>
@@ -353,6 +361,45 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 小砥石 | 円 | 7 | 14 |
 | 平砥石 | 帯 | 10 | 18 |
 | 尖り砥石 | 三角 | 12 | 10 |
+
+## 材料
+
+鍛造を始める前に選ぶ鉱石の種類です。どれも鍛造コストの鉱石を使い、「追加の金」も払います。
+硬さは削りにくさです（砥石の「削る速さ」を硬さで割ります）。属性を持つ材料は、その属性の確率を「属性の出やすさ」倍にします。属性が無い材料は「-」と書きます。
+
+| 材料 | 色 | 硬さ | 攻撃倍率 | 速度倍率 | 属性 | 属性の出やすさ | 追加の金 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 鉄 | #5c6270 | 1.0 | 1.0 | 1.0 | - | 1 | 0 |
+| 銅 | #b5754a | 0.7 | 0.9 | 1.15 | 雷 | 4 | 10 |
+| 黒鉄 | #34373e | 1.6 | 1.25 | 0.9 | - | 1 | 30 |
+| 紅鉄 | #9a4a3e | 1.0 | 1.05 | 1.0 | 炎 | 4 | 20 |
+| 青晶 | #6f9fbf | 0.85 | 1.0 | 1.05 | 氷 | 4 | 20 |
+
+## 鞘
+
+鍛造を始める前に選ぶ鞘です。完成した剣に、効果が 1 つ付きます。
+効果に書けるのは「なし」「攻撃」「速度」「会心」「防御」「スキル」「属性」「売値」です。攻撃・速度・スキル・売値は %、会心は %（加算）、防御はそのままの値、属性は属性レベルの加算です。
+
+| 鞘 | 色 | 効果 | 値 | 説明 |
+| --- | --- | --- | --- | --- |
+| 木の鞘 | #8a6a45 | なし | 0 | 軽くて素朴な鞘 |
+| 革の鞘 | #6b4a32 | 速度 | 5 | 抜きやすく、攻撃速度が少し上がる |
+| 鋼の鞘 | #8d96a3 | 防御 | 2 | 盾がわりにもなる |
+| 漆の鞘 | #3a1f1f | 会心 | 3 | 刃を乱さず、会心が出やすい |
+| 銀の鞘 | #d9dee5 | スキル | 10 | スキルの効き目が上がる |
+
+## 鞘と材料の組み合わせ
+
+相性の良い組み合わせで鍛えると、「確率」の割合で共鳴が起きます。共鳴すると、剣に銘が刻まれ、効果が上乗せされます。効果の書き方は鞘と同じです。
+
+| 鞘 | 材料 | 銘 | 確率 | 効果 | 値 |
+| --- | --- | --- | --- | --- | --- |
+| 漆の鞘 | 紅鉄 | 紅蓮 | 60 | 属性 | 1 |
+| 銀の鞘 | 青晶 | 月影 | 60 | 会心 | 6 |
+| 鋼の鞘 | 黒鉄 | 不動 | 60 | 防御 | 4 |
+| 革の鞘 | 銅 | 迅雷 | 60 | 速度 | 12 |
+| 木の鞘 | 鉄 | 素朴 | 100 | 売値 | 50 |
+| 銀の鞘 | 黒鉄 | 白黒 | 30 | 攻撃 | 15 |
 
 ## 属性
 
@@ -577,7 +624,22 @@ function buildBalance(text) {
     name: r['砥石'], shape: ['円', '帯', '三角'].includes(r['形']) ? r['形'] : '円',
     size: clamp(num(r['大きさ'], '砥石/大きさ'), 3, 30), speed: clamp(num(r['削る速さ'], '砥石/削る速さ'), 2, 80)
   })).filter(x => x.name) : null;
-  return { rarities, base, types, elements, affinity, skills, match, cost, stones };
+  // 材料・鞘・組み合わせも任意（無ければ「鉄」「木の鞘」だけになる）
+  const eff = v => EFFECT_KINDS.includes(v) ? v : 'なし';
+  const elemOf = v => v && v !== '-' && v !== '無' ? v : null;
+  const materials = s['材料'] ? s['材料'].rows.filter(r => r['材料']).map(r => ({
+    name: r['材料'], color: r['色'] || '#5c6270', hard: clamp(num(r['硬さ'], '材料/硬さ'), .2, 5),
+    atk: num(r['攻撃倍率'], '材料/攻撃倍率'), spd: num(r['速度倍率'], '材料/速度倍率'),
+    elem: elemOf(r['属性']), elemW: num(r['属性の出やすさ'] || '1', '材料/属性の出やすさ'), gold: num(r['追加の金'] || '0', '材料/追加の金')
+  })) : null;
+  const sheaths = s['鞘'] ? s['鞘'].rows.filter(r => r['鞘']).map(r => ({
+    name: r['鞘'], color: r['色'] || '#8a6a45', eff: eff(r['効果']), val: num(r['値'] || '0', '鞘/値'), desc: r['説明'] || ''
+  })) : null;
+  const combos = s['鞘と材料の組み合わせ'] ? s['鞘と材料の組み合わせ'].rows.filter(r => r['鞘'] && r['材料']).map(r => ({
+    sheath: r['鞘'], mat: r['材料'], mei: r['銘'] || '無銘', p: clamp(num(r['確率'], '組み合わせ/確率'), 0, 100),
+    eff: eff(r['効果']), val: num(r['値'] || '0', '組み合わせ/値')
+  })) : [];
+  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos };
 }
 function buildFusion(text) {
   const s = parseMdTables(text);
@@ -634,7 +696,7 @@ function detectDefKind(name, text) {
    セーブデータ
    ========================================================= */
 const SAVE_KEY = 'mdforge.save.v1';
-const S = { gold: 30, ore: 12, star: 0, weapons: [], equipped: null, wave: 1, maxWave: 0, serial: 0 };
+const S = { gold: 30, ore: 12, star: 0, weapons: [], equipped: null, wave: 1, maxWave: 0, serial: 0, found: {} };
 function loadSave() {
   const raw = store.get(SAVE_KEY); if (!raw) return;
   try { Object.assign(S, JSON.parse(raw)); } catch (e) {}
@@ -752,34 +814,74 @@ function rarityWeights(match, useStar) {
   if (useStar) bonus += B.cost['星鉄の補正'] / 100;
   return B.rarities.map((r, i) => ({ r, w: i === 0 ? r.w : r.w * (1 + bonus) }));
 }
-function rollWeapon({ type, match, useStar, outline }) {
+/* 材料・鞘 */
+const EFFECT_KINDS = ['なし', '攻撃', '速度', '会心', '防御', 'スキル', '属性', '売値'];
+const DEFAULT_MAT = { name: '鉄', color: '#5c6270', hard: 1, atk: 1, spd: 1, elem: null, elemW: 1, gold: 0 };
+const DEFAULT_SHEATH = { name: '木の鞘', color: '#8a6a45', eff: 'なし', val: 0, desc: '' };
+function materials() { const l = DEFS.balance.materials; return l && l.length ? l : [DEFAULT_MAT]; }
+function sheaths() { const l = DEFS.balance.sheaths; return l && l.length ? l : [DEFAULT_SHEATH]; }
+function matByName(n) { return materials().find(m => m.name === n) || materials()[0]; }
+function sheathByName(n) { return sheaths().find(m => m.name === n) || sheaths()[0]; }
+function comboFor(sheath, mat) { return (DEFS.balance.combos || []).find(c => c.sheath === sheath && c.mat === mat) || null; }
+function effLabel(kind, v) {
+  return { '攻撃': `攻撃 +${v}%`, '速度': `速度 +${v}%`, '会心': `会心 +${v}%`, '防御': `防御 +${v}`, 'スキル': `スキル効果 +${v}%`, '属性': `属性 Lv+${v}`, '売値': `売値 +${v}%` }[kind] || '効果なし';
+}
+function applyEffect(w, kind, v) {
+  if (kind === '攻撃') w.atk = Math.max(1, Math.round(w.atk * (1 + v / 100)));
+  else if (kind === '速度') w.spd = r2(w.spd * (1 + v / 100));
+  else if (kind === '会心') w.crit = r1(w.crit + v);
+  else if (kind === '防御') w.def0 = (w.def0 || 0) + v;
+  else if (kind === 'スキル') w.skillVal = r1(w.skillVal * (1 + v / 100));
+  else if (kind === '売値') w.priceBonus = (w.priceBonus || 0) + v;
+  else if (kind === '属性') {
+    // 材料に属性があれば、剣の属性は材料の属性に染まる。そのうえでレベルが上がる
+    if (w.matElem && w.elem !== w.matElem) { w.elem = w.matElem; w.elemLv = 0; }
+    if (w.elem !== '無') w.elemLv = Math.min(DEFS.fusion.limits['属性レベルの上限'], w.elemLv + v);
+  }
+}
+function sellPrice(w) { return Math.round((rarityInfo(w.rarity).price + w.f.count * 5) * (1 + (w.priceBonus || 0) / 100)); }
+function rollWeapon({ type, match, useStar, outline, mat, sheath }) {
   const B = DEFS.balance;
+  mat = mat || materials()[0]; sheath = sheath || sheaths()[0];
   const t = B.types.find(x => x.name === type) || B.types[0];
   const rar = pickWeighted(rarityWeights(match, useStar), x => x.w).r;
-  const el = pickWeighted(B.elements, x => x.w);
+  const el = pickWeighted(B.elements, x => x.w * (mat.elem && x.name === mat.elem ? mat.elemW : 1));
   const sk = pickWeighted(B.skills, x => x.w);
   const g = guideFor(type);
   S.serial = (S.serial || 0) + 1;
-  return {
+  const w = {
     id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     no: S.serial,
-    name: (ELEM_PREFIX[el.name] || '') + type,
+    name: '',
     type, rarity: rar.name, match: r1(match),
-    atk: Math.max(1, Math.round(rand(B.base['攻撃力'].min, B.base['攻撃力'].max) * rar.atk * t.atk)),
-    spd: r2(rand(B.base['攻撃速度'].min, B.base['攻撃速度'].max) * t.spd),
+    atk: Math.max(1, Math.round(rand(B.base['攻撃力'].min, B.base['攻撃力'].max) * rar.atk * t.atk * mat.atk)),
+    spd: r2(rand(B.base['攻撃速度'].min, B.base['攻撃速度'].max) * t.spd * mat.spd),
     crit: r1(rand(B.base['会心率'].min, B.base['会心率'].max) + t.crit),
     elem: el.name, elemLv: el.name === '無' ? 0 : 1,
     skill: sk.name, skillVal: r1(sk.base * rar.skill),
     f: { atk: 0, crit: 0, def: 0, skill: 0, count: 0 },
     fuseLog: [],
-    outline, grip: g.grip, star: !!useStar
+    outline, grip: g.grip, star: !!useStar,
+    mat: mat.name, matColor: mat.color, matElem: mat.elem, sheath: sheath.name, sheathColor: sheath.color, mei: null, notes: []
   };
+  applyEffect(w, sheath.eff, sheath.val);
+  w.notes.push(`鞘「${sheath.name}」：${effLabel(sheath.eff, sheath.val)}`);
+  const c = comboFor(sheath.name, mat.name);
+  if (c) {
+    if (Math.random() * 100 < c.p) {
+      w.mei = c.mei; applyEffect(w, c.eff, c.val);
+      w.notes.push(`共鳴！ 銘「${c.mei}」：${effLabel(c.eff, c.val)}`);
+      S.found = S.found || {}; S.found[c.sheath + '|' + c.mat] = true;
+    } else w.notes.push('鞘と材料が震えたが、共鳴しなかった');
+  }
+  w.name = (w.mei ? `「${w.mei}」` : '') + (ELEM_PREFIX[w.elem] || '') + type;
+  return w;
 }
 function rarityInfo(name) { return DEFS.balance.rarities.find(r => r.name === name) || { color: '#ccc', price: 10, atk: 1, skill: 1 }; }
 function elemColor(name) { const e = DEFS.balance.elements.find(x => x.name === name); return e ? e.color : '#ddd'; }
 function effStats(w) {
   return {
-    atk: w.atk + w.f.atk, spd: w.spd, crit: r1(w.crit + w.f.crit), def: w.f.def,
+    atk: w.atk + w.f.atk, spd: w.spd, crit: r1(w.crit + w.f.crit), def: (w.def0 || 0) + w.f.def,
     elem: w.elem, elemLv: w.elemLv, skill: w.skill, skillVal: r1(w.skillVal * (1 + w.f.skill / 100))
   };
 }
@@ -798,6 +900,7 @@ function drawWeaponIcon(cv, w) {
   grad.addColorStop(0, '#6b7280'); grad.addColorStop(.45, '#e5e7eb'); grad.addColorStop(.55, '#f8fafc'); grad.addColorStop(1, '#6b7280');
   g.beginPath(); w.outline.forEach(([x, y], i) => i ? g.lineTo(ox + x * s, oy + y * s) : g.moveTo(ox + x * s, oy + y * s)); g.closePath();
   g.fillStyle = grad; g.fill();
+  if (w.matColor) { g.globalAlpha = .3; g.fillStyle = w.matColor; g.fill(); g.globalAlpha = 1; }
   if (w.elem !== '無') { g.globalAlpha = .28 + .06 * w.elemLv; g.fillStyle = elemColor(w.elem); g.fill(); g.globalAlpha = 1; }
   g.lineWidth = 1.2; g.strokeStyle = rarityInfo(w.rarity).color; g.stroke();
 }
@@ -812,6 +915,7 @@ function weaponCardHTML(w, acts) {
       <div class="name"><span class="rar" style="background:${esc(ri.color)}">${esc(w.rarity)}</span>${esc(w.name)}
         ${w.elem !== '無' ? `<span class="elem" style="color:${esc(elemColor(w.elem))}">${esc(w.elem)} Lv${w.elemLv}</span>` : ''}</div>
       <div class="muted" style="font-size:12px">No.${w.no} ・完成度 ${w.match}% ・合成 ${w.f.count}回</div>
+      ${w.mat ? `<div class="muted" style="font-size:12px">${esc(w.mat)}・<span style="display:inline-block;width:.8em;height:.8em;border-radius:2px;vertical-align:-1px;background:${esc(w.sheathColor || '#8a6a45')}"></span> ${esc(w.sheath)}${w.mei ? `・銘「${esc(w.mei)}」` : ''}</div>` : ''}
       <div class="kv">
         <span>攻撃</span><b>${e.atk}${pl(w.f.atk)}</b>
         <span>速度</span><b>${e.spd}</b>
@@ -834,7 +938,7 @@ const F = {
   active: false, showDone: false, mask: new Uint8Array(GW * GH), start: null, heat: new Float32Array(GW * GH),
   shade: new Float32Array(GW * GH), vein: new Uint8Array(GW * GH),
   sparks: [], drawing: false, lastPt: null, dirty: true, match: 0, lastMatchAt: 0,
-  ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null, angle: 0
+  ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null, angle: 0, mat: null, sheath: null
 };
 const WW = 96, WH = 150;          // 作業台の広さ（マス）
 const STONE_X = 72, STONE_Y = 75; // 砥石の位置（マス）
@@ -862,7 +966,10 @@ function placeOre() {
   const B = DEFS.balance;
   if (S.weapons.length >= B.cost['武器庫の上限']) return toast('武器庫がいっぱいです。武器庫で売ってから鍛造してください');
   if (S.ore < B.cost['鉱石']) return toast(`鉱石が足りません（必要 ${B.cost['鉱石']}）。バトルで集めるか、買ってください`);
-  S.ore -= B.cost['鉱石']; save(); updateRes();
+  const mat = selMat();
+  if (S.gold < mat.gold) return toast(`${mat.name} には ${mat.gold}G 要ります（所持 ${Math.floor(S.gold)}G）`);
+  S.ore -= B.cost['鉱石']; S.gold -= mat.gold; save(); updateRes();
+  F.mat = mat; F.sheath = selSheath(); F.oreRGB = hexRGB(mat.color);
   F.mask = makeOre(); F.start = F.mask.slice(); F.heat.fill(0); F.sparks = [];
   [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; F.contact = 0;
   F.active = true; F.showDone = false; F.dirty = true; F.match = iou(F.mask, guideMask(forgeType()));
@@ -874,6 +981,7 @@ function syncForgeButtons() {
   $('#btnDone').disabled = !F.active; $('#btnRedo').disabled = !F.active;
   ['#btnFlipX', '#btnFlipY', '#btnHome'].forEach(s => $(s).disabled = !F.active);
   $('#btnPlace').disabled = F.active; $('#btnAuto').disabled = F.active; $('#typeSel').disabled = F.active;
+  $('#matSel').disabled = F.active; $('#sheathSel').disabled = F.active;
   const B = DEFS.balance;
   $('#costNote').textContent = `鍛造1回で鉱石 ${B.cost['鉱石']} を使います（鉱石は ${B.cost['鉱石の値段']}G で買えます）。星鉄を使うと、良いレアリティが出やすくなります。`;
   $('#btnBuyOre').textContent = `鉱石を買う (${B.cost['鉱石の値段']}G)`;
@@ -966,7 +1074,7 @@ function forgeStep(dt) {
   const s = currentStone();
   const dx = F.tx - F.ox, dy = F.ty - F.oy, d = Math.hypot(dx, dy);
   if (d < 1e-3) return;
-  const move = Math.min(d, (F.contact > 0 ? s.speed : 400) * dt);
+  const move = Math.min(d, (F.contact > 0 ? s.speed / (F.mat ? F.mat.hard : 1) : 400) * dt);
   const steps = Math.max(1, Math.ceil(move / .5));
   for (let k = 0; k < steps; k++) {
     F.ox += dx / d * move / steps; F.oy += dy / d * move / steps;
@@ -976,13 +1084,19 @@ function forgeStep(dt) {
 function clampTarget() {
   F.tx = clamp(F.tx, -GW + 8, WW - 8); F.ty = clamp(F.ty, -GH + 8, WH - 8);
 }
+/* マウス操作：チェックを入れると、ボタンを押さなくても鉱石がマウスの動きに付いてくる（初期はオフ） */
+let mouseMode = false;
+try { mouseMode = store.get('mdforge.mouseMode') === '1'; } catch (e) {}
+const isMouseFollow = e => mouseMode && e.pointerType === 'mouse';
 fc.addEventListener('pointerdown', e => {
-  if (!F.active) return; e.preventDefault();
+  if (!F.active || isMouseFollow(e)) return; e.preventDefault();
   try { fc.setPointerCapture(e.pointerId); } catch (err) {}
   F.drawing = true; F.lastPt = { x: e.clientX, y: e.clientY };
 });
 fc.addEventListener('pointermove', e => {
-  if (!F.drawing) return;
+  if (isMouseFollow(e) && F.active) {
+    if (!F.lastPt) { F.lastPt = { x: e.clientX, y: e.clientY }; return; }
+  } else if (!F.drawing) return;
   const r = fc.getBoundingClientRect();
   F.tx += (e.clientX - F.lastPt.x) * WW / r.width; F.ty += (e.clientY - F.lastPt.y) * WH / r.height;
   F.lastPt = { x: e.clientX, y: e.clientY };
@@ -995,6 +1109,25 @@ fc.addEventListener('pointermove', e => {
 });
 const endDraw = () => { if (F.drawing) { F.drawing = false; F.tx = F.ox; F.ty = F.oy; updateMatch(true); } };
 fc.addEventListener('pointerup', endDraw); fc.addEventListener('pointercancel', endDraw);
+fc.addEventListener('pointerleave', e => {
+  if (!isMouseFollow(e)) return;
+  F.lastPt = null; F.tx = F.ox; F.ty = F.oy; updateMatch(true);
+});
+fc.addEventListener('wheel', e => {
+  if (!mouseMode || currentStone().shape === '円') return;
+  e.preventDefault(); setStoneAngle(F.angle + (e.deltaY > 0 ? 5 : -5));
+}, { passive: false });
+function syncMouseMode() {
+  $('#mouseMode').checked = mouseMode;
+  fc.style.cursor = mouseMode ? 'crosshair' : '';
+  F.lastPt = null; F.drawing = false;
+}
+$('#mouseMode').onchange = e => {
+  mouseMode = e.target.checked;
+  try { store.set('mdforge.mouseMode', mouseMode ? '1' : '0'); } catch (err) {}
+  syncMouseMode();
+};
+syncMouseMode();
 document.addEventListener('keydown', e => {
   if (activeTab !== 'forge' || !F.active || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); return setStoneAngle(F.angle - 15); }
@@ -1107,7 +1240,8 @@ function drawForge(dt) {
       const o = i * 4;
       if (!F.mask[i]) { d[o + 3] = 0; continue; }
       const s = F.shade[i], h = F.heat[i];
-      let r = 92 * s, g = 98 * s, b = 110 * s;
+      const oc = F.oreRGB || [92, 98, 110];
+      let r = oc[0] * s, g = oc[1] * s, b = oc[2] * s;
       if (F.vein[i]) { r = 200; g = 170; b = 110; }
       r = r + (255 - r) * h; g = g + (150 - g) * h; b = b + (50 - b) * h;
       d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
@@ -1151,8 +1285,10 @@ function finishForge(mask, auto) {
   const outline = traceOutline(comp.mask);
   const useStar = $('#useStar').checked && S.star > 0;
   if (useStar) S.star--;
-  const w = rollWeapon({ type, match, useStar, outline });
+  const w = rollWeapon({ type, match, useStar, outline, mat: F.mat || selMat(), sheath: F.sheath || selSheath() });
   w.auto = !!auto;
+  if (w.mei) toast(`共鳴！ 銘「${w.mei}」が刻まれました`);
+  renderComboNote();
   S.weapons.unshift(w);
   if (!S.equipped) S.equipped = w.id;
   save(); updateRes();
@@ -1172,6 +1308,7 @@ function showForgeResult(w) {
   $('#forgeResultPanel').style.display = '';
   $('#forgeResult').innerHTML = weaponCardHTML(w,
     `${S.equipped === w.id ? '' : `<button class="small" data-act="equip" data-id="${w.id}">装備する</button>`}<button class="small" data-act="tofuse" data-id="${w.id}">合成へ</button>`) +
+    (w.notes && w.notes.length ? `<div style="margin:8px 0 0;font-size:13px">${w.notes.map(n => `<div${n.startsWith('共鳴') ? ' style="color:#ffc247;font-weight:700"' : ''}>${esc(n)}</div>`).join('')}</div>` : '') +
     `<p class="muted" style="margin:8px 0 0">${w.auto ? '自動鍛造' : '手で鍛造'}・完成度 ${w.match}%${w.star ? '・星鉄使用' : ''}。抽選は balance.md の定義に従いました。</p>`;
   hydrateIcons($('#forgeResult'));
 }
@@ -1179,7 +1316,10 @@ function autoForge() {
   const B = DEFS.balance;
   if (S.weapons.length >= B.cost['武器庫の上限']) return toast('武器庫がいっぱいです。武器庫で売ってから鍛造してください');
   if (S.ore < B.cost['鉱石']) return toast(`鉱石が足りません（必要 ${B.cost['鉱石']}）`);
-  S.ore -= B.cost['鉱石'];
+  const mat = selMat();
+  if (S.gold < mat.gold) return toast(`${mat.name} には ${mat.gold}G 要ります（所持 ${Math.floor(S.gold)}G）`);
+  S.ore -= B.cost['鉱石']; S.gold -= mat.gold;
+  F.mat = mat; F.sheath = selSheath(); F.oreRGB = hexRGB(mat.color);
   // ガイドの形を元に、輪郭を少し乱した形を自動で作る
   const g = guideMask(forgeType()); let m = g.slice();
   for (let pass = 0; pass < 2; pass++) {
@@ -1302,7 +1442,7 @@ function doFuse() {
   const er = g.elemResult; let elemMsg = '';
   if (er && er.kind !== 'mismatch') {
     const was = w.elem; w.elem = er.elem; w.elemLv = er.lv;
-    if (was === '無') w.name = (ELEM_PREFIX[er.elem] || '') + w.type;
+    if (was === '無') w.name = (w.mei ? `「${w.mei}」` : '') + (ELEM_PREFIX[er.elem] || '') + w.type;
     elemMsg = er.kind === 'new' ? `属性「${er.elem}」が付きました（Lv${er.lv}）` : `属性「${er.elem}」が Lv${er.lv} に強くなりました`;
   } else if (er) elemMsg = `属性キーワード「${er.elem}」は武器の属性（${w.elem}）と違うため付きませんでした`;
   const after = effStats(w);
@@ -1349,7 +1489,7 @@ function renderArmory() {
   $('#armoryCount').textContent = `${S.weapons.length} / ${cap}`;
   if (!S.weapons.length) { $('#armory').innerHTML = '<p class="muted">まだ武器がありません。「鍛造」タブで作りましょう。</p>'; return; }
   $('#armory').innerHTML = S.weapons.map(w => {
-    const price = rarityInfo(w.rarity).price + w.f.count * 5;
+    const price = sellPrice(w);
     return weaponCardHTML(w,
       `${S.equipped === w.id ? '' : `<button class="small" data-act="equip" data-id="${w.id}">装備</button>`}
        <button class="small" data-act="tofuse" data-id="${w.id}">合成へ</button>
@@ -1363,7 +1503,7 @@ document.addEventListener('click', e => {
   if (b.dataset.act === 'equip') { S.equipped = w.id; save(); renderAll(); battle.onWeaponChanged(); toast(`${w.name} を装備しました`); }
   if (b.dataset.act === 'tofuse') { showTab('fusion'); $('#fuseTarget').value = w.id; $('#fuseTarget').onchange(); }
   if (b.dataset.act === 'sell') {
-    const price = rarityInfo(w.rarity).price + w.f.count * 5;
+    const price = sellPrice(w);
     if (!confirm(`${w.name}（${w.rarity}）を ${price}G で売りますか？`)) return;
     S.weapons = S.weapons.filter(x => x !== w);
     if (S.equipped === w.id) S.equipped = S.weapons[0] ? S.weapons[0].id : null;
@@ -1687,7 +1827,7 @@ async function make3DRenderer(container) {
       return { up, lo, hand };
     };
     const R = arm(-1), L = arm(1);
-    return { root, isVRM: false, bones: { rightUpperArm: R.up, rightLowerArm: R.lo, rightHand: R.hand, leftUpperArm: L.up, leftLowerArm: L.lo, spine, head } };
+    return { root, isVRM: false, bones: { rightUpperArm: R.up, rightLowerArm: R.lo, rightHand: R.hand, leftUpperArm: L.up, leftLowerArm: L.lo, spine, head, hips } };
   }
   function setHero(h) {
     if (hero) heroHolder.remove(hero.root);
@@ -1704,7 +1844,7 @@ async function make3DRenderer(container) {
     geo.translate(0, 0, -depth / 2); geo.computeVertexNormals();
     const ec = new THREE.Color(w.elem !== '無' ? elemColor(w.elem) : '#ffffff');
     const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color('#dfe5ec').lerp(ec, w.elem !== '無' ? .25 : 0), metalness: .9, roughness: .22,
+      color: new THREE.Color('#dfe5ec').lerp(new THREE.Color(w.matColor || '#dfe5ec'), .3).lerp(ec, w.elem !== '無' ? .25 : 0), metalness: .9, roughness: .22,
       emissive: w.elem !== '無' ? ec : new THREE.Color(0), emissiveIntensity: w.elem !== '無' ? .12 + .08 * w.elemLv : 0
     });
     const m = new THREE.Mesh(geo, mat); m.castShadow = true;
@@ -1716,10 +1856,29 @@ async function make3DRenderer(container) {
     const glow = new THREE.PointLight(rc, ['SSR', 'UR'].includes(w.rarity) ? .8 : 0, 1.6); glow.position.set(0, 0, lenCells * .5); g.add(glow);
     return g;
   }
+  /* 鞘：刀身の長さに合わせた細長い箱を、左の腰に斜めに差す */
+  let sheathMesh = null;
+  function buildSheathMesh(w) {
+    if (!w || !w.outline) return null;
+    const len = ({ '大剣': 1.15, '短剣': .62 }[w.type] || .95) * .82;
+    const col = new THREE.Color(w.sheathColor || '#8a6a45');
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(.085, len, .045), new THREE.MeshStandardMaterial({ color: col, metalness: .35, roughness: .5 }));
+    body.position.y = -len / 2; body.castShadow = true; g.add(body);
+    const fit = new THREE.MeshStandardMaterial({ color: new THREE.Color('#c9a64a'), metalness: .8, roughness: .3 });
+    const mouth = new THREE.Mesh(new THREE.BoxGeometry(.085, .04, .045), fit); g.add(mouth);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(.08, .05, .042), fit); tip.position.y = -len; g.add(tip);
+    if (w.mei) { const l = new THREE.PointLight(new THREE.Color('#ffc247'), .5, .8); l.position.y = -len / 2; g.add(l); }
+    g.position.set(.17, .02, -.02); g.rotation.set(.75, 0, .15); // 鞘の先は後ろ下へ
+    return g;
+  }
   function attachWeapon() {
     if (weaponMesh && weaponMesh.parent) weaponMesh.parent.remove(weaponMesh);
     weaponMesh = buildWeaponMesh(currentWeapon);
     if (weaponMesh && hero && hero.bones.rightHand) hero.bones.rightHand.add(weaponMesh);
+    if (sheathMesh && sheathMesh.parent) sheathMesh.parent.remove(sheathMesh);
+    sheathMesh = buildSheathMesh(currentWeapon);
+    if (sheathMesh && hero && hero.bones.hips) hero.bones.hips.add(sheathMesh);
   }
   setHero(buildPrimitiveHero());
 
@@ -1785,7 +1944,7 @@ async function make3DRenderer(container) {
     VRMLib.VRMUtils.removeUnnecessaryVertices(gltf.scene);
     VRMLib.VRMUtils.rotateVRM0(v);
     v.scene.traverse(o => { o.frustumCulled = false; if (o.isMesh) o.castShadow = true; });
-    const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'spine', 'head'];
+    const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'spine', 'head', 'hips'];
     const bones = {};
     for (const n of names) bones[n] = v.humanoid.getNormalizedBoneNode(n);
     if (!bones.rightHand) throw new Error('右手のボーンが見つかりません');
@@ -1892,8 +2051,33 @@ function populateTypes() {
   const cur = $('#typeSel').value;
   $('#typeSel').innerHTML = DEFS.balance.types.filter(t => GUIDES[t.name]).map(t => `<option>${esc(t.name)}</option>`).join('');
   if (cur && GUIDES[cur]) $('#typeSel').value = cur;
-  renderStoneSel();
+  const cm = $('#matSel').value, cs = $('#sheathSel').value;
+  $('#matSel').innerHTML = materials().map(m => `<option value="${esc(m.name)}">${esc(m.name)}${m.gold ? `（+${m.gold}G）` : ''}</option>`).join('');
+  $('#sheathSel').innerHTML = sheaths().map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
+  if (materials().some(m => m.name === cm)) $('#matSel').value = cm;
+  if (sheaths().some(m => m.name === cs)) $('#sheathSel').value = cs;
+  renderStoneSel(); renderComboNote();
 }
+
+/* 材料・鞘の選択 */
+function selMat() { return matByName($('#matSel').value); }
+function selSheath() { return sheathByName($('#sheathSel').value); }
+function hexRGB(h) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return [92, 98, 110];
+  const n = parseInt(m[1], 16); return [n >> 16 & 255, n >> 8 & 255, n & 255];
+}
+function renderComboNote() {
+  const m = selMat(), sh = selSheath(), c = comboFor(sh.name, m.name);
+  const parts = [];
+  parts.push(`${m.name}：硬さ ${m.hard}${m.atk !== 1 ? `・攻撃 ×${m.atk}` : ''}${m.spd !== 1 ? `・速度 ×${m.spd}` : ''}${m.elem ? `・${m.elem}が出やすい` : ''}`);
+  parts.push(`${sh.name}：${effLabel(sh.eff, sh.val)}`);
+  let combo = '';
+  if (c && S.found && S.found[c.sheath + '|' + c.mat]) combo = `<div style="color:#ffc247">この組み合わせは共鳴したことがある：銘「${esc(c.mei)}」${c.p}%・${esc(effLabel(c.eff, c.val))}</div>`;
+  else if (c) combo = '<div style="color:#ffc247">鞘と材料が、かすかに響き合っている…</div>';
+  $('#comboNote').innerHTML = esc(parts.join(' ／ ')) + combo;
+}
+$('#matSel').onchange = renderComboNote;
+$('#sheathSel').onchange = renderComboNote;
 
 /* VRM */
 $('#vrmFile').onchange = async e => {

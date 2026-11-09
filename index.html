@@ -174,6 +174,14 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
             <span class="seg" id="stoneSeg"></span>
           </div>
           <div class="row" style="margin-bottom:10px">
+            <span class="muted">角度</span>
+            <button class="small" id="btnRotL" title="左へ 15° 回す（Q キー）">↺</button>
+            <input type="range" id="stoneAngle" min="-180" max="180" step="5" value="0" style="flex:1;min-width:90px" aria-label="砥石の角度">
+            <button class="small" id="btnRotR" title="右へ 15° 回す（E キー）">↻</button>
+            <span id="stoneAngleVal" style="min-width:3.2em;text-align:right">0°</span>
+            <button class="small" id="btnRot0">0°</button>
+          </div>
+          <div class="row" style="margin-bottom:10px">
             <span class="muted">持ち替え</span>
             <button class="small" id="btnFlipX">左右</button>
             <button class="small" id="btnFlipY">上下</button>
@@ -826,7 +834,7 @@ const F = {
   active: false, showDone: false, mask: new Uint8Array(GW * GH), start: null, heat: new Float32Array(GW * GH),
   shade: new Float32Array(GW * GH), vein: new Uint8Array(GW * GH),
   sparks: [], drawing: false, lastPt: null, dirty: true, match: 0, lastMatchAt: 0,
-  ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null
+  ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null, angle: 0
 };
 const WW = 96, WH = 150;          // 作業台の広さ（マス）
 const STONE_X = 72, STONE_Y = 75; // 砥石の位置（マス）
@@ -881,13 +889,25 @@ const DEFAULT_STONES = [
 ];
 function stones() { return (DEFS.balance && DEFS.balance.stones && DEFS.balance.stones.length) ? DEFS.balance.stones : DEFAULT_STONES; }
 function currentStone() { const l = stones(); return l.find(s => s.name === F.stoneName) || l[0]; }
+/* 形は「角度 0°」の向きで作り、砥石の中心 (STONE_X, STONE_Y) を軸に g.th だけ回して置く */
 function stoneGeom(s) {
-  const z = s.size;
-  if (s.shape === '帯') { const w = z, h = z * 5.5; return { kind: 'belt', x0: STONE_X - w / 2, x1: STONE_X + w / 2, y0: STONE_Y - h / 2, y1: STONE_Y + h / 2, r: w * .3 }; }
-  if (s.shape === '三角') { const L = z * 2.2, H = z * 1.3; return { kind: 'tri', ax: STONE_X - L * .6, ay: STONE_Y, bx: STONE_X + L * .4, by: STONE_Y - H, cx: STONE_X + L * .4, cy: STONE_Y + H }; }
-  return { kind: 'circle', cx: STONE_X, cy: STONE_Y, r: z };
+  const z = s.size, th = F.angle * Math.PI / 180, base = { th, c: Math.cos(th), s: Math.sin(th) };
+  if (s.shape === '帯') { const w = z, h = z * 5.5; return { ...base, kind: 'belt', x0: STONE_X - w / 2, x1: STONE_X + w / 2, y0: STONE_Y - h / 2, y1: STONE_Y + h / 2, r: w * .3 }; }
+  if (s.shape === '三角') { const L = z * 2.2, H = z * 1.3; return { ...base, kind: 'tri', ax: STONE_X - L * .6, ay: STONE_Y, bx: STONE_X + L * .4, by: STONE_Y - H, cx: STONE_X + L * .4, cy: STONE_Y + H }; }
+  return { ...base, kind: 'circle', cx: STONE_X, cy: STONE_Y, r: z };
 }
-function inStone(g, px, py) {
+/* 作業台の座標 → 砥石の向き 0° の座標 */
+function toStone(g, px, py) {
+  const dx = px - STONE_X, dy = py - STONE_Y;
+  return [STONE_X + dx * g.c + dy * g.s, STONE_Y - dx * g.s + dy * g.c];
+}
+/* 砥石の向き 0° の座標 → 作業台の座標 */
+function fromStone(g, x, y) {
+  const dx = x - STONE_X, dy = y - STONE_Y;
+  return [STONE_X + dx * g.c - dy * g.s, STONE_Y + dx * g.s + dy * g.c];
+}
+function inStone(g, wx, wy) {
+  const [px, py] = toStone(g, wx, wy);
   if (g.kind === 'circle') return (px - g.cx) ** 2 + (py - g.cy) ** 2 <= g.r * g.r;
   if (g.kind === 'belt') {
     const qx = clamp(px, g.x0 + g.r, g.x1 - g.r), qy = clamp(py, g.y0 + g.r, g.y1 - g.r);
@@ -900,8 +920,9 @@ function inStone(g, px, py) {
 }
 function stoneBox(g) {
   if (g.kind === 'circle') return [g.cx - g.r, g.cy - g.r, g.cx + g.r, g.cy + g.r];
-  if (g.kind === 'belt') return [g.x0, g.y0, g.x1, g.y1];
-  return [Math.min(g.ax, g.bx), Math.min(g.by, g.ay), Math.max(g.bx, g.cx), Math.max(g.cy, g.ay)];
+  const pts = g.kind === 'belt' ? [[g.x0, g.y0], [g.x1, g.y0], [g.x1, g.y1], [g.x0, g.y1]] : [[g.ax, g.ay], [g.bx, g.by], [g.cx, g.cy]];
+  const w = pts.map(([x, y]) => fromStone(g, x, y)), xs = w.map(p => p[0]), ys = w.map(p => p[1]);
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 }
 function sparkFrom(g, px, py) {
   let vx, vy;
@@ -909,8 +930,11 @@ function sparkFrom(g, px, py) {
     // 砥石は「接する面が下へ動く」向きに回る → 火花は下・手前へ飛ぶ
     const rx = px - g.cx, ry = py - g.cy, L = Math.hypot(rx, ry) || 1, sp = rand(30, 70), out = rand(6, 22);
     vx = ry / L * sp + rx / L * out; vy = -rx / L * sp + ry / L * out;
-  } else if (g.kind === 'belt') { vx = rand(-26, -4); vy = rand(30, 60); }
-  else { vx = rand(-40, -6); vy = rand(10, 45); }
+  } else {
+    // 帯・三角は 0° の向きでの飛び方を、砥石の角度だけ回す
+    const lx = g.kind === 'belt' ? rand(-26, -4) : rand(-40, -6), ly = g.kind === 'belt' ? rand(30, 60) : rand(10, 45);
+    vx = lx * g.c - ly * g.s; vy = lx * g.s + ly * g.c;
+  }
   F.sparks.push({ x: px, y: py, vx: vx + rand(-6, 6), vy: vy + rand(-6, 6), life: rand(.3, .8) });
 }
 /* 鉱石のマス(x,y) → 作業台上の中心座標 */
@@ -973,6 +997,8 @@ const endDraw = () => { if (F.drawing) { F.drawing = false; F.tx = F.ox; F.ty = 
 fc.addEventListener('pointerup', endDraw); fc.addEventListener('pointercancel', endDraw);
 document.addEventListener('keydown', e => {
   if (activeTab !== 'forge' || !F.active || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+  if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); return setStoneAngle(F.angle - 15); }
+  if (e.key === 'e' || e.key === 'E') { e.preventDefault(); return setStoneAngle(F.angle + 15); }
   const k = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
   if (!k) return; e.preventDefault();
   const st = e.shiftKey ? 4 : 1; F.tx = F.ox + k[0] * st; F.ty = F.oy + k[1] * st; clampTarget();
@@ -982,11 +1008,30 @@ function renderStoneSel() {
   if (!stones().some(s => s.name === F.stoneName)) F.stoneName = stones()[0].name;
   $('#stoneSeg').innerHTML = stones().map(s =>
     `<button data-stone="${esc(s.name)}" class="${s.name === F.stoneName ? 'on' : ''}" title="${esc(`${s.shape}・大きさ ${s.size}・削る速さ ${s.speed}`)}"><svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" style="vertical-align:-3px;margin-right:4px">${icon(s.shape)}</svg>${esc(s.name)}</button>`).join('');
+  syncAngleUI();
 }
 $('#stoneSeg').onclick = e => {
   const b = e.target.closest('button[data-stone]'); if (!b) return;
   F.stoneName = b.dataset.stone; F.contact = 0; renderStoneSel();
+  if (F.active && grind()) { F.contact = .12; updateMatch(true); }
 };
+/* 砥石の角度。回した先に鉱石が重なっていれば、その場で削れる */
+function setStoneAngle(a) {
+  a = Math.round(a / 5) * 5;
+  if (a > 180) a -= 360; if (a < -180) a += 360;
+  F.angle = a;
+  $('#stoneAngle').value = a; $('#stoneAngleVal').textContent = a + '°';
+  if (F.active && grind()) { F.contact = .12; updateMatch(true); }
+}
+function syncAngleUI() {
+  const round = currentStone().shape === '円';
+  ['#stoneAngle', '#btnRotL', '#btnRotR', '#btnRot0'].forEach(s => $(s).disabled = round);
+  $('#stoneAngleVal').textContent = round ? '円は回しても同じ形' : F.angle + '°';
+}
+$('#stoneAngle').oninput = e => setStoneAngle(+e.target.value);
+$('#btnRotL').onclick = () => setStoneAngle(F.angle - 15);
+$('#btnRotR').onclick = () => setStoneAngle(F.angle + 15);
+$('#btnRot0').onclick = () => setStoneAngle(0);
 $('#btnFlipX').onclick = () => { if (F.active) F.flipX = !F.flipX; };
 $('#btnFlipY').onclick = () => { if (F.active) F.flipY = !F.flipY; };
 $('#btnHome').onclick = () => { if (!F.active) return; [F.ox, F.oy] = ORE_HOME; F.tx = F.ox; F.ty = F.oy; };
@@ -1010,11 +1055,12 @@ function showMatch(m) {
 function drawStone(g) {
   const C = CS, glow = F.contact > 0;
   fg.save();
-  // 台座（光らせない）
+  // 台座（光らせない・回さない）。帯と三角は中心の軸で台座につながり、軸のまわりに回る
   fg.fillStyle = '#3a2c22';
   if (g.kind === 'circle') fg.fillRect(g.cx * C - Math.max(5, g.r * C * .14), g.cy * C, Math.max(10, g.r * C * .28), WH * C - g.cy * C);
-  if (g.kind === 'belt') fg.fillRect((g.x0 + g.x1) / 2 * C - 6, g.y1 * C, 12, (WH - g.y1) * C);
-  if (g.kind === 'tri') fg.fillRect(g.bx * C, g.ay * C - 6, (WW - g.bx) * C, 12);
+  if (g.kind === 'belt') fg.fillRect(STONE_X * C - 6, STONE_Y * C, 12, (WH - STONE_Y) * C);
+  if (g.kind === 'tri') fg.fillRect(STONE_X * C, STONE_Y * C - 6, (WW - STONE_X) * C, 12);
+  fg.translate(STONE_X * C, STONE_Y * C); fg.rotate(g.th); fg.translate(-STONE_X * C, -STONE_Y * C);
   if (glow) { fg.shadowColor = 'rgba(255,140,40,.9)'; fg.shadowBlur = 24; }
   if (g.kind === 'circle') {
     const cx = g.cx * C, cy = g.cy * C, r = g.r * C;
@@ -1047,6 +1093,7 @@ function drawStone(g) {
     for (let k = 0; k < 6; k++) { const t = (k + off) / 6, x = g.ax + (g.bx - g.ax) * t; fg.beginPath(); fg.moveTo(x * C, (g.ay + (g.by - g.ay) * t) * C); fg.lineTo(x * C, (g.ay + (g.cy - g.ay) * t) * C); fg.stroke(); }
     fg.restore();
   }
+  if (g.kind !== 'circle') { fg.shadowBlur = 0; fg.fillStyle = '#2a231e'; fg.beginPath(); fg.arc(STONE_X * C, STONE_Y * C, 5, 0, Math.PI * 2); fg.fill(); }
   fg.restore();
 }
 function drawForge(dt) {

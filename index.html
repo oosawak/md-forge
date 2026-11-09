@@ -364,6 +364,31 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 平砥石 | 帯 | 10 | 18 |
 | 尖り砥石 | 三角 | 12 | 10 |
 
+## ハンマー
+
+刀身を削り終えて「完成」を押すと、ハンマーで叩く工程になります。刀身に光る点が出て、その色で付く能力が決まります。
+光る点に向かって輪が縮んでいき、輪が点にぴったり重なった瞬間に叩くと「会心の一打」、少しずれると「良い一打」です。外すと何も付きません。
+能力に書けるのは「攻撃」「速度」「会心」「防御」「スキル」です（鞘と同じ書き方）。出やすさは重みです。
+
+| 能力 | 色 | 出やすさ | 会心の一打 | 良い一打 |
+| --- | --- | --- | --- | --- |
+| 攻撃 | #ff6a3d | 30 | 6 | 2 |
+| 会心 | #ffc247 | 20 | 3 | 1 |
+| 速度 | #6fd3ff | 20 | 5 | 2 |
+| 防御 | #6ee7a0 | 15 | 2 | 1 |
+| スキル | #c77dff | 15 | 8 | 3 |
+
+## ハンマーの設定
+
+輪が縮む秒数が短いほど難しくなります。幅は「輪が縮む時間」に対する割合（%）です。
+
+| 項目 | 値 |
+| --- | --- |
+| 叩く回数 | 5 |
+| 輪が縮む秒数 | 1.1 |
+| 会心の幅 | 10 |
+| 良いの幅 | 26 |
+
 ## 材料
 
 鍛造を始める前に選ぶ鉱石の種類です。どれも鍛造コストの鉱石を使い、「追加の金」も払います。
@@ -657,7 +682,12 @@ function buildBalance(text) {
     name: r['持ち手'], guard: r['鍔の色'] || '#8d96a3', grip: r['柄の色'] || '#6b4a32', wrap: r['巻きの色'] || '#3a2618',
     eff: eff(r['効果']), val: num(r['値'] || '0', '持ち手/値'), desc: r['説明'] || ''
   })) : null;
-  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts };
+  const hammer = s['ハンマー'] ? s['ハンマー'].rows.filter(r => r['能力'] && EFFECT_KINDS.includes(r['能力'])).map(r => ({
+    kind: r['能力'], color: r['色'] || '#fff', w: num(r['出やすさ'] || '1', 'ハンマー/出やすさ'),
+    perfect: num(r['会心の一打'] || '0', 'ハンマー/会心の一打'), good: num(r['良い一打'] || '0', 'ハンマー/良い一打')
+  })) : null;
+  const hammerCfg = s['ハンマーの設定'] ? kv(s, 'ハンマーの設定') : null;
+  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg };
 }
 function buildFusion(text) {
   const s = parseMdTables(text);
@@ -1051,10 +1081,13 @@ function placeOre() {
   syncForgeButtons(); updateMatch(true);
 }
 function syncForgeButtons() {
-  $('#btnDone').disabled = !F.active; $('#btnRedo').disabled = !F.active;
+  const hm = !!F.hammer;
+  $('#btnDone').disabled = !F.active && !hm; $('#btnRedo').disabled = !F.active;
+  $('#btnDone').textContent = hm ? '仕上げる（残りは叩かない）' : '完成（ハンマーへ）';
   ['#btnFlipX', '#btnFlipY', '#btnHome'].forEach(s => $(s).disabled = !F.active);
-  $('#btnPlace').disabled = F.active; $('#btnAuto').disabled = F.active; $('#typeSel').disabled = F.active;
-  $('#matSel').disabled = F.active; $('#sheathSel').disabled = F.active; $('#hiltSel').disabled = F.active;
+  const busy = F.active || hm;
+  $('#btnPlace').disabled = busy; $('#btnAuto').disabled = busy; $('#typeSel').disabled = busy;
+  $('#matSel').disabled = busy; $('#sheathSel').disabled = busy; $('#hiltSel').disabled = busy;
   const B = DEFS.balance;
   $('#costNote').textContent = `鍛造1回で鉱石 ${B.cost['鉱石']} を使います（鉱石は ${B.cost['鉱石の値段']}G で買えます）。星鉄を使うと、良いレアリティが出やすくなります。`;
   $('#btnBuyOre').textContent = `鉱石を買う (${B.cost['鉱石の値段']}G)`;
@@ -1174,6 +1207,7 @@ let mouseMode = false;
 try { mouseMode = store.get('mdforge.mouseMode') === '1'; } catch (e) {}
 const isMouseFollow = e => mouseMode && e.pointerType === 'mouse';
 fc.addEventListener('pointerdown', e => {
+  if (F.hammer) { e.preventDefault(); strike(); return; }
   if (!F.active || isMouseFollow(e)) return; e.preventDefault();
   try { fc.setPointerCapture(e.pointerId); } catch (err) {}
   F.drawing = true; F.lastPt = { x: e.clientX, y: e.clientY };
@@ -1214,6 +1248,7 @@ $('#mouseMode').onchange = e => {
 };
 syncMouseMode();
 document.addEventListener('keydown', e => {
+  if (activeTab === 'forge' && F.hammer && (e.key === ' ' || e.key === 'Enter') && !/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(document.activeElement.tagName)) { e.preventDefault(); strike(); return; }
   if (activeTab !== 'forge' || !F.active || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); return setStoneAngle(F.angle - 15); }
   if (e.key === 'e' || e.key === 'E') { e.preventDefault(); return setStoneAngle(F.angle + 15); }
@@ -1339,8 +1374,9 @@ function drawForge(dt) {
   }
   const W = fc.width, H = fc.height;
   fg.clearRect(0, 0, W, H);
-  drawStone(stoneGeom(currentStone()));
-  if (F.active || F.showDone) {
+  hammerStep(dt);
+  if (F.hammer) drawAnvil(); else drawStone(stoneGeom(currentStone()));
+  if (F.active || F.showDone || F.hammer) {
     const j = F.contact > 0 ? rand(-.25, .25) : 0;
     fg.save();
     fg.translate((F.ox + j) * CS, (F.oy + j) * CS);
@@ -1364,9 +1400,145 @@ function drawForge(dt) {
     fg.strokeStyle = `rgba(255,${190 + 65 * Math.random() | 0},${90 + 80 * Math.random() | 0},${a})`;
     fg.lineWidth = 2.6; fg.beginPath(); fg.moveTo(p.x * CS, p.y * CS); fg.lineTo((p.x - p.vx * .035) * CS, (p.y - p.vy * .035) * CS); fg.stroke();
   }
+  drawHammer();
   if (F.drawing || F.contact > 0) updateMatch(false);
 }
-function finishForge(mask, auto) {
+function drawAnvil() {
+  const C = CS, cx = WW / 2 * C, top = (WH / 2 + 6) * C;
+  fg.save(); fg.fillStyle = '#2b2622';
+  fg.beginPath(); fg.moveTo(cx - 34 * C, top); fg.lineTo(cx + 26 * C, top); fg.lineTo(cx + 40 * C, top - 5 * C); fg.lineTo(cx + 26 * C, top + 8 * C);
+  fg.lineTo(cx + 14 * C, top + 10 * C); fg.lineTo(cx + 18 * C, top + 30 * C); fg.lineTo(cx - 22 * C, top + 30 * C); fg.lineTo(cx - 18 * C, top + 10 * C); fg.lineTo(cx - 34 * C, top + 8 * C);
+  fg.closePath(); fg.fill(); fg.restore();
+}
+/* =========================================================
+   ハンマー：削り終えた刀身を叩いて能力を付ける
+   ========================================================= */
+const DEFAULT_HAMMER = [
+  { kind: '攻撃', color: '#ff6a3d', w: 30, perfect: 6, good: 2 }, { kind: '会心', color: '#ffc247', w: 20, perfect: 3, good: 1 },
+  { kind: '速度', color: '#6fd3ff', w: 20, perfect: 5, good: 2 }, { kind: '防御', color: '#6ee7a0', w: 15, perfect: 2, good: 1 },
+  { kind: 'スキル', color: '#c77dff', w: 15, perfect: 8, good: 3 }
+];
+function hammerDefs() { const l = DEFS.balance.hammer; return l && l.length ? l : DEFAULT_HAMMER; }
+function hammerCfg() {
+  const c = DEFS.balance.hammerCfg || {};
+  const v = (k, d, lo, hi) => clamp(isFinite(c[k]) ? +c[k] : d, lo, hi);
+  return { n: Math.round(v('叩く回数', 5, 1, 20)), dur: v('輪が縮む秒数', 1.1, .3, 5), perfect: v('会心の幅', 10, 1, 60), good: v('良いの幅', 26, 2, 90) };
+}
+const HAMMER_SWEET = .78; // 輪が光る点に重なる位置（縮み始めからの割合）
+function startHammer() {
+  const comp = weaponComponent(F.mask, F.hilt);
+  if (F.hilt ? comp.blade < 30 : comp.count < 60) { toast('刀身が小さすぎます。もう少し残して削ってください'); return; }
+  F.mask = comp.mask; F.active = false; F.drawing = false; F.dirty = true;
+  // 金床の上、作業台の真ん中に置き直す
+  F.flipX = F.flipY = false; F.ox = F.tx = (WW - GW) / 2; F.oy = F.ty = (WH - GH) / 2;
+  const blade = [];
+  for (let i = 0; i < F.mask.length; i++) if (F.mask[i] && !(F.hilt && F.hilt[i])) { blade.push(i); F.heat[i] = .55; }
+  const cfg = hammerCfg();
+  F.hammer = { cfg, blade, left: cfg.n, p: 0, spot: null, perfect: 0, good: 0, miss: 0, bonus: {}, swing: 0, pops: [], wait: .35 };
+  nextSpot(); syncForgeButtons();
+}
+function nextSpot() {
+  const H = F.hammer;
+  // 刀身の内側寄りのマスを選ぶ（縁だと見づらいので）
+  let i = H.blade[(Math.random() * H.blade.length) | 0];
+  for (let k = 0; k < 12; k++) {
+    const c = H.blade[(Math.random() * H.blade.length) | 0];
+    if (F.mask[c - 1] && F.mask[c + 1] && F.mask[c - 2] && F.mask[c + 2]) { i = c; break; }
+  }
+  H.spot = { i, def: pickWeighted(hammerDefs(), d => d.w) }; H.p = 0; H.lastPos = cellWorld(i % GW, (i / GW) | 0);
+}
+function strike() {
+  const H = F.hammer; if (!H || !H.spot || H.wait > 0) return;
+  const diff = Math.abs(H.p - HAMMER_SWEET) * 100, d = H.spot.def;
+  const [wx, wy] = cellWorld(H.spot.i % GW, (H.spot.i / GW) | 0);
+  let label, color;
+  if (diff <= H.cfg.perfect / 2) { H.perfect++; H.bonus[d.kind] = (H.bonus[d.kind] || 0) + d.perfect; label = `会心の一打！ ${effLabel(d.kind, d.perfect)}`; color = '#ffd54a'; }
+  else if (diff <= H.cfg.good / 2) { H.good++; H.bonus[d.kind] = (H.bonus[d.kind] || 0) + d.good; label = `良い一打 ${effLabel(d.kind, d.good)}`; color = d.color; }
+  else { H.miss++; label = H.p < HAMMER_SWEET ? '早すぎた' : '遅すぎた'; color = '#aab'; }
+  hammerHit(wx, wy, label, color, diff <= H.cfg.good / 2);
+}
+function hammerHit(wx, wy, label, color, good) {
+  const H = F.hammer;
+  H.swing = 1; H.pops.push({ text: label, x: wx, y: wy - 4, t: 0, color });
+  const n = good ? 46 : 14;
+  for (let k = 0; k < n; k++) {
+    const a = rand(-Math.PI, 0), sp = rand(10, good ? 48 : 22);
+    F.sparks.push({ x: wx, y: wy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(.2, .7) });
+  }
+  // 叩いた所が赤く光る
+  const cx = H.spot.i % GW, cy = (H.spot.i / GW) | 0;
+  for (let y = cy - 5; y <= cy + 5; y++) for (let x = cx - 5; x <= cx + 5; x++) {
+    const i = y * GW + x; if (x < 0 || x >= GW || y < 0 || y >= GH || !F.mask[i] || (F.hilt && F.hilt[i])) continue;
+    F.heat[i] = Math.max(F.heat[i], 1 - Math.hypot(x - cx, y - cy) / 6);
+  }
+  H.left--; H.spot = null; H.wait = .45;
+  if (H.left <= 0) setTimeout(() => F.hammer && endHammer(), 650);
+}
+function hammerStep(dt) {
+  const H = F.hammer; if (!H) return;
+  H.swing = Math.max(0, H.swing - dt * 4);
+  for (const p of H.pops) p.t += dt;
+  H.pops = H.pops.filter(p => p.t < 1.2);
+  if (H.wait > 0) { H.wait -= dt; if (H.wait <= 0 && H.left > 0 && !H.spot) nextSpot(); return; }
+  if (!H.spot) return;
+  H.p += dt / H.cfg.dur;
+  if (H.p > 1) { // 叩かないまま輪が消えた
+    H.miss++; const [wx, wy] = cellWorld(H.spot.i % GW, (H.spot.i / GW) | 0);
+    H.pops.push({ text: '見逃した', x: wx, y: wy - 4, t: 0, color: '#aab' });
+    H.left--; H.spot = null; H.wait = .3;
+    if (H.left <= 0) setTimeout(() => F.hammer && endHammer(), 500);
+  }
+}
+function endHammer() {
+  const H = F.hammer; if (!H) return;
+  F.hammer = null;
+  finishForge(F.mask, false, { perfect: H.perfect, good: H.good, miss: H.miss + Math.max(0, H.left), bonus: H.bonus });
+}
+function drawHammer() {
+  const H = F.hammer; if (!H) return;
+  const C = CS;
+  if (H.spot) {
+    const [wx, wy] = cellWorld(H.spot.i % GW, (H.spot.i / GW) | 0), d = H.spot.def;
+    const core = 2.2, R = 13, r = Math.max(.3, core + (R - core) * (1 - H.p / HAMMER_SWEET));
+    const near = Math.abs(H.p - HAMMER_SWEET) * 100 <= H.cfg.good / 2;
+    fg.save();
+    fg.shadowColor = d.color; fg.shadowBlur = 18;
+    fg.fillStyle = d.color; fg.beginPath(); fg.arc(wx * C, wy * C, core * C * (1 + .12 * Math.sin(performance.now() / 90)), 0, Math.PI * 2); fg.fill();
+    fg.shadowBlur = 0;
+    fg.lineWidth = near ? 4 : 2.5; fg.strokeStyle = near ? d.color : 'rgba(255,255,255,.85)';
+    fg.beginPath(); fg.arc(wx * C, wy * C, r * C, 0, Math.PI * 2); fg.stroke();
+    fg.font = 'bold 22px system-ui, sans-serif'; fg.textAlign = 'center'; fg.fillStyle = d.color;
+    fg.fillText(d.kind, wx * C, (wy + core + 5.5) * C);
+    fg.restore();
+  }
+  if (H.lastPos) {
+    const [wx, wy] = H.lastPos;
+    fg.save();
+    // ハンマー：右上の手元を支点に、叩いた瞬間は頭が光る点の上、ふだんは振りかぶった位置
+    const px = (wx + 17) * C, py = (wy - 15) * C, L = Math.hypot(17, 15) * C;
+    const down = Math.atan2(15, -17), ang = down + 1.2 * (1 - H.swing);
+    const hx = px + Math.cos(ang) * L, hy = py + Math.sin(ang) * L;
+    fg.lineCap = 'round'; fg.strokeStyle = '#7a5434'; fg.lineWidth = 9;
+    fg.beginPath(); fg.moveTo(px, py); fg.lineTo(hx, hy); fg.stroke();
+    fg.translate(hx, hy); fg.rotate(ang + Math.PI / 2);
+    fg.fillStyle = '#5b616b'; fg.fillRect(-26, -15, 52, 30);
+    fg.fillStyle = '#8b929c'; fg.fillRect(-26, -15, 52, 7);
+    fg.restore();
+  }
+  // 結果の文字
+  fg.save(); fg.textAlign = 'center'; fg.font = 'bold 30px system-ui, sans-serif';
+  for (const p of H.pops) {
+    fg.globalAlpha = clamp(1.2 - p.t, 0, 1); fg.fillStyle = p.color;
+    fg.strokeStyle = 'rgba(0,0,0,.6)'; fg.lineWidth = 4;
+    const y = (p.y - p.t * 8) * C; fg.strokeText(p.text, p.x * C, y); fg.fillText(p.text, p.x * C, y);
+  }
+  fg.globalAlpha = 1; fg.font = 'bold 30px system-ui, sans-serif'; fg.fillStyle = '#ffe2b0';
+  fg.fillText(`ハンマー　残り ${H.left} 回`, WW * C / 2, 42);
+  fg.font = '22px system-ui, sans-serif'; fg.fillStyle = 'rgba(255,226,176,.8)';
+  fg.fillText('輪が光る点に重なった瞬間にタップ（スペースキー）', WW * C / 2, 76);
+  fg.restore();
+}
+function finishForge(mask, auto, hammerRes) {
   const type = forgeType();
   const comp = weaponComponent(mask, F.hilt);
   if (F.hilt ? comp.blade < 30 : comp.count < 60) { toast('刀身が小さすぎます。もう少し残して削ってください'); return false; }
@@ -1376,6 +1548,12 @@ function finishForge(mask, auto) {
   if (useStar) S.star--;
   const w = rollWeapon({ type, match, useStar, outline, mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt() });
   w.auto = !!auto;
+  if (hammerRes) {
+    const add = [];
+    for (const [kind, v] of Object.entries(hammerRes.bonus)) if (v) { applyEffect(w, kind, r1(v)); add.push(effLabel(kind, r1(v))); }
+    w.hammer = { perfect: hammerRes.perfect, good: hammerRes.good, miss: hammerRes.miss };
+    w.notes.unshift(`ハンマー：会心の一打 ${hammerRes.perfect}・良い一打 ${hammerRes.good}・空振り ${hammerRes.miss}${add.length ? ' → ' + add.join('、') : ''}`);
+  }
   if (w.mei) toast(`共鳴！ 銘「${w.mei}」が刻まれました`);
   renderComboNote();
   S.weapons.unshift(w);
@@ -1434,7 +1612,7 @@ function autoForge() {
   finishForge(F.mask, true);
 }
 $('#btnPlace').onclick = placeOre;
-$('#btnDone').onclick = () => { if (F.active) finishForge(F.mask, false); };
+$('#btnDone').onclick = () => { if (F.active) startHammer(); else if (F.hammer) endHammer(); };
 $('#btnRedo').onclick = () => {
   if (!F.active) return;
   F.mask = F.start.slice(); F.heat.fill(0); F.dirty = true;

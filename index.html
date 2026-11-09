@@ -352,6 +352,8 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 長剣 | 1.0 | 1.0 | 0 |
 | 大剣 | 1.35 | 0.72 | 0 |
 | 短剣 | 0.75 | 1.4 | 4 |
+| 斧 | 1.5 | 0.65 | 2 |
+| 槍 | 1.1 | 0.95 | 6 |
 
 ## 砥石
 
@@ -770,8 +772,13 @@ const GW = 48, GH = 128;
 const GUIDES = {
   '長剣': { grip: [24, 102], hiltY: 86, guardB: 92, pts: [[24,6],[29,16],[29,86],[38,86],[38,92],[27,92],[27,112],[30,112],[30,118],[18,118],[18,112],[21,112],[21,92],[10,92],[10,86],[19,86],[19,16]] },
   '大剣': { grip: [24, 102], hiltY: 84, guardB: 91, pts: [[24,4],[33,14],[33,84],[42,84],[42,91],[28,91],[28,113],[31,113],[31,121],[17,121],[17,113],[20,113],[20,91],[6,91],[6,84],[15,84],[15,14]] },
-  '短剣': { grip: [24, 98],  hiltY: 84, guardB: 89, pts: [[24,30],[28,38],[28,84],[35,84],[35,89],[27,89],[27,108],[29,108],[29,114],[19,114],[19,108],[21,108],[21,89],[13,89],[13,84],[20,84],[20,38]] }
+  '短剣': { grip: [24, 98],  hiltY: 84, guardB: 89, pts: [[24,30],[28,38],[28,84],[35,84],[35,89],[27,89],[27,108],[29,108],[29,114],[19,114],[19,108],[21,108],[21,89],[13,89],[13,84],[20,84],[20,38]] },
+  // 斧：上に刃（右に弧を描く刃・左に小さな背）。柄は長く、握りは柄の下のほう
+  '斧':   { grip: [23, 100], hiltY: 44, guardB: 48, wrapFrom: 86, pts: [[20,8],[26,8],[26,12],[33,10],[40,5],[41,16],[41,32],[40,42],[33,38],[26,36],[26,114],[28,114],[28,120],[18,120],[18,114],[20,114],[20,36],[14,34],[10,28],[10,20],[14,14],[20,12]] },
+  // 槍：上に木の葉形の穂先、長い柄
+  '槍':   { grip: [24, 92], hiltY: 40, guardB: 48, wrapFrom: 80, pts: [[24,2],[30,14],[32,26],[28,36],[26,40],[28,40],[28,48],[26,48],[26,114],[28,114],[28,120],[20,120],[20,114],[22,114],[22,48],[20,48],[20,40],[22,40],[20,36],[16,26],[18,14]] }
 };
+const WEAPON_LEN = { '大剣': 1.15, '短剣': .62, '斧': 1.0, '槍': 1.5 }; // 3D の長さ（112 マスあたりのメートル）
 function guideFor(type) { return GUIDES[type] || GUIDES['長剣']; }
 const guideMaskCache = {};
 function guideMask(type) {
@@ -909,7 +916,9 @@ function hiltByName(n) { return hilts().find(m => m.name === n) || hilts()[0]; }
 function hiltPixel(x, y, h, gd) {
   const bottom = gd.pts.reduce((a, p) => Math.max(a, p[1]), 0);
   const metal = y < gd.guardB || y >= bottom - 6;
-  const c = hexRGB(metal ? h.guard : ((x + y) % 4 < 2 ? h.wrap : h.grip));
+  // 巻き模様は握る所だけ（剣は柄全体、斧・槍は柄の下のほう）
+  const wrapped = y >= (gd.wrapFrom || gd.guardB);
+  const c = hexRGB(metal ? h.guard : (wrapped && (x + y) % 4 < 2 ? h.wrap : h.grip));
   const k = metal ? .85 + .25 * Math.sin(x * .7) : 1;
   return [c[0] * k, c[1] * k, c[2] * k];
 }
@@ -2169,7 +2178,7 @@ async function make3DRenderer(container) {
   }
   function buildWeaponMesh(w) {
     if (!w || !w.outline || w.outline.length < 3) return null;
-    const lenCells = { '大剣': 1.15, '短剣': .62 }[w.type] || .95;
+    const lenCells = WEAPON_LEN[w.type] || .95;
     const s = lenCells / 112;
     const [gx, gy] = w.grip;
     const shape = new THREE.Shape(w.outline.map(([x, y]) => new THREE.Vector2((x - gx) * s, (gy - y) * s)));
@@ -2210,8 +2219,8 @@ async function make3DRenderer(container) {
   /* 鞘：刀身の長さに合わせた細長い箱を、左の腰に斜めに差す */
   let sheathMesh = null;
   function buildSheathMesh(w) {
-    if (!w || !w.outline) return null;
-    const len = ({ '大剣': 1.15, '短剣': .62 }[w.type] || .95) * .82;
+    if (!w || !w.outline || w.type === '斧' || w.type === '槍') return null; // 斧と槍は鞘を腰に差さない
+    const len = (WEAPON_LEN[w.type] || .95) * .82;
     const col = new THREE.Color(w.sheathColor || '#8a6a45');
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BoxGeometry(.085, len, .045), new THREE.MeshStandardMaterial({ color: col, metalness: .35, roughness: .5 }));

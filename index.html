@@ -89,7 +89,7 @@ label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:p
 @keyframes flash{0%{box-shadow:0 0 0 0 rgba(255,194,71,.9)}100%{box-shadow:0 0 0 18px rgba(255,194,71,0)}}
 
 /* battle */
-.battle-view{position:relative;height:min(58vh,460px);min-height:280px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:#20262e}
+.battle-view{position:relative;height:min(72vh,620px);min-height:340px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);background:#20262e}
 .battle-view canvas{display:block;width:100%;height:100%}
 .hud{position:absolute;left:10px;right:10px;top:10px;display:flex;gap:10px;align-items:flex-start;pointer-events:none;flex-wrap:wrap}
 .hud .box{background:rgba(10,10,12,.62);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 10px;font-size:13px}
@@ -1955,7 +1955,7 @@ const battle = {
       // 敵の移動と攻撃
       alive.sort((a, b) => a.x - b.x);
       alive.forEach((e, idx) => {
-        const stop = 1.35 + idx * (e.boss ? 1.1 : .75) + (e.boss ? .4 : 0);
+        const stop = 1.35 + idx * (e.boss ? 1.6 : .75) + (e.boss ? .55 : 0);
         if (e.x > stop) e.x = Math.max(stop, e.x - e.spd * dt);
         else {
           e.cool -= dt;
@@ -2032,7 +2032,7 @@ const battle = {
     save(); updateRes(); syncForgeButtons();
     this.addLog(`ウェーブ ${w} <b>突破</b>：+${gold}G・鉱石+${ore}${star ? `・<b style="color:#ffc247">星鉄+${star}</b>` : ''}`);
     this.banner(boss ? `ボス撃破！ +${gold}G` : `突破 +${gold}G`, boss ? '#ffc247' : '#6ee7a0');
-    this.phase = 'clear'; this.timer = 1.4;
+    this.phase = 'clear'; this.timer = 1.8; // この間に次の区切りまで歩く
   },
   onWeaponChanged() { renderer && renderer.setWeapon(equippedWeapon()); updateHudWeapon(); }
 };
@@ -2054,22 +2054,29 @@ function updateHudWeapon() {
     : '素手（武器を鍛造して装備しよう）';
 }
 
+/* 斜め見下ろしのステージで、敵が道の上に少し散らばって並ぶための横位置 */
+const BOSS_SCALE = 3.2;
+function laneOf(e) {
+  if (e.boss) return 0;
+  const l = (((e.id * 7919) % 5) - 2) * .42;
+  return l * clamp(e.x / 2.4, .35, 1); // 近づくほど主人公の正面に寄る
+}
 /* 敵とダメージ表示（DOM オーバーレイ） */
 const overlayEls = new Map();
 function updateOverlay() {
   if (!renderer) return;
   const layer = $('#overlay'), seen = new Set();
-  const put = (key, cls, html, x, h, style) => {
+  const put = (key, cls, html, x, h, style, lane) => {
     let el = overlayEls.get(key);
     if (!el) { el = document.createElement('div'); el.className = cls; layer.appendChild(el); overlayEls.set(key, el); el.innerHTML = html; }
-    const p = renderer.project(x, h);
+    const p = renderer.project(x, h, lane);
     el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; el.style.display = p.visible ? '' : 'none';
     if (style) style(el); seen.add(key);
   };
   for (const e of battle.enemies) {
     if (e.dead) continue;
-    const barH = e.boss ? 2.95 : { slime: .85, wisp: 1.35, golem: 1.5 }[e.kind] || 1.3;
-    put('e' + e.id, 'ebar' + (e.boss ? ' boss' : ''), '<i></i>', e.x, barH, el => el.firstChild.style.width = clamp(e.hp / e.maxHp * 100, 0, 100) + '%');
+    const barH = e.boss ? 1.55 * BOSS_SCALE : { slime: .85, wisp: 1.35, golem: 1.5 }[e.kind] || 1.3;
+    put('e' + e.id, 'ebar' + (e.boss ? ' boss' : ''), '<i></i>', e.x, barH, el => el.firstChild.style.width = clamp(e.hp / e.maxHp * 100, 0, 100) + '%', laneOf(e));
   }
   for (const f of battle.floaters) {
     put('f' + f.id, 'floater', esc(f.text), f.x, f.h + f.t * .9, el => { el.style.color = f.color; el.style.opacity = 1 - f.t * f.t; el.style.fontSize = f.big ? '21px' : '16px'; });
@@ -2147,39 +2154,96 @@ async function make3DRenderer(container) {
   container.prepend(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x2a3240);
-  scene.fog = new THREE.Fog(0x2a3240, 9, 22);
+  scene.fog = new THREE.Fog(0x2a3240, 16, 38);
   const pm = new THREE.PMREMGenerator(renderer);
   scene.environment = pm.fromScene(new RoomEnvironment(renderer), .04).texture;
-  const camera = new THREE.PerspectiveCamera(38, 1, .05, 60);
-  const camTarget = new THREE.Vector3(2.6, .95, 0);
-  camera.position.set(2.6, 2.0, 6.6); camera.lookAt(camTarget);
+  const camera = new THREE.PerspectiveCamera(42, 1, .05, 90);
+  const camTarget = new THREE.Vector3(0, .8, -3);
+  let camDist = 1; // 画面の縦横比で決める倍率
+  /* 斜め見下ろし：主人公の右後ろ上から、進む先（-Z、画面の上）を見る */
+  const CAM_OFF = new THREE.Vector3(3.2, 7.4, 7.2);
+  camera.position.copy(camTarget).add(CAM_OFF); camera.lookAt(camTarget);
+  /* ステージは -Z 方向（画面の上）へ続く 1 本道。ウェーブを突破するたび、主人公は STEP だけ上へ進む */
+  const STEP = 10;
+  let heroZ = 0;
+  const waveZ = w => -(Math.max(1, w) - 1) * STEP;
 
   scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x5a4030, .9));
-  const sun = new THREE.DirectionalLight(0xffe2c0, 1.6); sun.position.set(-3, 7, 5); sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -6, right: 10, top: 6, bottom: -4 });
-  scene.add(sun);
-  const forgeGlow = new THREE.PointLight(0xff7a30, 2.2, 7); forgeGlow.position.set(-2.2, 1.0, -1.6); scene.add(forgeGlow);
+  const sun = new THREE.DirectionalLight(0xffe2c0, 1.6); sun.position.set(-4, 9, 4); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 14, bottom: -8, far: 40 });
+  scene.add(sun); scene.add(sun.target);
+  const forgeGlow = new THREE.PointLight(0xff7a30, 2.2, 7); forgeGlow.position.set(-2.0, 1.0, 3.2); scene.add(forgeGlow);
 
-  // 地面と小物（すべて図形で自作）
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshStandardMaterial({ color: 0x4b3b2f, roughness: .95 }));
+  // 地面と小物（すべて図形で自作）。主人公について動き、同じ模様を繰り返して道が続いて見えるようにする
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 140), new THREE.MeshStandardMaterial({ color: 0x4b3b2f, roughness: .95 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-  const path = new THREE.Mesh(new THREE.PlaneGeometry(16, 2.2), new THREE.MeshStandardMaterial({ color: 0x5d4a3a, roughness: 1 }));
-  path.rotation.x = -Math.PI / 2; path.position.set(4, .005, 0); path.receiveShadow = true; scene.add(path);
-  const rockMat = new THREE.MeshStandardMaterial({ color: 0x6b6f78, roughness: .9, flatShading: true });
-  for (let i = 0; i < 14; i++) {
-    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.15, .5)), rockMat);
-    r.position.set(rand(-4, 12), rand(0, .1), -rand(1.6, 6)); r.rotation.set(rand(0, 3), rand(0, 3), 0);
-    r.castShadow = true; scene.add(r);
+  const TILE = 40; // 小物の模様が繰り返す長さ
+  const decor = new THREE.Group(); scene.add(decor);
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(3.4, TILE * 4), new THREE.MeshStandardMaterial({ color: 0x5d4a3a, roughness: 1 }));
+  road.rotation.x = -Math.PI / 2; road.position.set(0, .005, -TILE); road.receiveShadow = true; decor.add(road);
+  // 道の敷石（進んでいる感じが出るよう、道に並べる）
+  const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
+  const nStones = 260, stones3 = new THREE.InstancedMesh(new THREE.BoxGeometry(.7, .03, .45), new THREE.MeshStandardMaterial({ color: 0x6e5a48, roughness: 1 }), nStones);
+  for (let i = 0; i < nStones; i++) {
+    ps.set(rand(-1.3, 1.3), .012, -rand(-TILE, TILE * 3)); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rand(-.4, .4)); sc.set(rand(.6, 1.2), 1, rand(.6, 1.2));
+    stones3.setMatrixAt(i, mtx.compose(ps, q, sc));
   }
+  stones3.receiveShadow = true; decor.add(stones3);
+  // 道の両側の岩
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x6b6f78, roughness: .9, flatShading: true });
+  const nRocks = 140, rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.4), rockMat, nRocks);
+  for (let i = 0; i < nRocks; i++) {
+    const side = i % 2 ? 1 : -1;
+    ps.set(side * rand(2.4, 9), rand(0, .1), -rand(-TILE, TILE * 3)); q.setFromEuler(new THREE.Euler(rand(0, 3), rand(0, 3), 0));
+    const k = rand(.4, 1.5) * (Math.abs(ps.x) > 5 ? 1.6 : 1); sc.set(k, k * rand(.6, 1), k);
+    rocks.setMatrixAt(i, mtx.compose(ps, q, sc));
+  }
+  rocks.castShadow = true; rocks.receiveShadow = true; decor.add(rocks);
+  // 枯れ木
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3e2f25, roughness: 1 });
+  for (let i = 0; i < 26; i++) {
+    const t = new THREE.Group(), side = i % 2 ? 1 : -1, h = rand(1.4, 2.6);
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(.06, .12, h, 6), trunkMat); tr.position.y = h / 2; tr.castShadow = true; t.add(tr);
+    for (let k = 0; k < 3; k++) { const br = new THREE.Mesh(new THREE.CylinderGeometry(.02, .05, h * .45, 5), trunkMat); br.position.y = h * rand(.55, .9); br.rotation.z = rand(.6, 1.1) * (k % 2 ? 1 : -1); br.rotation.y = rand(0, 3); t.add(br); }
+    t.position.set(side * rand(3.2, 8), 0, -rand(-TILE, TILE * 3)); decor.add(t);
+  }
+  // ウェーブの区切り（通常はかがり火の柱、ボスのウェーブは大きな門）
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x3a3330, roughness: .9 });
+  const fireMat = new THREE.MeshStandardMaterial({ color: 0xffa040, emissive: 0xff7a20, emissiveIntensity: 1.4 });
+  const bannerMat = new THREE.MeshStandardMaterial({ color: 0x8a2030, roughness: .8, side: THREE.DoubleSide });
+  const gates = [];
+  for (let i = 0; i < 6; i++) {
+    const g = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(.28, 1.3, .28), postMat); p.position.set(sx * 2.0, .65, 0); p.castShadow = true; g.add(p);
+      const f = new THREE.Mesh(new THREE.ConeGeometry(.14, .32, 7), fireMat); f.position.set(sx * 2.0, 1.45, 0); g.add(f);
+    }
+    const arch = new THREE.Group();
+    for (const sx of [-1, 1]) { const p = new THREE.Mesh(new THREE.BoxGeometry(.5, 3.6, .5), postMat); p.position.set(sx * 2.6, 1.8, 0); p.castShadow = true; arch.add(p); }
+    const top = new THREE.Mesh(new THREE.BoxGeometry(6.2, .5, .6), postMat); top.position.y = 3.7; top.castShadow = true; arch.add(top);
+    const bn = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.6), bannerMat); bn.position.set(0, 2.7, .32); arch.add(bn);
+    g.add(arch); g.userData.arch = arch;
+    scene.add(g); gates.push(g);
+  }
+  function placeGates() {
+    const w0 = Math.max(1, Math.round(-heroZ / STEP) + 1);
+    gates.forEach((g, i) => {
+      const w = w0 + i - 1;
+      // 区切りは、そのウェーブの敵が出てくる所のすぐ奥に立てる（次のウェーブへ進むとき、そこをくぐる）。ボスのウェーブだけ大きな門
+      g.visible = w >= 1; g.position.set(0, 0, waveZ(w) - STEP - .4);
+      g.userData.arch.visible = w % 5 === 0;
+    });
+  }
+  // 出発点の金床（ウェーブ 1 のうしろ）
   const anvil = new THREE.Group();
   const dark = new THREE.MeshStandardMaterial({ color: 0x2b2d33, metalness: .8, roughness: .45 });
   const a1 = new THREE.Mesh(new THREE.BoxGeometry(.7, .22, .35), dark); a1.position.y = .62; anvil.add(a1);
   const a2 = new THREE.Mesh(new THREE.BoxGeometry(.3, .45, .25), dark); a2.position.y = .3; anvil.add(a2);
   const a3 = new THREE.Mesh(new THREE.ConeGeometry(.11, .35, 8), dark); a3.rotation.z = Math.PI / 2; a3.position.set(.5, .62, 0); anvil.add(a3);
-  anvil.position.set(-2.0, 0, -1.4); anvil.traverse(o => o.castShadow = true); scene.add(anvil);
+  anvil.position.set(-2.0, 0, 2.6); anvil.traverse(o => o.castShadow = true); scene.add(anvil);
 
   // 主人公
-  const heroHolder = new THREE.Group(); heroHolder.rotation.y = Math.PI / 2; scene.add(heroHolder);
+  const heroHolder = new THREE.Group(); heroHolder.rotation.y = Math.PI; scene.add(heroHolder);
   let hero = null; let vrm = null; let weaponMesh = null; let currentWeapon = null;
 
   function buildPrimitiveHero() {
@@ -2309,8 +2373,8 @@ async function make3DRenderer(container) {
         for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(.06, .2, 6), gold); const a = i / 5 * Math.PI * 2; c.position.set(Math.cos(a) * .17, 1.42, Math.sin(a) * .15); body.add(c); }
       }
     }
-    g.scale.setScalar(e.boss ? 1.9 : 1);
-    g.rotation.y = -Math.PI / 2; // 主人公（-X 方向）を向く
+    g.scale.setScalar(e.boss ? BOSS_SCALE : 1);
+    g.rotation.y = 0; // 主人公（+Z 方向、画面の手前）を向く
     g.userData.mat = mat;
     scene.add(g); return g;
   }
@@ -2366,34 +2430,48 @@ async function make3DRenderer(container) {
     renderer.setSize(r.width, r.height, false);
     renderer.domElement.style.width = '100%'; renderer.domElement.style.height = '100%';
     const aspect = r.width / r.height;
-    camera.aspect = aspect; camera.fov = 40;
-    // 横方向に x = -0.8〜5.2 が入る距離を、画面の縦横比から決める
-    const dist = Math.max(6.2, 3.0 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect));
-    camTarget.set(2.2, .95, 0);
-    camera.position.set(2.2, 1.25 + dist * .12, dist); camera.lookAt(camTarget);
-    camera.updateProjectionMatrix();
+    camera.aspect = aspect; camera.fov = 42;
+    // 横幅が狭い（縦長）ほどカメラを引いて、道の左右が切れないようにする
+    camDist = clamp(1.05 / Math.min(1, aspect * .95), 1, 1.8);
+    camera.updateProjectionMatrix(); placeCamera();
+  }
+  function placeCamera() {
+    camTarget.set(0, .8, heroZ - 3.4);
+    camera.position.copy(camTarget).addScaledVector(CAM_OFF, camDist); camera.lookAt(camTarget);
+    sun.position.set(-4, 9, heroZ + 4); sun.target.position.set(0, 0, heroZ - 3);
+    ground.position.z = heroZ - 30;
+    decor.position.z = Math.ceil(heroZ / TILE) * TILE; // 模様の繰り返しの長さごとに飛ばす（見た目は続いて見える）
+    placeGates();
   }
   const pv = new THREE.Vector3();
-  function project(x, h) {
-    pv.set(x, h, 0).project(camera);
+  function project(x, h, lane) {
+    pv.set(lane || 0, h, heroZ - x).project(camera);
     const r = renderer.domElement.getBoundingClientRect();
     return { x: (pv.x * .5 + .5) * r.width, y: (-pv.y * .5 + .5) * r.height, visible: pv.z < 1 };
   }
   function frame(dt, t) {
+    // ウェーブが進んだら、次の区切りまで歩いて上へ進む（負けて大きく戻るときは、そこへ移る）
+    const want = waveZ(battle.running ? battle.wave : (S.wave || 1));
+    const gap = want - heroZ;
+    if (Math.abs(gap) > STEP * 2.5 || !battle.running) heroZ = want;
+    else if (Math.abs(gap) > .001) heroZ += Math.sign(gap) * Math.min(Math.abs(gap), 7.5 * dt);
+    const walking = Math.abs(want - heroZ) > .05;
+    heroHolder.position.set(0, walking ? Math.abs(Math.sin(t * 11)) * .06 : 0, heroZ);
+    placeCamera();
     pose(dt, t);
     const seen = new Set();
     for (const e of battle.enemies) {
       let g = enemyMeshes.get(e.id); if (!g) { g = buildEnemy(e); enemyMeshes.set(e.id, g); }
       seen.add(e.id);
       const lunge = e.anim >= 0 ? -Math.sin(e.anim * Math.PI) * .35 : 0;
-      g.position.set(e.x + lunge, 0, 0);
+      g.position.set(laneOf(e), 0, heroZ - (e.x + lunge));
       const body = g.children[0];
       body.position.y = e.kind === 'wisp' ? Math.sin(t * 3 + e.id) * .08 : Math.abs(Math.sin(t * 5 + e.id)) * (e.x > 1.6 ? .06 : .02);
       if (e.kind === 'slime') body.scale.set(1 + Math.sin(t * 6 + e.id) * .05, 1 - Math.sin(t * 6 + e.id) * .05, 1);
       g.userData.mat.emissiveIntensity = e.hit > 0 ? .9 : (e.kind === 'wisp' ? .7 : 0);
       if (e.hit > 0 && e.kind !== 'wisp') g.userData.mat.emissive.set(0xffffff); else if (e.kind !== 'wisp') g.userData.mat.emissive.set(0x000000);
       const k = e.dead ? Math.max(.001, 1 - e.dead / .7) : 1;
-      g.scale.setScalar((e.boss ? 1.9 : 1) * k);
+      g.scale.setScalar((e.boss ? BOSS_SCALE : 1) * k);
     }
     for (const [id, g] of enemyMeshes) if (!seen.has(id)) { scene.remove(g); enemyMeshes.delete(id); }
     forgeGlow.intensity = 2 + Math.sin(t * 7) * .3 + Math.sin(t * 13) * .2;

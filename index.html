@@ -42,6 +42,31 @@ section.tab.on{display:block}
 select,textarea,input[type=text]{font:inherit;color:var(--text);background:#17130f;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
 textarea{width:100%;min-height:150px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:1.5}
 .pick{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.loader{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:radial-gradient(circle at 50% 45%,#2a1e16,#0f0c0a 70%);transition:opacity .5s}
+.loader.hide{opacity:0;pointer-events:none}
+.loader-in{text-align:center;color:#ffe2b0}
+.loader-title{font-weight:800;font-size:20px;letter-spacing:.08em;margin-top:6px}
+.loader-msg{font-size:13px;opacity:.75;margin-top:6px}
+.smith{width:min(64vw,260px);height:auto;overflow:visible}
+.smith .arm{transform-origin:58px 65px;animation:ldSwing .9s cubic-bezier(.5,0,.4,1) infinite}
+.smith .body{animation:ldBob .9s ease-in-out infinite;transform-origin:53px 112px}
+.smith .sparks circle{opacity:0;animation:ldSpark .9s ease-out infinite}
+.smith .sparks circle:nth-child(2){animation-name:ldSpark2}.smith .sparks circle:nth-child(3){animation-name:ldSpark3}
+.smith .sparks circle:nth-child(4){animation-name:ldSpark4}.smith .sparks circle:nth-child(5){animation-name:ldSpark5}
+.smith .glow{animation:ldGlow .9s ease-out infinite}
+.smith .ingot{animation:ldIngot .9s ease-out infinite}
+@keyframes ldSwing{0%{transform:rotate(-75deg)}42%{transform:rotate(-75deg)}55%{transform:rotate(8deg)}62%{transform:rotate(2deg)}100%{transform:rotate(-75deg)}}
+@keyframes ldBob{0%,40%,100%{transform:translateY(0)}55%{transform:translateY(2px) rotate(2deg)}}
+@keyframes ldSpark{0%,54%{opacity:0;transform:translate(0,0)}56%{opacity:1}100%{opacity:0;transform:translate(-14px,-30px)}}
+@keyframes ldSpark2{0%,54%{opacity:0;transform:translate(0,0)}56%{opacity:1}100%{opacity:0;transform:translate(-4px,-38px)}}
+@keyframes ldSpark3{0%,54%{opacity:0;transform:translate(0,0)}56%{opacity:1}100%{opacity:0;transform:translate(12px,-32px)}}
+@keyframes ldSpark4{0%,54%{opacity:0;transform:translate(0,0)}56%{opacity:1}100%{opacity:0;transform:translate(-22px,-14px)}}
+@keyframes ldSpark5{0%,54%{opacity:0;transform:translate(0,0)}56%{opacity:1}100%{opacity:0;transform:translate(22px,-18px)}}
+@keyframes ldGlow{0%,50%{opacity:.45}56%{opacity:1}100%{opacity:.45}}
+@keyframes ldIngot{0%,50%{fill:#ff8a3c}56%{fill:#ffe08a}100%{fill:#ff8a3c}}
+.battle-loading{position:absolute;inset:0;display:none;place-items:center;background:rgba(15,12,10,.55);z-index:4;color:#ffe2b0;font-size:13px;text-align:center}
+.battle-loading.on{display:grid}
+.battle-loading .smith{width:150px}
 label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{border:0;border-radius:0;padding:6px 11px;font-size:13px}
@@ -96,7 +121,13 @@ label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:p
 .stick{position:absolute;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:2px solid rgba(255,226,176,.45);background:rgba(0,0,0,.18);display:none;pointer-events:none;z-index:3}
 .stick.on{display:block}
 .stick i{position:absolute;left:50%;top:50%;width:38px;height:38px;border-radius:50%;background:rgba(255,226,176,.55)}
-.hud{position:absolute;left:10px;right:10px;top:10px;display:flex;gap:10px;align-items:flex-start;pointer-events:none;flex-wrap:wrap}
+.hud{position:absolute;left:10px;right:118px;top:10px;display:flex;gap:10px;align-items:flex-start;pointer-events:none;flex-wrap:wrap}
+.gear{position:absolute;right:10px;top:10px;display:flex;gap:8px;padding:6px 8px;background:rgba(10,10,12,.62);border:1px solid rgba(255,255,255,.12);border-radius:10px;pointer-events:none;z-index:2}
+.gear:empty{display:none}
+.hurtfx{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px 30px rgba(255,40,40,.75);opacity:0;z-index:1}
+.downfx{position:absolute;inset:0;pointer-events:none;background:rgba(40,0,0,.45);opacity:0;transition:opacity .4s;z-index:1}
+.gear .set{display:flex;gap:3px;align-items:flex-end}
+.gear canvas{display:block}
 .hud .box{background:rgba(10,10,12,.62);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 10px;font-size:13px}
 .hpbar{width:160px;height:8px;background:#2b2b2b;border-radius:99px;overflow:hidden;margin-top:4px}
 .hpbar i{display:block;height:100%;background:linear-gradient(90deg,#4ade80,#a3e635);width:100%}
@@ -138,6 +169,28 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
 </script>
 </head>
 <body>
+<!-- 起動中のローダー：鍛冶屋がハンマーを打つアニメーション -->
+<div id="loader" class="loader">
+  <div class="loader-in">
+    <svg class="smith" viewBox="0 0 200 130" aria-hidden="true">
+      <defs><radialGradient id="ldGlow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffb347" stop-opacity=".9"/><stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/></radialGradient></defs>
+      <ellipse class="glow" cx="118" cy="78" rx="46" ry="26" fill="url(#ldGlow)"/>
+      <rect x="10" y="112" width="180" height="4" rx="2" fill="#3a2c22"/>
+      <path d="M86 78 h64 l12 -6 v8 l-10 4 h-8 v8 h-10 l6 20 h-46 l6 -20 h-10 v-8 h-4 z" fill="#2e3036"/>
+      <rect class="ingot" x="104" y="72" width="30" height="7" rx="2" fill="#ff8a3c"/>
+      <g class="body">
+        <rect x="44" y="60" width="18" height="34" rx="6" fill="#4a5a7a"/>
+        <rect x="45" y="92" width="7" height="20" rx="2" fill="#5a3a2a"/><rect x="54" y="92" width="7" height="20" rx="2" fill="#5a3a2a"/>
+        <circle cx="53" cy="50" r="9" fill="#f0c9a5"/><path d="M44 48 q9 -12 18 0" fill="#3a2a22"/>
+        <rect x="46" y="64" width="14" height="22" rx="3" fill="#7a4a2a" opacity=".85"/>
+        <g class="arm"><rect x="56" y="62" width="34" height="7" rx="3.5" fill="#f0c9a5"/><rect x="86" y="44" width="5" height="34" rx="2" fill="#7a5434"/><rect x="80" y="38" width="17" height="11" rx="2" fill="#6b717b"/></g>
+      </g>
+      <g class="sparks" fill="#ffd27a"><circle cx="112" cy="70" r="2"/><circle cx="118" cy="68" r="1.6"/><circle cx="124" cy="71" r="2.2"/><circle cx="108" cy="72" r="1.4"/><circle cx="130" cy="69" r="1.5"/></g>
+    </svg>
+    <div class="loader-title">Markdown鍛造</div>
+    <div class="loader-msg" id="loaderMsg">鍛冶場に火を入れています…</div>
+  </div>
+</div>
 <header>
   <div class="wrap">
     <div class="top">
@@ -268,6 +321,23 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
         <div class="box"><b id="hudWave">ウェーブ 1</b><div class="hpbar"><i id="hudHp"></i></div><span class="muted" id="hudHpText" style="font-size:11.5px"></span></div>
         <div class="box" id="hudWeapon" style="max-width:260px"></div>
       </div>
+      <div class="battle-loading" id="battleLoading"><div><svg class="smith" viewBox="0 0 200 130" aria-hidden="true">
+      <defs><radialGradient id="ldGlow2" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffb347" stop-opacity=".9"/><stop offset="1" stop-color="#ff6a1a" stop-opacity="0"/></radialGradient></defs>
+      <ellipse class="glow" cx="118" cy="78" rx="46" ry="26" fill="url(#ldGlow2)"/>
+      <rect x="10" y="112" width="180" height="4" rx="2" fill="#3a2c22"/>
+      <path d="M86 78 h64 l12 -6 v8 l-10 4 h-8 v8 h-10 l6 20 h-46 l6 -20 h-10 v-8 h-4 z" fill="#2e3036"/>
+      <rect class="ingot" x="104" y="72" width="30" height="7" rx="2" fill="#ff8a3c"/>
+      <g class="body">
+        <rect x="44" y="60" width="18" height="34" rx="6" fill="#4a5a7a"/>
+        <rect x="45" y="92" width="7" height="20" rx="2" fill="#5a3a2a"/><rect x="54" y="92" width="7" height="20" rx="2" fill="#5a3a2a"/>
+        <circle cx="53" cy="50" r="9" fill="#f0c9a5"/><path d="M44 48 q9 -12 18 0" fill="#3a2a22"/>
+        <rect x="46" y="64" width="14" height="22" rx="3" fill="#7a4a2a" opacity=".85"/>
+        <g class="arm"><rect x="56" y="62" width="34" height="7" rx="3.5" fill="#f0c9a5"/><rect x="86" y="44" width="5" height="34" rx="2" fill="#7a5434"/><rect x="80" y="38" width="17" height="11" rx="2" fill="#6b717b"/></g>
+      </g>
+      <g class="sparks" fill="#ffd27a"><circle cx="112" cy="70" r="2"/><circle cx="118" cy="68" r="1.6"/><circle cx="124" cy="71" r="2.2"/><circle cx="108" cy="72" r="1.4"/><circle cx="130" cy="69" r="1.5"/></g>
+    </svg><div id="battleLoadingMsg">主人公を呼んでいます…</div></div></div>
+      <div class="hurtfx" id="hurtFx"></div><div class="downfx" id="downFx"></div>
+      <div class="gear" id="hudGear" title="装備中の武器と鞘"></div>
       <div class="banner" id="banner"></div>
     </div>
     <div class="panel" style="margin-top:12px">
@@ -296,7 +366,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
   <section class="tab" id="tab-defs">
     <div class="panel">
       <h2>Markdown 定義</h2>
-      <p class="muted" style="margin-top:0">鍛造の抽選は <code>balance.md</code>、合成の換算は <code>fusion.md</code> に従います。
+      <p class="muted" style="margin-top:0">鍛造の抽選は <code>balance.md</code>、合成の換算は <code>fusion.md</code>、バトルの敵と動きは <code>enemies.md</code> に従います。
         同じフォルダの .md が読めないとき（file:// で開いたときなど）は、ゲームに内蔵した同じ内容の初期値を使います。
         書き換えた .md をここで読み込むと、その内容で遊べます。</p>
       <div class="row" style="margin-bottom:10px">
@@ -311,6 +381,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
     </div>
     <div class="panel"><h2>balance.md</h2><pre class="md" id="balanceText"></pre></div>
     <div class="panel"><h2>fusion.md</h2><pre class="md" id="fusionText"></pre></div>
+    <div class="panel"><h2>enemies.md</h2><pre class="md" id="enemiesText"></pre></div>
     <div class="panel">
       <h2>データ</h2>
       <div class="row"><button class="small" id="btnWipe">記録を消して最初から</button></div>
@@ -320,7 +391,77 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
 
 <div class="toast" id="toast"></div>
 
-<!-- balance.md / fusion.md が読めないとき用の内蔵初期値（同じ内容） -->
+<!-- balance.md / fusion.md / enemies.md が読めないとき用の内蔵初期値（同じ内容） -->
+<script type="text/markdown" id="md-enemies">
+# enemies.md — 敵と動きの定義
+
+Markdown鍛造（仮）のバトルに出る敵・ボスと、その動きの定義です。
+`## 見出し` の下にある最初の表を、その項目の定義として読みます。行を足すと敵が増え、値を変えると強さや動きが変わります。
+
+## 敵
+
+- 形：スライム・ゴーレム・ひのたま・けもの・こうもり・こびと から選びます。
+- 色：「属性」と書くと、その敵の属性の色になります。`#8a6a4a` のように書くと、その色で固定します。
+- 属性：「ランダム」と書くと、出るたびに属性が変わります。炎・氷・雷・風・無 のどれかを書くと固定です。
+- 体力・攻撃はウェーブごとの基準値に掛ける倍率、速さは 1 秒に進むマス数です。大きさは見た目の倍率です。
+- 動き：下の「## 動き」の表にある名前を書きます。
+- 出始め：何ウェーブ目から出てくるか。出やすさ：その中での重みです。
+
+| 名前 | 形 | 色 | 属性 | 大きさ | 体力 | 攻撃 | 速さ | 動き | 出始め | 出やすさ |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ぷるん | スライム | 属性 | ランダム | 1 | 1 | 1 | 1.2 | 近づく | 1 | 30 |
+| いわごろ | ゴーレム | 属性 | ランダム | 1 | 1.5 | 1.25 | 0.85 | 近づく | 1 | 20 |
+| ひのたま | ひのたま | 属性 | ランダム | 1 | 0.75 | 0.9 | 1.6 | ふらふら | 1 | 20 |
+| こうもり | こうもり | #6a5a8a | 風 | 0.9 | 0.6 | 0.8 | 2.2 | 回り込む | 2 | 18 |
+| きばいぬ | けもの | #8a6a4a | ランダム | 1 | 0.9 | 1.1 | 1.4 | 突進 | 3 | 18 |
+| つぶてこびと | こびと | #5f8f5a | ランダム | 0.9 | 0.8 | 0.8 | 1.1 | 撃つ | 4 | 15 |
+
+## 動き
+
+「値1」「値2」の意味は動きごとに違います。説明の欄に書いてあります。
+主人公を自分で動かすとき（縦の視点）に使います。斜めの視点（自動バトル）では、どの敵も「近づく」で動きます。
+
+| 動き | 値1 | 値2 | 説明 |
+| --- | --- | --- | --- |
+| 近づく | 0 | 0 | まっすぐ近づいて、届いたら殴る |
+| ふらふら | 0.8 | 3 | 左右に揺れながら近づく。値1：揺れの大きさ、値2：揺れの速さ |
+| 回り込む | 1.2 | 0.35 | 主人公のまわりを回りながら、少しずつ近づく。値1：回る速さ、値2：近づく速さ |
+| 突進 | 0.8 | 4 | 少し離れた所で構え（値1 秒）、まっすぐ速く突っ込む（速さの値2 倍）。構えている間に横へよけられる |
+| 撃つ | 5 | 2.2 | 値1 マスの距離を保ち、値2 秒ごとに弾を撃つ。弾は動いてよけられる |
+
+## ボス
+
+5 ウェーブごとに、上の行から順番に出ます（最後まで行ったら最初に戻ります）。名前の `{層}` は、何番目のボスかに置き換わります。
+技は下の「## ボスの技」の名前を `・` で区切って書きます。
+
+| 名前 | 形 | 色 | 属性 | 大きさ | 体力 | 攻撃 | 速さ | 技 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 第{層}層の番人 | ゴーレム | 属性 | ランダム | 3.2 | 7 | 1.7 | 0.75 | 前・円 |
+| 牙の主 | けもの | #a0522d | 炎 | 2.8 | 6.5 | 1.6 | 1.1 | 前・弾 |
+| 夜の群れの長 | こうもり | #4b3b6b | 風 | 2.6 | 6 | 1.5 | 1.4 | 円・弾 |
+
+## ボスの技
+
+構えは、地面に範囲を出してから当たるまでの秒数です。倍率は、ふだんの攻撃に対する倍率です。
+
+- 前：ボスの前へまっすぐ伸びる長い攻撃。長さ・幅はマス数。
+- 円：ボスのまわりの円状の攻撃。長さは円の半径。
+- 弾：主人公の方へ、扇形に弾を撃つ。長さは弾の数、幅は扇の広がり（度）。
+
+| 技 | 長さ | 幅 | 構え | 倍率 |
+| --- | --- | --- | --- | --- |
+| 前 | 8 | 1.9 | 1.3 | 2.4 |
+| 円 | 3.6 | 0 | 1.5 | 2.0 |
+| 弾 | 5 | 70 | 0.9 | 1.1 |
+
+## 弾
+
+| 項目 | 値 |
+| --- | --- |
+| 速さ | 6 |
+| 大きさ | 0.3 |
+| 消えるまでの秒数 | 3 |
+</script>
 <script type="text/markdown" id="md-balance">
 # balance.md — 鍛造の抽選テーブル
 
@@ -709,6 +850,34 @@ function buildBalance(text) {
   const twin = s['対の剣'] ? kv(s, '対の剣') : null;
   return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg, twin };
 }
+/* enemies.md：敵・動き・ボス・ボスの技・弾 */
+const SHAPE_KIND = { 'スライム': 'slime', 'ゴーレム': 'golem', 'ひのたま': 'wisp', 'けもの': 'beast', 'こうもり': 'bat', 'こびと': 'imp' };
+const DEFAULT_MOVES = { '近づく': { p1: 0, p2: 0 }, 'ふらふら': { p1: .8, p2: 3 }, '回り込む': { p1: 1.2, p2: .35 }, '突進': { p1: .8, p2: 4 }, '撃つ': { p1: 5, p2: 2.2 } };
+const DEFAULT_SKILLS = { '前': { len: 8, w: 1.9, wind: 1.3, mult: 2.4 }, '円': { len: 3.6, w: 0, wind: 1.5, mult: 2 }, '弾': { len: 5, w: 70, wind: .9, mult: 1.1 } };
+function buildEnemies(text) {
+  const s = parseMdTables(text);
+  const color = v => /^#[0-9a-f]{6}$/i.test((v || '').trim()) ? v.trim() : null;
+  const elem = v => { v = (v || '').trim(); return !v || v === 'ランダム' ? null : v; };
+  const shape = (v, where) => { const k = SHAPE_KIND[(v || '').trim()]; if (!k) throw new Error(`${where} の形「${v}」は使えません（${Object.keys(SHAPE_KIND).join('・')}）`); return k; };
+  const moves = { ...DEFAULT_MOVES };
+  if (s['動き']) for (const r of s['動き'].rows) if (r['動き']) moves[r['動き']] = { p1: num(r['値1'] || '0', '動き/値1'), p2: num(r['値2'] || '0', '動き/値2') };
+  const enemies = need(s, '敵').filter(r => r['名前']).map(r => ({
+    name: r['名前'], kind: shape(r['形'], `敵「${r['名前']}」`), color: color(r['色']), elem: elem(r['属性']),
+    size: clamp(num(r['大きさ'] || '1', '敵/大きさ'), .3, 6), hp: num(r['体力'], '敵/体力'), atk: num(r['攻撃'], '敵/攻撃'), spd: clamp(num(r['速さ'], '敵/速さ'), .1, 10),
+    move: moves[r['動き']] ? r['動き'] : '近づく', from: Math.max(1, num(r['出始め'] || '1', '敵/出始め')), w: Math.max(0, num(r['出やすさ'] || '1', '敵/出やすさ'))
+  }));
+  if (!enemies.length) throw new Error('「## 敵」に 1 行以上必要です');
+  const skills = { ...DEFAULT_SKILLS };
+  if (s['ボスの技']) for (const r of s['ボスの技'].rows) if (r['技']) skills[r['技']] = { len: num(r['長さ'] || '0', 'ボスの技/長さ'), w: num(r['幅'] || '0', 'ボスの技/幅'), wind: clamp(num(r['構え'] || '1', 'ボスの技/構え'), .2, 5), mult: num(r['倍率'] || '1', 'ボスの技/倍率') };
+  const bosses = need(s, 'ボス').filter(r => r['名前']).map(r => ({
+    name: r['名前'], kind: shape(r['形'], `ボス「${r['名前']}」`), color: color(r['色']), elem: elem(r['属性']),
+    size: clamp(num(r['大きさ'] || '3', 'ボス/大きさ'), .5, 8), hp: num(r['体力'], 'ボス/体力'), atk: num(r['攻撃'], 'ボス/攻撃'), spd: clamp(num(r['速さ'], 'ボス/速さ'), .1, 10),
+    skills: (r['技'] || '').split(/[・,、\s]+/).filter(x => skills[x])
+  }));
+  const sh = s['弾'] ? kv(s, '弾') : {};
+  const shot = { speed: isFinite(sh['速さ']) ? +sh['速さ'] : 6, size: isFinite(sh['大きさ']) ? +sh['大きさ'] : .3, life: isFinite(sh['消えるまでの秒数']) ? +sh['消えるまでの秒数'] : 3 };
+  return { enemies, moves, bosses, skills, shot };
+}
 function buildFusion(text) {
   const s = parseMdTables(text);
   const keywords = need(s, '属性キーワード').map(r => ({ word: r['単語'], elem: r['属性'] })).filter(k => k.word);
@@ -722,15 +891,17 @@ function buildFusion(text) {
   };
 }
 
-const DEFS = { balance: null, fusion: null, text: { balance: '', fusion: '' }, src: { balance: '', fusion: '' } };
+const DEFS = { balance: null, fusion: null, enemies: null, text: { balance: '', fusion: '', enemies: '' }, src: { balance: '', fusion: '', enemies: '' } };
+const DEF_KINDS = ['balance', 'fusion', 'enemies'];
 const EMBED = {
   balance: () => $('#md-balance').textContent.replace(/^\n/, ''),
-  fusion: () => $('#md-fusion').textContent.replace(/^\n/, '')
+  fusion: () => $('#md-fusion').textContent.replace(/^\n/, ''),
+  enemies: () => $('#md-enemies').textContent.replace(/^\n/, '')
 };
-const BUILD = { balance: buildBalance, fusion: buildFusion };
+const BUILD = { balance: buildBalance, fusion: buildFusion, enemies: buildEnemies };
 
 async function loadDefs() {
-  for (const kind of ['balance', 'fusion']) {
+  for (const kind of DEF_KINDS) {
     const tries = [];
     const custom = store.get('mdforge.def.' + kind);
     if (custom) tries.push([custom, '読み込んだ .md（この端末に保存中）']);
@@ -755,7 +926,9 @@ function applyDefText(kind, text, srcLabel) {
 function detectDefKind(name, text) {
   if (/balance/i.test(name)) return 'balance';
   if (/fusion/i.test(name)) return 'fusion';
+  if (/enem/i.test(name)) return 'enemies';
   if (/^##\s+レアリティ/m.test(text)) return 'balance';
+  if (/^##\s+敵\s*$/m.test(text)) return 'enemies';
   if (/^##\s+文字数/m.test(text)) return 'fusion';
   return null;
 }
@@ -773,6 +946,9 @@ function save() { store.set(SAVE_KEY, JSON.stringify(S)); }
 function weaponById(id) { return S.weapons.find(w => w.id === id) || null; }
 /* 対の剣：1枚の鉱石から打ったもう一振り。武器庫に残っていれば、装備したとき二刀流になる */
 function twinOf(w) { return w && w.twin ? weaponById(w.twin) : null; }
+/* 二刀流は自分で選んだときだけ（武器庫の「二刀流で装備」）。槍は二刀流にしない */
+function canDual(w) { return !!(w && w.type !== '槍' && twinOf(w)); }
+function activeTwin(w) { return S.dualWield && w && S.equipped === w.id && canDual(w) ? twinOf(w) : null; }
 function twinCfg() {
   const c = (DEFS.balance && DEFS.balance.twin) || {};
   const v = (k, d) => isFinite(c[k]) ? clamp(+c[k], 0, 500) : d;
@@ -1056,7 +1232,7 @@ function weaponCardHTML(w, acts) {
       </div>
       <div style="font-size:12.5px"><b>${esc(e.skill)}</b> ${e.skillVal}${w.f.skill ? `<span class="plus">(+${w.f.skill}%)</span>` : ''}
         <span class="muted">${esc(sk ? sk.desc : '')}</span></div>
-      ${w.twin ? (twinOf(w) ? `<div style="font-size:12px;color:#ffd27a">対の剣 No.${twinOf(w).no} が武器庫にあります。装備すると二刀流になり、${twinCfg().p}% で追撃（対の剣の攻撃の ${twinCfg().mult}%）</div>` : '<div class="muted" style="font-size:12px">対の剣は手放しました</div>') : ''}
+      ${w.twin ? (twinOf(w) ? `<div style="font-size:12px;color:#ffd27a">対の${w.type === '剣' ? '剣' : w.type} No.${twinOf(w).no} が武器庫にあります。${canDual(w) ? `「二刀流で装備」で左手にも持ち、${twinCfg().p}% で追撃（対の武器の攻撃の ${twinCfg().mult}%）${activeTwin(w) ? '。<b>いま二刀流</b>' : ''}` : '槍は二刀流にできません'}</div>` : '<div class="muted" style="font-size:12px">対の武器は手放しました</div>') : ''}
       ${acts ? `<div class="acts">${acts}</div>` : ''}
     </div></div>`;
 }
@@ -1856,7 +2032,8 @@ function renderArmory() {
   $('#armory').innerHTML = S.weapons.map(w => {
     const price = sellPrice(w);
     return weaponCardHTML(w,
-      `${S.equipped === w.id ? '' : `<button class="small" data-act="equip" data-id="${w.id}">装備</button>`}
+      `${S.equipped === w.id && !activeTwin(w) ? '' : `<button class="small" data-act="equip" data-id="${w.id}">${S.equipped === w.id ? '片手持ちにする' : '装備'}</button>`}
+       ${canDual(w) && !activeTwin(w) ? `<button class="small" data-act="dual" data-id="${w.id}">二刀流で装備</button>` : ''}
        <button class="small" data-act="tofuse" data-id="${w.id}">合成へ</button>
        <button class="small" data-act="sell" data-id="${w.id}">売る ${price}G</button>`);
   }).join('');
@@ -1865,7 +2042,8 @@ function renderArmory() {
 document.addEventListener('click', e => {
   const b = e.target.closest('button[data-act]'); if (!b) return;
   const w = weaponById(b.dataset.id); if (!w) return;
-  if (b.dataset.act === 'equip') { S.equipped = w.id; save(); renderAll(); battle.onWeaponChanged(); toast(`${w.name} を装備しました`); }
+  if (b.dataset.act === 'equip') { S.equipped = w.id; S.dualWield = false; save(); renderAll(); battle.onWeaponChanged(); toast(`${w.name} を装備しました`); }
+  if (b.dataset.act === 'dual') { S.equipped = w.id; S.dualWield = true; save(); renderAll(); battle.onWeaponChanged(); toast(`${w.name} と対の No.${twinOf(w).no} で二刀流にしました`); }
   if (b.dataset.act === 'tofuse') { showTab('fusion'); $('#fuseTarget').value = w.id; $('#fuseTarget').onchange(); }
   if (b.dataset.act === 'sell') {
     const price = sellPrice(w);
@@ -1879,13 +2057,14 @@ document.addEventListener('click', e => {
 /* =========================================================
    バトル（シミュレーション）
    ========================================================= */
-const ENEMY_KINDS = [
-  { kind: 'slime', name: 'ぷるん', hp: 1, atk: 1, spd: 1.2 },
-  { kind: 'golem', name: 'いわごろ', hp: 1.5, atk: 1.25, spd: .85 },
-  { kind: 'wisp', name: 'ひのたま', hp: .75, atk: .9, spd: 1.8 }
-];
+/* 敵は enemies.md の「## 敵」「## ボス」から出す */
+function rollEnemy(w, elems) {
+  const pool = DEFS.enemies.enemies.filter(r => r.from <= w);
+  const r = pickWeighted(pool.length ? pool : DEFS.enemies.enemies, x => x.w);
+  return r;
+}
 const battle = {
-  running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], nextId: 1,
+  running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], shots: [], nextId: 1,
   hero: { hp: 100, maxHp: 100, cool: 0, anim: -1, anim2: -1, animDur: .42, pending: null, hurt: 0 },
   log: [],
   stats() {
@@ -1915,7 +2094,7 @@ const battle = {
     this.addLog(`<b>出撃</b>：ウェーブ ${this.wave} から${this.free ? '（自由移動：矢印キー・WASD、または画面をドラッグして動く）' : ''}`);
   },
   stop() {
-    this.running = false; this.phase = 'idle'; this.enemies = []; this.queue = []; syncBattleButtons();
+    this.running = false; this.phase = 'idle'; this.enemies = []; this.queue = []; this.shots = []; syncBattleButtons();
     this.free = false; $('#battleView').classList.remove('free');
     this.addLog('<b>撤退</b>しました'); renderer && renderer.clearEnemies && renderer.clearEnemies();
   },
@@ -1927,11 +2106,17 @@ const battle = {
     const hpS = 28 * Math.pow(1.14, w - 1), atkS = 3.5 * Math.pow(1.11, w - 1);
     const n = boss ? 2 : Math.min(8, 3 + Math.floor((w - 1) / 3));
     for (let i = 0; i < n; i++) {
-      const k = ENEMY_KINDS[(Math.random() * ENEMY_KINDS.length) | 0];
-      this.queue.push({ ...k, boss: false, elem: elems[(Math.random() * elems.length) | 0], maxHp: Math.round(hpS * k.hp), atk: atkS * k.atk });
+      const r = rollEnemy(w, elems);
+      this.queue.push({ kind: r.kind, name: r.name, boss: false, elem: r.elem || elems[(Math.random() * elems.length) | 0], color: r.color, size: r.size, move: r.move,
+        maxHp: Math.round(hpS * r.hp), atk: atkS * r.atk, spd: r.spd });
     }
-    if (boss) this.queue.push({ kind: 'golem', name: `第${w / 5}層の番人`, boss: true, hp: 1, spd: .75, elem: elems[1 + ((Math.random() * (elems.length - 1)) | 0)] || '無', maxHp: Math.round(hpS * 7), atk: atkS * 1.7 });
+    if (boss) {
+      const list = DEFS.enemies.bosses, b = list[(w / 5 - 1) % list.length];
+      this.queue.push({ kind: b.kind, name: b.name.replace('{層}', w / 5), boss: true, elem: b.elem || elems[1 + ((Math.random() * (elems.length - 1)) | 0)] || '無',
+        color: b.color, size: b.size, spd: b.spd, skills: b.skills.length ? b.skills : ['前', '円'], maxHp: Math.round(hpS * b.hp), atk: atkS * b.atk });
+    }
     $('#hudWave').textContent = `ウェーブ ${w}${boss ? '（ボス）' : ''}`;
+    this.shots = [];
     this.banner(boss ? `ウェーブ ${w}　ボス出現` : `ウェーブ ${w}`, boss ? '#ffc247' : '#fff');
   },
   spawn(def) {
@@ -2010,7 +2195,7 @@ const battle = {
           const e = this.enemies.find(x => x.id === p.target && !x.dead) || this.enemies.find(x => !x.dead && x.x <= 2.4);
           if (e) {
             this.damageTo(e, st); if (key === 'pending2') this.float('連撃', e.x, 1.8, '#9ad', false, e);
-            const tw = twinOf(equippedWeapon()), tc = twinCfg();
+            const tw = activeTwin(equippedWeapon()), tc = twinCfg();
             if (key === 'pending' && tw && Math.random() * 100 < tc.p) H.pending3 = { t: .14, target: e.id };
           }
         }
@@ -2019,7 +2204,7 @@ const battle = {
         const p = H.pending3; p.t -= dt;
         if (p.t <= 0) {
           H.pending3 = null; H.anim2 = 0;
-          const tw = twinOf(equippedWeapon());
+          const tw = activeTwin(equippedWeapon());
           const e = this.enemies.find(x => x.id === p.target && !x.dead) || this.enemies.find(x => !x.dead && x.x <= 2.4);
           if (tw && e) {
             const ts = effStats(tw);
@@ -2065,36 +2250,100 @@ const battle = {
   /* ボスの範囲攻撃（自由移動のときだけ）。地面に範囲を予告し、時間が来たら範囲の中にいると当たる。
      line：ボスの前へまっすぐ長い攻撃、circle：ボスのまわり円状の攻撃。構えている間は true を返す */
   bossSkill(e, dt, st) {
-    const H = this.hero, B = BOSS_SKILL;
+    const H = this.hero;
     if (e.cast) {
-      const c = e.cast; c.t += dt;
+      const c = e.cast, K = skillDef(c.type); c.t += dt;
       if (c.t >= c.dur && !c.done) {
         c.done = true; c.flash = .35; e.anim = 0;
-        let hit;
-        if (c.type === 'line') {
-          const rx = H.px - c.cx, rf = H.pf - c.cf, along = rx * Math.sin(c.ang) + rf * Math.cos(c.ang), side = rx * Math.cos(c.ang) - rf * Math.sin(c.ang);
-          hit = along >= -.5 && along <= B.lineLen && Math.abs(side) <= B.lineW / 2 + .25;
-        } else hit = Math.hypot(H.px - c.cx, H.pf - c.cf) <= B.circleR + .25;
-        if (hit) {
-          let dmg = e.atk * (c.type === 'line' ? B.lineMult : B.circleMult) * rand(.9, 1.1);
-          dmg = Math.max(1, dmg - st.def); if (st.skill === '鉄壁') dmg *= 1 - st.skillVal / 100;
-          dmg = Math.max(1, Math.round(dmg)); H.hp -= dmg; H.hurt = .35;
-          this.float('-' + dmg, 0, 2.1, '#ff4d4d', true);
-        } else this.float('かわした！', 0, 2.1, '#8fe3ff', true);
+        if (c.type === '弾') {
+          // 扇形に弾を撃つ（弾はよけられる）
+          const n = Math.max(1, Math.round(K.len)), spread = K.w * Math.PI / 180;
+          for (let i = 0; i < n; i++) {
+            const a = c.ang + (n === 1 ? 0 : -spread / 2 + spread * i / (n - 1));
+            this.fireShot(e, a, e.atk * K.mult);
+          }
+        } else {
+          let hit;
+          if (c.type === '前') {
+            const rx = H.px - c.cx, rf = H.pf - c.cf, along = rx * Math.sin(c.ang) + rf * Math.cos(c.ang), side = rx * Math.cos(c.ang) - rf * Math.sin(c.ang);
+            hit = along >= -.5 && along <= K.len && Math.abs(side) <= K.w / 2 + .25;
+          } else hit = Math.hypot(H.px - c.cx, H.pf - c.cf) <= K.len + .25;
+          if (hit) this.hurtHero(e.atk * K.mult * rand(.9, 1.1), st, true);
+          else this.float('かわした！', 0, 2.1, '#8fe3ff', true);
+        }
       }
-      if (c.done) { c.flash -= dt; if (c.flash <= 0) { e.cast = null; e.skillT = rand(B.gapMin, B.gapMax); } }
+      if (c.done) { c.flash -= dt; if (c.flash <= 0) { e.cast = null; e.skillT = rand(3.5, 5.5); } }
       return true;
     }
-    e.skillT = (e.skillT ?? B.first) - dt;
-    const d = Math.hypot(H.px - e.px, H.pf - e.pf);
-    if (e.skillT <= 0 && d < 9) {
-      // 離れていれば前への長い攻撃、近ければ半々で円状の攻撃
-      const type = d > B.circleR + .5 ? (Math.random() < .75 ? 'line' : 'circle') : (Math.random() < .5 ? 'line' : 'circle');
-      e.cast = { type, t: 0, dur: type === 'line' ? B.lineWind : B.circleWind, cx: e.px, cf: e.pf, ang: Math.atan2(H.px - e.px, H.pf - e.pf), done: false, flash: 0 };
-      this.float(type === 'line' ? '突進の構え！' : '地鳴りの構え！', e.x, 1.6 * BOSS_SCALE + .4, '#ffb347', false, e);
+    e.skillT = (e.skillT ?? 2.5) - dt;
+    const d = Math.hypot(H.px - e.px, H.pf - e.pf), list = e.skills || ['前', '円'];
+    if (e.skillT <= 0 && d < 10) {
+      // 近ければ円を、遠ければ前や弾を選びやすくする
+      const wts = list.map(k => k === '円' ? (d <= skillDef('円').len + .5 ? 3 : .5) : (d > 3.5 ? 2 : 1));
+      const type = pickWeighted(list.map((k, i) => ({ k, w: wts[i] })), x => x.w).k;
+      e.cast = { type, t: 0, dur: skillDef(type).wind, cx: e.px, cf: e.pf, ang: Math.atan2(H.px - e.px, H.pf - e.pf), done: false, flash: 0 };
+      this.float({ '前': '突進の構え！', '円': '地鳴りの構え！', '弾': '弾の構え！' }[type] || '構え！', e.x, 1.6 * (e.size || 1) + .4, '#ffb347', false, e);
       return true;
     }
     return false;
+  },
+  /* 主人公へのダメージ（防御と鉄壁を引く） */
+  hurtHero(raw, st, big) {
+    const H = this.hero;
+    let dmg = Math.max(1, raw - st.def); if (st.skill === '鉄壁') dmg *= 1 - st.skillVal / 100;
+    dmg = Math.max(1, Math.round(dmg)); H.hp -= dmg; H.hurt = big ? .35 : .25;
+    this.float('-' + dmg, 0, big ? 2.1 : 1.9, big ? '#ff4d4d' : '#ff6b6b', !!big);
+  },
+  /* 弾：敵から角度 a（前＝0）の向きへ飛ぶ */
+  fireShot(e, a, dmg) {
+    const S2 = DEFS.enemies.shot;
+    this.shots.push({ px: e.px + Math.sin(a) * .6, pf: e.pf + Math.cos(a) * .6, vx: Math.sin(a) * S2.speed, vf: Math.cos(a) * S2.speed, r: S2.size, life: S2.life, dmg, color: e.color || elemColor(e.elem) });
+  },
+  /* ボス以外の動き（enemies.md の「## 動き」）。主人公との距離 d、向き ux・uf。届いて殴れる位置なら true */
+  moveEnemy(e, dt, d, ux, uf, stop) {
+    const M = DEFS.enemies.moves[e.move] || { p1: 0, p2: 0 }, sp = e.spd * dt, H = this.hero;
+    const toward = m => { e.px += ux * m; e.pf += uf * m; };
+    switch (e.move) {
+      case 'ふらふら': {
+        if (d <= stop) return true;
+        e.sw = (e.sw || Math.random() * 6) + dt * M.p2;
+        toward(Math.min(d - stop, sp)); e.px += uf * Math.cos(e.sw) * sp * M.p1; e.pf += -ux * Math.cos(e.sw) * sp * M.p1;
+        return false;
+      }
+      case '回り込む': {
+        if (d <= stop) return true;
+        const dir = e.id % 2 ? 1 : -1;
+        e.px += uf * dir * sp * M.p1; e.pf += -ux * dir * sp * M.p1;
+        toward(Math.min(d - stop, sp * Math.max(.1, M.p2)));
+        return false;
+      }
+      case '突進': {
+        e.cs = e.cs || 'walk';
+        if (e.cs === 'walk') {
+          if (d > 4.5) { toward(sp); return false; }
+          if (d <= stop) return true;
+          e.cs = 'wind'; e.ct = M.p1; e.ca = Math.atan2(ux, uf); this.float('!', e.x, 1.4 * (e.size || 1), '#ff9a3c', true, e);
+          return false;
+        }
+        if (e.cs === 'wind') { e.ct -= dt; if (e.ct <= 0) { e.cs = 'dash'; e.ct = .7; e.hitDone = false; } return false; }
+        if (e.cs === 'dash') {
+          const m = e.spd * M.p2 * dt; e.px += Math.sin(e.ca) * m; e.pf += Math.cos(e.ca) * m; e.ct -= dt;
+          if (!e.hitDone && Math.hypot(H.px - e.px, H.pf - e.pf) < .9 * (e.size || 1)) { e.hitDone = true; e.anim = 0; this.hurtHero(e.atk * 1.6, this.stats()); }
+          if (e.ct <= 0) { e.cs = 'rest'; e.ct = .9; }
+          return false;
+        }
+        if (e.cs === 'rest') { e.ct -= dt; if (e.ct <= 0) e.cs = 'walk'; return d <= stop; }
+        return false;
+      }
+      case '撃つ': {
+        const keep = M.p1;
+        if (d > keep + .6) toward(sp); else if (d < keep - .6) toward(-sp * .7);
+        e.st2 = (e.st2 ?? M.p2 * rand(.5, 1)) - dt;
+        if (e.st2 <= 0 && d < keep + 3) { e.st2 = M.p2; e.anim = 0; this.fireShot(e, Math.atan2(ux, uf), e.atk); }
+        return false; // 殴らない
+      }
+      default: if (d > stop) { toward(Math.min(d - stop, sp)); return false; } return true;
+    }
   },
   /* 自由移動のバトル（縦の視点）。位置は「横 px・前 pf」（そのウェーブの出発点が 0、前＝画面の上） */
   tickFree(dt, st, alive) {
@@ -2119,32 +2368,31 @@ const battle = {
     const dist = e => Math.hypot(e.px - H.px, e.pf - H.pf);
     this.spawnT -= dt;
     if (this.queue.length && this.spawnT <= 0 && alive.length < 4) { this.spawn(this.queue.shift()); this.spawnT = .8; }
-    // 敵：主人公へ近づき、届けば攻撃。重ならないよう少し押し合う
+    // 敵：enemies.md の動きで主人公に寄り、届けば攻撃。重ならないよう少し押し合う
     for (const e of alive) {
       if (e.boss && this.bossSkill(e, dt, st)) { e.x = dist(e); continue; } // 範囲攻撃の構え中は動かない
-      const dx = H.px - e.px, df = H.pf - e.pf, d = Math.hypot(dx, df) || 1, stop = e.boss ? 2.1 : 1.15;
-      if (d > stop) { const m = Math.min(d - stop, e.spd * dt); e.px += dx / d * m; e.pf += df / d * m; }
-      else {
+      const dx = H.px - e.px, df = H.pf - e.pf, d = Math.hypot(dx, df) || 1, sz = e.size || 1, stop = e.boss ? .9 + .4 * sz : 1.15;
+      const canHit = e.boss ? (d > stop ? (e.px += dx / d * Math.min(d - stop, e.spd * dt), e.pf += df / d * Math.min(d - stop, e.spd * dt), false) : true)
+                            : this.moveEnemy(e, dt, d, dx / d, df / d, stop);
+      if (canHit) {
         e.cool -= dt;
-        if (e.cool <= 0) {
-          e.cool = e.boss ? 1.6 : 1.5; e.anim = 0;
-          let dmg = e.atk * rand(.85, 1.15) * .8; // まわりから来るぶん、1 体あたりは少し弱く
-          dmg = Math.max(1, dmg - st.def);
-          if (st.skill === '鉄壁') dmg *= 1 - st.skillVal / 100;
-          dmg = Math.max(1, Math.round(dmg));
-          H.hp -= dmg; H.hurt = .25;
-          this.float('-' + dmg, 0, 1.9, '#ff6b6b');
-        }
+        if (e.cool <= 0) { e.cool = e.boss ? 1.6 : 1.5; e.anim = 0; this.hurtHero(e.atk * rand(.85, 1.15) * .8, st); } // まわりから来るぶん、1 体あたりは少し弱く
       }
       for (const o of alive) {
         if (o === e) continue;
-        const ox = e.px - o.px, of = e.pf - o.pf, od = Math.hypot(ox, of), min = (e.boss || o.boss) ? 1.8 : .85;
+        const ox = e.px - o.px, of = e.pf - o.pf, od = Math.hypot(ox, of), min = (e.boss || o.boss) ? .5 * Math.max(e.size || 1, o.size || 1) + .4 : .85;
         if (od > 0 && od < min) { const push = (min - od) * .5; e.px += ox / od * push; e.pf += of / od * push; }
       }
       e.x = dist(e);
     }
+    // 弾：まっすぐ飛び、主人公に当たるとダメージ
+    for (const sh of this.shots) {
+      sh.px += sh.vx * dt; sh.pf += sh.vf * dt; sh.life -= dt;
+      if (Math.hypot(sh.px - H.px, sh.pf - H.pf) < sh.r + .35) { sh.life = 0; this.hurtHero(sh.dmg * rand(.9, 1.1), st); }
+    }
+    this.shots = this.shots.filter(sh => sh.life > 0);
     // 主人公：届く範囲のいちばん近い敵を自動で攻撃し、そちらを向く
-    const reach = e => 1.9 + (e.boss ? 1.0 : 0);
+    const reach = e => e.boss ? 1.5 + .45 * (e.size || 1) : 1.9;
     const inReach = alive.filter(e => dist(e) <= reach(e)).sort((a, b) => dist(a) - dist(b));
     const target = inReach[0];
     if (target && !H.moving) H.face = Math.atan2(target.px - H.px, target.pf - H.pf);
@@ -2164,7 +2412,7 @@ const battle = {
         const e = hitTarget(p.target);
         if (e) {
           this.damageTo(e, st); if (key === 'pending2') this.float('連撃', e.x, 1.8, '#9ad', false, e);
-          if (key === 'pending' && twinOf(equippedWeapon()) && Math.random() * 100 < twinCfg().p) H.pending3 = { t: .14, target: e.id };
+          if (key === 'pending' && activeTwin(equippedWeapon()) && Math.random() * 100 < twinCfg().p) H.pending3 = { t: .14, target: e.id };
         }
       }
     }
@@ -2172,7 +2420,7 @@ const battle = {
       const p = H.pending3; p.t -= dt;
       if (p.t <= 0) {
         H.pending3 = null; H.anim2 = 0;
-        const tw = twinOf(equippedWeapon()), e = hitTarget(p.target);
+        const tw = activeTwin(equippedWeapon()), e = hitTarget(p.target);
         if (tw && e) {
           const ts = effStats(tw);
           this.damageTo(e, { ...ts, atk: Math.max(1, ts.atk * twinCfg().mult / 100), skill: ts.skill === '連撃' ? null : ts.skill });
@@ -2229,16 +2477,42 @@ $('#speedSeg').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   battle.speed = parseFloat(b.dataset.s); $('#speedSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
 };
+/* 画面右上：装備中の武器と鞘の絵。対の剣で二刀流なら 2 組 */
+function drawSheathIcon(cv, w) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1), W = 14, Hh = 76;
+  cv.width = W * dpr; cv.height = Hh * dpr; cv.style.width = W + 'px'; cv.style.height = Hh + 'px';
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hh);
+  const gd = GUIDES[w.type] || GUIDES['長剣'], top = gd.pts.reduce((a, p) => Math.min(a, p[1]), 999);
+  const len = clamp((gd.hiltY - top) / 84, .35, 1) * (Hh - 6), y0 = 3, x0 = 3, ww = W - 6;
+  g.fillStyle = w.sheathColor || '#8a6a45';
+  g.beginPath(); g.roundRect(x0, y0, ww, len, [2, 2, ww / 2, ww / 2]); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(x0 + 1.5, y0 + 3, 1.6, len - 8);
+  g.fillStyle = '#c9a64a'; g.fillRect(x0 - 1, y0, ww + 2, 4); g.beginPath(); g.roundRect(x0, y0 + len - 7, ww, 7, [0, 0, ww / 2, ww / 2]); g.fill();
+}
+function updateHudGear() {
+  const el = $('#hudGear'); if (!el) return;
+  const w = equippedWeapon(), tw = activeTwin(w);
+  el.innerHTML = '';
+  for (const x of [w, tw].filter(Boolean)) {
+    const set = document.createElement('div'); set.className = 'set';
+    const wc = document.createElement('canvas'); wc.style.width = '30px'; wc.style.height = '80px';
+    const sc = document.createElement('canvas');
+    set.append(wc, sc); el.appendChild(set);
+    drawWeaponIcon(wc, x);
+    if (x.sheath && x.type !== '斧' && x.type !== '槍') drawSheathIcon(sc, x); else sc.remove();
+  }
+}
 function updateHudWeapon() {
+  updateHudGear();
   const w = equippedWeapon();
   $('#hudWeapon').innerHTML = w
     ? `<b style="color:${esc(rarityInfo(w.rarity).color)}">[${esc(w.rarity)}]</b> ${esc(w.name)}<br><span class="muted" style="font-size:11.5px">攻撃 ${effStats(w).atk}・速度 ${w.spd}・会心 ${effStats(w).crit}%・${esc(w.skill)}</span>` +
-      (twinOf(w) ? `<br><span style="font-size:11.5px;color:#ffd27a">二刀流：左手に対の剣 No.${twinOf(w).no}（${twinCfg().p}% で追撃）</span>` : '')
+      (activeTwin(w) ? `<br><span style="font-size:11.5px;color:#ffd27a">二刀流：左手に対の剣 No.${activeTwin(w).no}（${twinCfg().p}% で追撃）</span>` : '')
     : '素手（武器を鍛造して装備しよう）';
 }
 
-/* ボスの範囲攻撃の形と強さ。Wind は構えてから当たるまでの秒数、Mult はふだんの攻撃に対する倍率 */
-const BOSS_SKILL = { lineLen: 8, lineW: 1.9, lineWind: 1.3, lineMult: 2.4, circleR: 3.6, circleWind: 1.5, circleMult: 2.0, first: 2.5, gapMin: 3.5, gapMax: 5.5 };
+/* ボスの技（enemies.md の「## ボスの技」）。len・w は形の大きさ、wind は構えの秒数、mult は倍率 */
+function skillDef(name) { return (DEFS.enemies && DEFS.enemies.skills[name]) || DEFAULT_SKILLS[name] || DEFAULT_SKILLS['前']; }
 /* ステージの 1 区切り（ウェーブ 1 つ）の長さ。自由移動で動ける横幅と速さ */
 const STAGE_STEP = 10, FREE_X = 3.6, FREE_SPEED = 3.4;
 /* 自由移動の入力：矢印キー・WASD と、バトル画面のドラッグ（仮想スティック） */
@@ -2283,7 +2557,7 @@ window.addEventListener('blur', () => { freeKeys.clear(); freeDrag.on = false; }
   view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end);
 }
 /* 斜め見下ろしのステージで、敵が道の上に少し散らばって並ぶための横位置 */
-const BOSS_SCALE = 3.2;
+const ENEMY_BAR_H = { slime: .85, wisp: 1.35, golem: 1.55, beast: 1.05, bat: 1.55, imp: 1.25 }; // 体力バーを出す高さ（大きさ 1 のとき）
 function laneOf(e) {
   if (e.boss) return 0;
   const l = (((e.id * 7919) % 5) - 2) * .42;
@@ -2303,7 +2577,7 @@ function updateOverlay() {
   };
   for (const e of battle.enemies) {
     if (e.dead) continue;
-    const barH = e.boss ? 1.55 * BOSS_SCALE : { slime: .85, wisp: 1.35, golem: 1.5 }[e.kind] || 1.3;
+    const barH = (ENEMY_BAR_H[e.kind] || 1.3) * (e.size || 1) + (e.boss ? .1 : 0);
     put('e' + e.id, 'ebar' + (e.boss ? ' boss' : ''), '<i></i>', battle.free ? e.pf : e.x, barH, el => el.firstChild.style.width = clamp(e.hp / e.maxHp * 100, 0, 100) + '%', battle.free ? e.px : laneOf(e));
   }
   for (const f of battle.floaters) {
@@ -2311,6 +2585,8 @@ function updateOverlay() {
   }
   for (const [k, el] of overlayEls) if (!seen.has(k)) { el.remove(); overlayEls.delete(k); }
   const H = battle.hero;
+  $('#hurtFx').style.opacity = battle.running && H.hurt > 0 ? clamp(H.hurt / .35, 0, 1) : 0;
+  $('#downFx').style.opacity = battle.running && battle.phase === 'dead' ? 1 : 0;
   $('#hudHp').style.width = clamp(H.hp / H.maxHp * 100, 0, 100) + '%';
   $('#hudHpText').textContent = battle.running ? `HP ${Math.ceil(H.hp)} / ${H.maxHp}` : '待機中（「出撃」で開始）';
 }
@@ -2485,7 +2761,8 @@ async function make3DRenderer(container) {
       const w = w0 + i - 1;
       // 区切りは、そのウェーブの敵が出てくる所のすぐ奥に立てる（次のウェーブへ進むとき、そこをくぐる）。ボスのウェーブだけ大きな門
       g.visible = w >= 1; g.position.set(0, 0, waveZ(w) - STEP - .4);
-      g.userData.arch.visible = w % 5 === 0;
+      // 大きな門は、自由移動で主人公のすぐ近くにあると画面をふさぐので、そのときは出さない
+      g.userData.arch.visible = w % 5 === 0 && !(battle.free && Math.abs(g.position.z - heroZ) < 4);
     });
   }
   // 出発点の金床（ウェーブ 1 のうしろ）
@@ -2515,7 +2792,12 @@ async function make3DRenderer(container) {
     const hm = new THREE.Mesh(new THREE.SphereGeometry(.15, 20, 16), skin); hm.position.y = .1; hm.castShadow = true; head.add(hm);
     const hr = new THREE.Mesh(new THREE.SphereGeometry(.158, 20, 12, 0, Math.PI * 2, 0, Math.PI * .55), hair); hr.position.y = .11; hr.rotation.x = -.25; head.add(hr);
     for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(.018, 8, 6), new THREE.MeshBasicMaterial({ color: 0x222222 })); e.position.set(s * .05, .11, .14); head.add(e); }
-    for (const s of [-1, 1]) { const l = box(.13, .9, .15, cloth2); l.position.set(s * .09, -.45, 0); hips.add(l); }
+    const legs = {};
+    for (const s of [-1, 1]) {
+      const lg = new THREE.Group(); lg.position.set(s * .09, 0, 0); hips.add(lg);
+      const l = box(.13, .9, .15, cloth2); l.position.y = -.45; lg.add(l);
+      legs[s < 0 ? 'right' : 'left'] = lg;
+    }
     const arm = side => {
       const up = new THREE.Group(); up.position.set(side * .2, .45, 0); spine.add(up);
       const um = box(.28, .1, .1, cloth); um.position.x = side * .14; up.add(um);
@@ -2526,13 +2808,13 @@ async function make3DRenderer(container) {
       return { up, lo, hand };
     };
     const R = arm(-1), L = arm(1);
-    return { root, isVRM: false, bones: { rightUpperArm: R.up, rightLowerArm: R.lo, rightHand: R.hand, leftUpperArm: L.up, leftLowerArm: L.lo, leftHand: L.hand, spine, head, hips } };
+    return { root, isVRM: false, bones: { rightUpperArm: R.up, rightLowerArm: R.lo, rightHand: R.hand, leftUpperArm: L.up, leftLowerArm: L.lo, leftHand: L.hand, spine, head, hips, rightUpperLeg: legs.right, leftUpperLeg: legs.left } };
   }
   function setHero(h) {
     if (hero) heroHolder.remove(hero.root);
     hero = h; heroHolder.add(h.root); attachWeapon();
   }
-  function buildWeaponMesh(w) {
+  function buildWeaponMesh(w, mirror) {
     if (!w || !w.outline || w.outline.length < 3) return null;
     const lenCells = WEAPON_LEN[w.type] || .95;
     const s = lenCells / 112;
@@ -2568,6 +2850,8 @@ async function make3DRenderer(container) {
     const g = new THREE.Group();
     m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 1, 0)));
     g.add(m);
+    // 左手に持つときは左右を反転する（斧の刃などが、右手と左右対称になるように）
+    if (mirror) g.scale.x = -1;
     const rc = new THREE.Color(rarityInfo(w.rarity).color);
     const glow = new THREE.PointLight(rc, ['SSR', 'UR'].includes(w.rarity) ? .8 : 0, 1.6); glow.position.set(0, 0, lenCells * .5); g.add(glow);
     return g;
@@ -2593,18 +2877,18 @@ async function make3DRenderer(container) {
     weaponMesh = buildWeaponMesh(currentWeapon);
     if (weaponMesh && hero && hero.bones.rightHand) hero.bones.rightHand.add(weaponMesh);
     if (twinMesh && twinMesh.parent) twinMesh.parent.remove(twinMesh);
-    twinMesh = buildWeaponMesh(twinOf(currentWeapon));
+    twinMesh = buildWeaponMesh(activeTwin(currentWeapon), true);
     if (twinMesh && hero && hero.bones.leftHand) hero.bones.leftHand.add(twinMesh);
     if (sheathMesh && sheathMesh.parent) sheathMesh.parent.remove(sheathMesh);
-    sheathMesh = buildSheathMesh(currentWeapon);
-    if (sheathMesh && hero && hero.bones.hips) hero.bones.hips.add(sheathMesh);
+    sheathMesh = null;
+    // 剣はしまわないので、鞘は腰に差さず、画面右上（#hudGear）に絵で出す
   }
   setHero(buildPrimitiveHero());
 
   // 敵（図形で自作したオリジナル）
   const enemyMeshes = new Map();
   function buildEnemy(e) {
-    const col = new THREE.Color(elemColor(e.elem));
+    const col = new THREE.Color(e.color || elemColor(e.elem));
     const mat = new THREE.MeshStandardMaterial({ color: col, roughness: .5, metalness: .1, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0 });
     const g = new THREE.Group(); const body = new THREE.Group(); g.add(body);
     const eye = new THREE.MeshBasicMaterial({ color: 0x111111 });
@@ -2617,6 +2901,35 @@ async function make3DRenderer(container) {
       const m = new THREE.Mesh(new THREE.IcosahedronGeometry(.28, 1), mat); m.position.y = .95; m.castShadow = true; body.add(m);
       const tail = new THREE.Mesh(new THREE.ConeGeometry(.18, .5, 12), mat); tail.rotation.x = Math.PI; tail.position.y = .6; body.add(tail);
       eyes(1.0, .25, .09, .04);
+    } else if (e.kind === 'beast') {
+      // けもの：四つ足、とがった耳と鼻先
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(.5, .42, .9), mat); torso.position.y = .55; torso.castShadow = true; body.add(torso);
+      const hd = new THREE.Mesh(new THREE.BoxGeometry(.38, .34, .4), mat); hd.position.set(0, .78, .55); hd.castShadow = true; body.add(hd);
+      const snout = new THREE.Mesh(new THREE.BoxGeometry(.2, .16, .22), mat); snout.position.set(0, .72, .82); body.add(snout);
+      for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(.07, .18, 4), mat); ear.position.set(sx * .12, 1.0, .5); body.add(ear); }
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(.12, .4, .12), mat); leg.position.set(sx * .17, .2, sz * .3); leg.castShadow = true; body.add(leg); }
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(.06, .35, 5), mat); tail.rotation.x = -1.1; tail.position.set(0, .7, -.55); body.add(tail);
+      eyes(.84, .76, .1, .04);
+    } else if (e.kind === 'bat') {
+      // こうもり：宙に浮き、羽ばたく
+      const m = new THREE.Mesh(new THREE.SphereGeometry(.22, 14, 10), mat); m.position.y = 1.15; m.castShadow = true; body.add(m);
+      const wings = [];
+      for (const sx of [-1, 1]) {
+        const wg = new THREE.Group(); wg.position.set(sx * .18, 1.18, 0);
+        const wm = new THREE.Mesh(new THREE.BoxGeometry(.55, .03, .32), mat); wm.position.x = sx * .27; wm.castShadow = true; wg.add(wm);
+        body.add(wg); wings.push({ g: wg, s: sx });
+      }
+      for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(.05, .14, 4), mat); ear.position.set(sx * .1, 1.38, 0); body.add(ear); }
+      body.userData.wings = wings;
+      eyes(1.2, .19, .08, .035);
+    } else if (e.kind === 'imp') {
+      // こびと：小柄な人型、とがった帽子と投石袋
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(.36, .42, .26), mat); torso.position.y = .5; torso.castShadow = true; body.add(torso);
+      const hd = new THREE.Mesh(new THREE.SphereGeometry(.17, 14, 10), mat); hd.position.y = .88; hd.castShadow = true; body.add(hd);
+      const hat = new THREE.Mesh(new THREE.ConeGeometry(.17, .36, 8), new THREE.MeshStandardMaterial({ color: 0x3a2a22, roughness: .9 })); hat.position.y = 1.12; body.add(hat);
+      for (const sx of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(.11, .3, .11), mat); l.position.set(sx * .1, .15, 0); body.add(l); }
+      const bag = new THREE.Mesh(new THREE.SphereGeometry(.09, 8, 6), new THREE.MeshStandardMaterial({ color: 0x8a6a45, roughness: 1 })); bag.position.set(.26, .55, .1); body.add(bag);
+      eyes(.9, .15, .07, .03);
     } else {
       const torso = new THREE.Mesh(new THREE.BoxGeometry(.7, .75, .5), mat); torso.position.y = .62; torso.castShadow = true; body.add(torso);
       const hd = new THREE.Mesh(new THREE.BoxGeometry(.42, .34, .38), mat); hd.position.y = 1.16; hd.castShadow = true; body.add(hd);
@@ -2627,7 +2940,7 @@ async function make3DRenderer(container) {
         for (let i = 0; i < 5; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(.06, .2, 6), gold); const a = i / 5 * Math.PI * 2; c.position.set(Math.cos(a) * .17, 1.42, Math.sin(a) * .15); body.add(c); }
       }
     }
-    g.scale.setScalar(e.boss ? BOSS_SCALE : 1);
+    g.scale.setScalar(e.size || 1);
     g.rotation.y = 0; // 主人公（+Z 方向、画面の手前）を向く
     g.userData.mat = mat;
     scene.add(g); return g;
@@ -2641,26 +2954,48 @@ async function make3DRenderer(container) {
   const circleEdge = new THREE.Mesh(new THREE.RingGeometry(.96, 1, 64), new THREE.MeshBasicMaterial({ color: 0xff5050, transparent: true, opacity: .9, depthWrite: false, side: THREE.DoubleSide }));
   for (const m of [circleBase, circleFill, circleEdge]) { m.rotation.x = -Math.PI / 2; circleWarn.add(m); }
   lineWarn.visible = circleWarn.visible = false; scene.add(lineWarn); scene.add(circleWarn);
+  // 弾：光る玉（使い回す）
+  const shotMeshes = [], shotGeo = new THREE.SphereGeometry(1, 12, 8);
+  function drawShots(t) {
+    const list = battle.free ? battle.shots || [] : [], base = waveZ(battle.wave);
+    while (shotMeshes.length < list.length) {
+      const m = new THREE.Mesh(shotGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.2 }));
+      scene.add(m); shotMeshes.push(m);
+    }
+    shotMeshes.forEach((m, i) => {
+      const sh = list[i]; m.visible = !!sh; if (!sh) return;
+      m.position.set(sh.px, .9 + Math.sin(t * 10 + i) * .05, base - sh.pf); m.scale.setScalar(sh.r);
+      m.material.color.set(sh.color); m.material.emissive.set(sh.color);
+    });
+  }
   function drawWarnings(t) {
     lineWarn.visible = circleWarn.visible = false;
     if (!battle.free) return;
-    const base = waveZ(battle.wave), B = BOSS_SKILL;
+    const base = waveZ(battle.wave);
     for (const e of battle.enemies) {
       const c = e.cast; if (!c || e.dead) continue;
       const k = clamp(c.t / c.dur, 0, 1), flash = c.done ? 1 : 0;
       const pulse = .2 + .1 * Math.sin(t * 18);
-      if (c.type === 'line') {
+      const K = skillDef(c.type);
+      if (c.type === '弾') {
+        // 弾：撃つ向きに細い帯をうっすら出す
         lineWarn.visible = true;
         lineWarn.position.set(c.cx, .03, base - c.cf);
         lineWarn.rotation.y = Math.atan2(Math.sin(c.ang), -Math.cos(c.ang));
-        lineBase.scale.set(B.lineW, B.lineLen, 1); lineBase.position.z = B.lineLen / 2; lineBase.material.opacity = flash ? .75 : pulse;
-        lineFill.scale.set(B.lineW, B.lineLen * k, 1); lineFill.position.z = B.lineLen * k / 2; lineFill.position.y = .005; lineFill.material.opacity = flash ? 0 : .45;
+        lineBase.scale.set(.5, 7, 1); lineBase.position.z = 3.5; lineBase.material.opacity = flash ? .5 : pulse * .7;
+        lineFill.scale.set(.5, 7 * k, 1); lineFill.position.z = 3.5 * k; lineFill.material.opacity = flash ? 0 : .35;
+      } else if (c.type === '前') {
+        lineWarn.visible = true;
+        lineWarn.position.set(c.cx, .03, base - c.cf);
+        lineWarn.rotation.y = Math.atan2(Math.sin(c.ang), -Math.cos(c.ang));
+        lineBase.scale.set(K.w, K.len, 1); lineBase.position.z = K.len / 2; lineBase.material.opacity = flash ? .75 : pulse;
+        lineFill.scale.set(K.w, K.len * k, 1); lineFill.position.z = K.len * k / 2; lineFill.position.y = .005; lineFill.material.opacity = flash ? 0 : .45;
       } else {
         circleWarn.visible = true;
         circleWarn.position.set(c.cx, .03, base - c.cf);
-        circleBase.scale.setScalar(B.circleR); circleBase.material.opacity = flash ? .75 : pulse;
-        circleEdge.scale.setScalar(B.circleR);
-        circleFill.scale.setScalar(Math.max(.01, B.circleR * k)); circleFill.position.y = .005; circleFill.material.opacity = flash ? 0 : .45;
+        circleBase.scale.setScalar(K.len); circleBase.material.opacity = flash ? .75 : pulse;
+        circleEdge.scale.setScalar(K.len);
+        circleFill.scale.setScalar(Math.max(.01, K.len * k)); circleFill.position.y = .005; circleFill.material.opacity = flash ? 0 : .45;
       }
     }
   }
@@ -2669,6 +3004,19 @@ async function make3DRenderer(container) {
   function pose(dt, t) {
     if (!hero) return;
     const b = hero.bones, H = battle.hero;
+    // 歩く：脚を交互に振る
+    if (heroWalking) walkPhase += dt * 10; else walkPhase *= .85;
+    const sw = heroWalking ? Math.sin(walkPhase) * .7 : 0;
+    if (b.leftUpperLeg) b.leftUpperLeg.rotation.set(sw, 0, 0);
+    if (b.rightUpperLeg) b.rightUpperLeg.rotation.set(-sw, 0, 0);
+    if (b.leftLowerLeg) b.leftLowerLeg.rotation.set(heroWalking ? Math.max(0, -Math.sin(walkPhase)) * .9 : 0, 0, 0);
+    if (b.rightLowerLeg) b.rightLowerLeg.rotation.set(heroWalking ? Math.max(0, Math.sin(walkPhase)) * .9 : 0, 0, 0);
+    // 負けた：うしろへ倒れる。ダメージ：のけぞる
+    const down = battle.running && battle.phase === 'dead' ? clamp((2.6 - battle.timer) / .55, 0, 1) : 0;
+    const ease = x => x * x * (3 - 2 * x);
+    hero.root.rotation.x = -1.45 * ease(down);
+    hero.root.position.y = down * .12;
+    const flinch = H.hurt > 0 ? H.hurt / .35 : 0;
     let rx = 0, rz = 1.2, sy = 0;
     if (H.anim >= 0) {
       const p = H.anim, ease = x => x * x * (3 - 2 * x);
@@ -2681,10 +3029,10 @@ async function make3DRenderer(container) {
     // 左手：対の剣の追撃で、すばやく振る
     let lx = Math.sin(t * 1.6) * .04, lz = -1.2;
     if (H.anim2 >= 0) { const p = H.anim2; lx = p < .4 ? -2.2 * (p / .4) : -2.2 + 2.2 * ((p - .4) / .6); lz = -1.2 + .3 * Math.sin(p * Math.PI); }
-    else if (twinOf(currentWeapon)) lx = -.15 + Math.sin(t * 1.6) * .04;
+    else if (activeTwin(currentWeapon)) lx = -.15 + Math.sin(t * 1.6) * .04;
     if (b.leftUpperArm) b.leftUpperArm.rotation.set(lx, 0, lz);
     if (b.leftLowerArm) b.leftLowerArm.rotation.set(0, .15, 0);
-    if (b.spine) b.spine.rotation.set(Math.sin(t * 2) * .015, sy, H.hurt > 0 ? .08 : 0);
+    if (b.spine) b.spine.rotation.set(Math.sin(t * 2) * .015 - flinch * .35, sy, flinch * .08);
     if (vrm) vrm.update(dt);
   }
 
@@ -2698,7 +3046,7 @@ async function make3DRenderer(container) {
     VRMLib.VRMUtils.removeUnnecessaryVertices(gltf.scene);
     VRMLib.VRMUtils.rotateVRM0(v);
     v.scene.traverse(o => { o.frustumCulled = false; if (o.isMesh) o.castShadow = true; });
-    const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'leftHand', 'spine', 'head', 'hips'];
+    const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'leftHand', 'spine', 'head', 'hips', 'rightUpperLeg', 'leftUpperLeg', 'rightLowerLeg', 'leftLowerLeg'];
     const bones = {};
     for (const n of names) bones[n] = v.humanoid.getNormalizedBoneNode(n);
     if (!bones.rightHand) throw new Error('右手のボーンが見つかりません');
@@ -2720,7 +3068,7 @@ async function make3DRenderer(container) {
     camDist = clamp(1.05 / Math.min(1, aspect * .95), 1, 1.8);
     camera.updateProjectionMatrix(); placeCamera();
   }
-  let heroX = 0, camZ = 0, camX = 0;
+  let heroX = 0, camZ = 0, camX = 0, heroWalking = false, walkPhase = 0;
   function placeCamera() {
     if (battle.free) {
       // 自由移動：カメラは道の真ん中に置いたまま、主人公が画面の中を動いて見えるようにする。
@@ -2754,7 +3102,8 @@ async function make3DRenderer(container) {
     if (battle.free) {
       // 自由移動：主人公はプレイヤーが動かす。向きは、動く向きか、攻撃している敵の向き
       heroZ = waveZ(battle.wave) - H.pf; heroX = H.px;
-      heroHolder.position.set(heroX, H.moving ? Math.abs(Math.sin(t * 11)) * .06 : 0, heroZ);
+      heroWalking = !!H.moving || (battle.phase === 'clear' && H.idle > 2.2);
+      heroHolder.position.set(heroX, heroWalking ? Math.abs(Math.sin(walkPhase)) * .05 : 0, heroZ);
       heroHolder.rotation.y = Math.atan2(Math.sin(H.face), -Math.cos(H.face));
     } else {
       const want = waveZ(battle.running ? battle.wave : (S.wave || 1));
@@ -2762,8 +3111,8 @@ async function make3DRenderer(container) {
       if (Math.abs(gap) > STEP * 2.5 || !battle.running) heroZ = want;
       else if (Math.abs(gap) > .001) heroZ += Math.sign(gap) * Math.min(Math.abs(gap), 7.5 * dt);
       const walking = Math.abs(want - heroZ) > .05;
-      heroX = 0; heroHolder.rotation.y = Math.PI;
-      heroHolder.position.set(0, walking ? Math.abs(Math.sin(t * 11)) * .06 : 0, heroZ);
+      heroX = 0; heroHolder.rotation.y = Math.PI; heroWalking = walking;
+      heroHolder.position.set(0, walking ? Math.abs(Math.sin(walkPhase)) * .05 : 0, heroZ);
     }
     placeCamera();
     pose(dt, t);
@@ -2785,10 +3134,15 @@ async function make3DRenderer(container) {
       g.userData.mat.emissiveIntensity = e.hit > 0 ? .9 : (e.kind === 'wisp' ? .7 : 0);
       if (e.hit > 0 && e.kind !== 'wisp') g.userData.mat.emissive.set(0xffffff); else if (e.kind !== 'wisp') g.userData.mat.emissive.set(0x000000);
       const k = e.dead ? Math.max(.001, 1 - e.dead / .7) : 1;
-      g.scale.setScalar((e.boss ? BOSS_SCALE : 1) * k);
+      g.scale.setScalar((e.size || 1) * k);
+      if (body.userData.wings) for (const w of body.userData.wings) w.g.rotation.z = w.s * Math.sin(t * 16 + e.id) * .6;
+      // 突進の構え中は小刻みに震える
+      if (e.cs === 'wind') body.position.x = Math.sin(t * 60) * .05; else body.position.x = 0;
+      body.position.z = -e.hit * 1.4; // 斬られたら、うしろへ跳ねる
+      body.rotation.x = -e.hit * 1.2;
     }
     for (const [id, g] of enemyMeshes) if (!seen.has(id)) { scene.remove(g); enemyMeshes.delete(id); }
-    drawWarnings(t);
+    drawWarnings(t); drawShots(t);
     forgeGlow.intensity = 2 + Math.sin(t * 7) * .3 + Math.sin(t * 13) * .2;
     renderer.render(scene, camera);
   }
@@ -2827,20 +3181,21 @@ function renderDefs() {
     B.rarities.map((r, i) => `<tr><td><span class="rar" style="background:${esc(r.color)}">${esc(r.name)}</span></td><td>${r1(r.w / tot * 100)}%</td><td>${r1(st[i].w / stTot * 100)}%</td><td>×${r.atk}</td></tr>`).join('')}</table>`;
   $('#balanceText').textContent = DEFS.text.balance;
   $('#fusionText').textContent = DEFS.text.fusion;
-  $('#defStatus').innerHTML = `balance.md：<b>${esc(DEFS.src.balance)}</b><br>fusion.md：<b>${esc(DEFS.src.fusion)}</b>` +
-    ['balance', 'fusion'].map(k => DEFS.src[k + 'Err'] ? `<br><span style="color:var(--bad)">${esc(DEFS.src[k + 'Err'])}</span>` : '').join('');
+  $('#enemiesText').textContent = DEFS.text.enemies;
+  $('#defStatus').innerHTML = DEF_KINDS.map(k => `${k}.md：<b>${esc(DEFS.src[k])}</b>`).join('<br>') +
+    DEF_KINDS.map(k => DEFS.src[k + 'Err'] ? `<br><span style="color:var(--bad)">${esc(DEFS.src[k + 'Err'])}</span>` : '').join('');
 }
 async function loadDefFiles(files) {
   for (const f of files) {
     const text = await readFileText(f), kind = detectDefKind(f.name, text);
-    if (!kind) { toast(`${f.name}：balance.md か fusion.md か判別できません`); continue; }
+    if (!kind) { toast(`${f.name}：balance.md・fusion.md・enemies.md のどれか判別できません`); continue; }
     try { applyDefText(kind, text, `読み込んだ ${f.name}（この端末に保存中）`); store.set('mdforge.def.' + kind, text); toast(`${f.name} を ${kind}.md として読み込みました`); }
     catch (e) { toast(`${f.name} を読めませんでした：${e.message}`); }
   }
   guideMaskCache; renderDefs(); renderAll(); populateTypes();
 }
 $('#defFile').onchange = e => { loadDefFiles([...e.target.files]); e.target.value = ''; };
-$('#btnDefReset').onclick = async () => { store.del('mdforge.def.balance'); store.del('mdforge.def.fusion'); DEFS.src.balanceErr = DEFS.src.fusionErr = ''; await loadDefs(); renderDefs(); renderAll(); populateTypes(); toast('定義を初期値に戻しました'); };
+$('#btnDefReset').onclick = async () => { for (const k of DEF_KINDS) { store.del('mdforge.def.' + k); DEFS.src[k + 'Err'] = ''; } await loadDefs(); renderDefs(); renderAll(); populateTypes(); toast('定義を初期値に戻しました'); };
 $('#btnWipe').onclick = () => {
   if (!confirm('武器・所持金・記録をすべて消して最初からにします。よろしいですか？')) return;
   battle.running && battle.stop(); store.del(SAVE_KEY); location.reload();
@@ -2888,9 +3243,10 @@ $('#vrmFile').onchange = async e => {
   if (!renderer || renderer.kind !== '3d') { toast('3D 表示が使えないため VRM は読み込めません'); return; }
   $('#vrmNote').textContent = `${f.name} を読み込み中…`;
   const url = URL.createObjectURL(f);
+  setBattleLoading(true, `${f.name} を読み込んでいます…`);
   try { const info = await renderer.loadVRM(url); $('#vrmNote').textContent = `VRM「${info.name}」を読み込みました。鍛えた武器を右手に持たせています。`; }
   catch (err) { $('#vrmNote').textContent = `VRM を読み込めませんでした：${err.message}`; }
-  finally { URL.revokeObjectURL(url); }
+  finally { URL.revokeObjectURL(url); setBattleLoading(false); }
 };
 $('#btnVrmReset').onclick = () => {
   renderer && renderer.resetHero(); $('#vrmFile').value = ''; $('#vrmNote').textContent = '簡易モデルに戻しました（次に開いたときも簡易モデルです）。';
@@ -2905,8 +3261,10 @@ async function loadSampleVRM(force) {
   if (!force && (sampleTried || renderer.hasVRM)) return;
   sampleTried = true;
   $('#vrmNote').textContent = 'サンプルの VRM を読み込み中…（約 10MB）';
+  setBattleLoading(true, '主人公（サンプルの VRM）を呼んでいます…');
   try { await renderer.loadVRM(SAMPLE_VRM); $('#vrmNote').textContent = `${SAMPLE_CREDIT}を表示中。自分の VRM ファイルを選ぶと入れ替わります。`; }
   catch (err) { $('#vrmNote').textContent = `サンプルの VRM を読み込めませんでした（${err.message}）。簡易モデルで表示しています。`; }
+  finally { setBattleLoading(false); }
 }
 $('#btnVrmSample').onclick = () => { try { store.set('mdforge.hero', 'sample'); } catch (e) {} $('#vrmFile').value = ''; loadSampleVRM(true); };
 function maybeLoadSample() {
@@ -2918,6 +3276,15 @@ function maybeLoadSample() {
    起動
    ========================================================= */
 let renderer = null;
+const loaderShownAt = performance.now();
+function hideLoader() {
+  // 一瞬で消えるとちらつくので、最低 0.9 秒は見せる
+  const wait = Math.max(0, 900 - (performance.now() - loaderShownAt));
+  setTimeout(() => { const l = $('#loader'); l.classList.add('hide'); setTimeout(() => l.remove(), 600); }, wait);
+}
+// 何かで起動が止まっても、ローダーが出たままにならないようにする
+setTimeout(() => { const l = $('#loader'); if (l && !l.classList.contains('hide')) hideLoader(); }, 15000);
+function setBattleLoading(on, msg) { $('#battleLoading').classList.toggle('on', !!on); if (msg) $('#battleLoadingMsg').textContent = msg; }
 async function initRenderer() {
   const box = $('#battleView');
   try {
@@ -2937,12 +3304,15 @@ async function initRenderer() {
 }
 (async function boot() {
   loadSave();
+  $('#loaderMsg').textContent = 'Markdown の定義を読んでいます…';
   await loadDefs();
   populateTypes();
   renderAll(); syncBattleButtons();
   showMatch(0); $('#matchVal').textContent = '—';
   if (!S.weapons.length) battle.addLog('武器を鍛造して装備すると、バトルで強くなります。');
-  initRenderer();
+  $('#loaderMsg').textContent = '3D の道具をそろえています…';
+  await initRenderer();
+  hideLoader();
   let last = performance.now(), t0 = last;
   function loop(now) {
     const dt = Math.min(.05, (now - last) / 1000); last = now;

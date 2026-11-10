@@ -2062,6 +2062,40 @@ const battle = {
     $('#battleView').classList.toggle('free', on);
     if (on) this.banner('自由移動：矢印キー・WASD／ドラッグ', '#ffe2b0');
   },
+  /* ボスの範囲攻撃（自由移動のときだけ）。地面に範囲を予告し、時間が来たら範囲の中にいると当たる。
+     line：ボスの前へまっすぐ長い攻撃、circle：ボスのまわり円状の攻撃。構えている間は true を返す */
+  bossSkill(e, dt, st) {
+    const H = this.hero, B = BOSS_SKILL;
+    if (e.cast) {
+      const c = e.cast; c.t += dt;
+      if (c.t >= c.dur && !c.done) {
+        c.done = true; c.flash = .35; e.anim = 0;
+        let hit;
+        if (c.type === 'line') {
+          const rx = H.px - c.cx, rf = H.pf - c.cf, along = rx * Math.sin(c.ang) + rf * Math.cos(c.ang), side = rx * Math.cos(c.ang) - rf * Math.sin(c.ang);
+          hit = along >= -.5 && along <= B.lineLen && Math.abs(side) <= B.lineW / 2 + .25;
+        } else hit = Math.hypot(H.px - c.cx, H.pf - c.cf) <= B.circleR + .25;
+        if (hit) {
+          let dmg = e.atk * (c.type === 'line' ? B.lineMult : B.circleMult) * rand(.9, 1.1);
+          dmg = Math.max(1, dmg - st.def); if (st.skill === '鉄壁') dmg *= 1 - st.skillVal / 100;
+          dmg = Math.max(1, Math.round(dmg)); H.hp -= dmg; H.hurt = .35;
+          this.float('-' + dmg, 0, 2.1, '#ff4d4d', true);
+        } else this.float('かわした！', 0, 2.1, '#8fe3ff', true);
+      }
+      if (c.done) { c.flash -= dt; if (c.flash <= 0) { e.cast = null; e.skillT = rand(B.gapMin, B.gapMax); } }
+      return true;
+    }
+    e.skillT = (e.skillT ?? B.first) - dt;
+    const d = Math.hypot(H.px - e.px, H.pf - e.pf);
+    if (e.skillT <= 0 && d < 9) {
+      // 離れていれば前への長い攻撃、近ければ半々で円状の攻撃
+      const type = d > B.circleR + .5 ? (Math.random() < .75 ? 'line' : 'circle') : (Math.random() < .5 ? 'line' : 'circle');
+      e.cast = { type, t: 0, dur: type === 'line' ? B.lineWind : B.circleWind, cx: e.px, cf: e.pf, ang: Math.atan2(H.px - e.px, H.pf - e.pf), done: false, flash: 0 };
+      this.float(type === 'line' ? '突進の構え！' : '地鳴りの構え！', e.x, 1.6 * BOSS_SCALE + .4, '#ffb347', false, e);
+      return true;
+    }
+    return false;
+  },
   /* 自由移動のバトル（縦の視点）。位置は「横 px・前 pf」（そのウェーブの出発点が 0、前＝画面の上） */
   tickFree(dt, st, alive) {
     const H = this.hero;
@@ -2087,6 +2121,7 @@ const battle = {
     if (this.queue.length && this.spawnT <= 0 && alive.length < 4) { this.spawn(this.queue.shift()); this.spawnT = .8; }
     // 敵：主人公へ近づき、届けば攻撃。重ならないよう少し押し合う
     for (const e of alive) {
+      if (e.boss && this.bossSkill(e, dt, st)) { e.x = dist(e); continue; } // 範囲攻撃の構え中は動かない
       const dx = H.px - e.px, df = H.pf - e.pf, d = Math.hypot(dx, df) || 1, stop = e.boss ? 2.1 : 1.15;
       if (d > stop) { const m = Math.min(d - stop, e.spd * dt); e.px += dx / d * m; e.pf += df / d * m; }
       else {
@@ -2202,6 +2237,8 @@ function updateHudWeapon() {
     : '素手（武器を鍛造して装備しよう）';
 }
 
+/* ボスの範囲攻撃の形と強さ。Wind は構えてから当たるまでの秒数、Mult はふだんの攻撃に対する倍率 */
+const BOSS_SKILL = { lineLen: 8, lineW: 1.9, lineWind: 1.3, lineMult: 2.4, circleR: 3.6, circleWind: 1.5, circleMult: 2.0, first: 2.5, gapMin: 3.5, gapMax: 5.5 };
 /* ステージの 1 区切り（ウェーブ 1 つ）の長さ。自由移動で動ける横幅と速さ */
 const STAGE_STEP = 10, FREE_X = 3.6, FREE_SPEED = 3.4;
 /* 自由移動の入力：矢印キー・WASD と、バトル画面のドラッグ（仮想スティック） */
@@ -2596,6 +2633,37 @@ async function make3DRenderer(container) {
     scene.add(g); return g;
   }
   function clearEnemies() { for (const g of enemyMeshes.values()) scene.remove(g); enemyMeshes.clear(); }
+  // ボスの範囲攻撃の予告：薄い赤の範囲と、当たる時に向かって広がる濃い赤
+  const warnMat = () => new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: .25, depthWrite: false, side: THREE.DoubleSide });
+  const lineWarn = new THREE.Group(), lineBase = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), warnMat()), lineFill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), warnMat());
+  for (const m of [lineBase, lineFill]) { m.rotation.x = -Math.PI / 2; lineWarn.add(m); }
+  const circleWarn = new THREE.Group(), circleBase = new THREE.Mesh(new THREE.CircleGeometry(1, 48), warnMat()), circleFill = new THREE.Mesh(new THREE.CircleGeometry(1, 48), warnMat());
+  const circleEdge = new THREE.Mesh(new THREE.RingGeometry(.96, 1, 64), new THREE.MeshBasicMaterial({ color: 0xff5050, transparent: true, opacity: .9, depthWrite: false, side: THREE.DoubleSide }));
+  for (const m of [circleBase, circleFill, circleEdge]) { m.rotation.x = -Math.PI / 2; circleWarn.add(m); }
+  lineWarn.visible = circleWarn.visible = false; scene.add(lineWarn); scene.add(circleWarn);
+  function drawWarnings(t) {
+    lineWarn.visible = circleWarn.visible = false;
+    if (!battle.free) return;
+    const base = waveZ(battle.wave), B = BOSS_SKILL;
+    for (const e of battle.enemies) {
+      const c = e.cast; if (!c || e.dead) continue;
+      const k = clamp(c.t / c.dur, 0, 1), flash = c.done ? 1 : 0;
+      const pulse = .2 + .1 * Math.sin(t * 18);
+      if (c.type === 'line') {
+        lineWarn.visible = true;
+        lineWarn.position.set(c.cx, .03, base - c.cf);
+        lineWarn.rotation.y = Math.atan2(Math.sin(c.ang), -Math.cos(c.ang));
+        lineBase.scale.set(B.lineW, B.lineLen, 1); lineBase.position.z = B.lineLen / 2; lineBase.material.opacity = flash ? .75 : pulse;
+        lineFill.scale.set(B.lineW, B.lineLen * k, 1); lineFill.position.z = B.lineLen * k / 2; lineFill.position.y = .005; lineFill.material.opacity = flash ? 0 : .45;
+      } else {
+        circleWarn.visible = true;
+        circleWarn.position.set(c.cx, .03, base - c.cf);
+        circleBase.scale.setScalar(B.circleR); circleBase.material.opacity = flash ? .75 : pulse;
+        circleEdge.scale.setScalar(B.circleR);
+        circleFill.scale.setScalar(Math.max(.01, B.circleR * k)); circleFill.position.y = .005; circleFill.material.opacity = flash ? 0 : .45;
+      }
+    }
+  }
 
   // ポーズ
   function pose(dt, t) {
@@ -2720,6 +2788,7 @@ async function make3DRenderer(container) {
       g.scale.setScalar((e.boss ? BOSS_SCALE : 1) * k);
     }
     for (const [id, g] of enemyMeshes) if (!seen.has(id)) { scene.remove(g); enemyMeshes.delete(id); }
+    drawWarnings(t);
     forgeGlow.intensity = 2 + Math.sin(t * 7) * .3 + Math.sin(t * 13) * .2;
     renderer.render(scene, camera);
   }

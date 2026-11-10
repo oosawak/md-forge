@@ -1845,6 +1845,26 @@ function finishForge(mask, auto, hammerStats) {
   battle.onWeaponChanged();
   return true;
 }
+/* 武器が 1 本もないとき（はじめて遊ぶときなど）に配る、ふつうの長剣 */
+function giveStarterWeapon() {
+  const B = DEFS.balance, t = B.types.find(x => x.name === '長剣') || B.types[0], g = guideFor('長剣');
+  const mat = materials()[0], sheath = sheaths()[0], hilt = hilts()[0];
+  S.serial = (S.serial || 0) + 1;
+  const w = {
+    id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), no: S.serial,
+    name: '見習いの長剣', type: '長剣', rarity: B.rarities[0].name, match: 100,
+    atk: Math.round((B.base['攻撃力'].min + B.base['攻撃力'].max) / 2 * t.atk), spd: r2((B.base['攻撃速度'].min + B.base['攻撃速度'].max) / 2 * t.spd),
+    crit: r1(B.base['会心率'].min + t.crit), elem: '無', elemLv: 0,
+    skill: B.skills[0].name, skillVal: r1(B.skills[0].base),
+    f: { atk: 0, crit: 0, def: 0, skill: 0, count: 0 }, fuseLog: [],
+    outline: traceOutline(guideMask('長剣')), grip: g.grip, star: false,
+    mat: mat.name, matColor: mat.color, matElem: null, sheath: sheath.name, sheathColor: sheath.color,
+    hilt: hilt.name, hiltColors: { guard: hilt.guard, grip: hilt.grip, wrap: hilt.wrap }, mei: null,
+    notes: ['はじめに配られた武器'], starter: true
+  };
+  S.weapons.unshift(w); S.equipped = w.id; S.dualWield = false; save();
+  return w;
+}
 function showForgeResult(list) {
   $('#forgeResultPanel').style.display = '';
   $('#forgeResult').innerHTML = list.map(w => weaponCardHTML(w,
@@ -2046,6 +2066,7 @@ document.addEventListener('click', e => {
   if (b.dataset.act === 'dual') { S.equipped = w.id; S.dualWield = true; save(); renderAll(); battle.onWeaponChanged(); toast(`${w.name} と対の No.${twinOf(w).no} で二刀流にしました`); }
   if (b.dataset.act === 'tofuse') { showTab('fusion'); $('#fuseTarget').value = w.id; $('#fuseTarget').onchange(); }
   if (b.dataset.act === 'sell') {
+    if (S.weapons.length <= 1) return toast('最後の 1 本は売れません（武器がないとバトルできないため）');
     const price = sellPrice(w);
     if (!confirm(`${w.name}（${w.rarity}）を ${price}G で売りますか？`)) return;
     S.weapons = S.weapons.filter(x => x !== w);
@@ -3309,7 +3330,10 @@ async function initRenderer() {
   populateTypes();
   renderAll(); syncBattleButtons();
   showMatch(0); $('#matchVal').textContent = '—';
-  if (!S.weapons.length) battle.addLog('武器を鍛造して装備すると、バトルで強くなります。');
+  if (!S.weapons.length) {
+    giveStarterWeapon(); renderAll();
+    battle.addLog('はじめの武器「見習いの長剣」を装備しています。鍛造でもっと強い武器を作りましょう。');
+  }
   $('#loaderMsg').textContent = '3D の道具をそろえています…';
   await initRenderer();
   hideLoader();

@@ -2472,12 +2472,16 @@ const battle = {
             const a = c.ang + (n === 1 ? 0 : -spread / 2 + spread * i / (n - 1));
             this.fireShot(e, a, e.atk * K.mult);
           }
+          this.fx.push({ elem: 'b-muzzle', sx: e.px + Math.sin(c.ang) * .9 * (e.size || 1) * .5, sf: e.pf + Math.cos(c.ang) * .9 * (e.size || 1) * .5, h: 1, ang: c.ang, col: e.color || elemColor(e.elem), lv: 1 });
         } else {
           let hit;
           if (c.type === '前') {
             const rx = H.px - c.cx, rf = H.pf - c.cf, along = rx * Math.sin(c.ang) + rf * Math.cos(c.ang), side = rx * Math.cos(c.ang) - rf * Math.sin(c.ang);
             hit = along >= -.5 && along <= K.len && Math.abs(side) <= K.w / 2 + .25;
           } else hit = Math.hypot(H.px - c.cx, H.pf - c.cf) <= K.len + .25;
+          this.fx.push(c.type === '前'
+            ? { elem: 'b-line', sx: c.cx, sf: c.cf, ang: c.ang, len: K.len, w: K.w, h: 0, lv: 1 }
+            : { elem: 'b-circle', sx: c.cx, sf: c.cf, r: K.len, h: 0, lv: 1 });
           if (hit) this.hurtHero(e.atk * K.mult * rand(.9, 1.1), st, true);
           else this.float('かわした！', 0, 2.1, '#8fe3ff', true);
         }
@@ -2492,6 +2496,7 @@ const battle = {
       const wts = list.map(k => k === '円' ? (d <= skillDef('円').len + .5 ? 3 : .5) : (d > 3.5 ? 2 : 1));
       const type = pickWeighted(list.map((k, i) => ({ k, w: wts[i] })), x => x.w).k;
       e.cast = { type, t: 0, dur: skillDef(type).wind, cx: e.px, cf: e.pf, ang: Math.atan2(H.px - e.px, H.pf - e.pf), done: false, flash: 0 };
+      this.fx.push({ elem: 'b-charge', sx: e.px, sf: e.pf, h: .4, size: e.size || 1, dur: e.cast.dur, col: e.color || elemColor(e.elem), lv: 1 });
       this.float({ '前': '突進の構え！', '円': '地鳴りの構え！', '弾': '弾の構え！' }[type] || '構え！', e.x, 1.6 * (e.size || 1) + .4, '#ffb347', false, e);
       return true;
     }
@@ -2754,7 +2759,7 @@ function updateHudWeapon() {
 function skillDef(name) { return (DEFS.enemies && DEFS.enemies.skills[name]) || DEFAULT_SKILLS[name] || DEFAULT_SKILLS['前']; }
 /* ステージの 1 区切り（ウェーブ 1 つ）の長さ。自由移動で動ける横幅と速さ */
 const STAGE_STEP = 10, FREE_X = 3.6, FREE_SPEED = 3.4;
-const FREE_F = [-6, 7]; // 戦っている間に主人公が動ける前後の範囲（ウェーブの出発点から）
+const FREE_F = [-5, 9.4]; // 戦っている間に主人公が動ける前後の範囲（ウェーブの出発点から。前は次の区切りの手前まで）
 /* 自由移動の入力：矢印キー・WASD と、バトル画面のドラッグ（仮想スティック） */
 const freeKeys = new Set(), freeDrag = { on: false, ox: 0, oy: 0, x: 0, y: 0 };
 // 軽く押しただけでも少し動けるよう、押してから一定時間は押している扱いにする
@@ -3244,7 +3249,7 @@ async function make3DRenderer(container) {
     g.add(core, halo, tail); g.userData = { core, halo, tail }; scene.add(g); return g;
   }
   /* 属性のエフェクト：四角い点（Points）で、ドット絵のような粒を出す */
-  const FX_MAX = 900, fxPos = new Float32Array(FX_MAX * 3), fxCol = new Float32Array(FX_MAX * 3), fxParts = [];
+  const FX_MAX = 2400, fxPos = new Float32Array(FX_MAX * 3), fxCol = new Float32Array(FX_MAX * 3), fxParts = [];
   const fxGeo = new THREE.BufferGeometry();
   fxGeo.setAttribute('position', new THREE.BufferAttribute(fxPos, 3)); fxGeo.setAttribute('color', new THREE.BufferAttribute(fxCol, 3));
   const fxPoints = new THREE.Points(fxGeo, new THREE.PointsMaterial({ size: .2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
@@ -3259,6 +3264,35 @@ async function make3DRenderer(container) {
   function spawnFx(ev) {
     const base = battle.free ? waveZ(battle.wave) : heroZ, x = ev.sx, z = base - ev.sf, y = ev.h, cols = FX_COL[ev.elem] || FX_COL['炎'];
     const n = Math.round((ev.big ? 40 : 26) * (1 + (ev.lv - 1) * .25)), pick = () => cols[(Math.random() * cols.length) | 0];
+    // ステージの向き a（前＝0）を、ワールドの向き (sin a, -cos a) に
+    const wdx = a => Math.sin(a), wdz = a => -Math.cos(a);
+    if (ev.elem === 'b-charge') {
+      // ボスが構えて力をためる：まわりの粒が渦を巻いて集まる
+      const R = .9 * ev.size, cnt = 70;
+      for (let i = 0; i < cnt; i++) { const p = addFx(x, rand(.2, 1.6 * ev.size), z, 0, rand(.1, .6), 0, rand(.6, Math.min(1.6, ev.dur)), Math.random() < .5 ? ev.col : '#ffb347'); p.swirl = R * rand(.8, 1.4); p.shrink = true; p.ang = rand(0, Math.PI * 2); p.cx = x; p.cz = z; }
+      return;
+    }
+    if (ev.elem === 'b-line') {
+      // 前への長い攻撃：道に沿って土煙と火花が走る
+      for (let d = 0; d <= ev.len; d += .22) for (let k = 0; k < 3; k++) {
+        const sd = rand(-ev.w / 2, ev.w / 2), px = x + wdx(ev.ang) * d + Math.cos(ev.ang) * sd, pz = z + wdz(ev.ang) * d + Math.sin(ev.ang) * sd;
+        const p = addFx(px, .1, pz, rand(-.4, .4), rand(1, 3.2), rand(-.4, .4), rand(.35, .7) + d * .03, k ? (Math.random() < .5 ? '#ffb347' : '#ff6a3d') : '#b08860', 7, 1);
+        p.delay = d * .035; // 根元から先へ、順に走る
+      }
+      return;
+    }
+    if (ev.elem === 'b-circle') {
+      // 円状の攻撃：衝撃の輪が外へ広がり、土煙が上がる
+      const cnt = Math.round(ev.r * 34);
+      for (let i = 0; i < cnt; i++) { const a = i / cnt * Math.PI * 2, sp = ev.r * rand(2.6, 3.4); addFx(x + Math.cos(a) * .4, .15, z + Math.sin(a) * .4, Math.cos(a) * sp, rand(.2, 1), Math.sin(a) * sp, rand(.28, .36), Math.random() < .6 ? '#ffd27a' : '#ff6a3d', 2, 3.2); }
+      for (let i = 0; i < 60; i++) { const a = rand(0, Math.PI * 2), d = rand(0, ev.r); addFx(x + Math.cos(a) * d, .1, z + Math.sin(a) * d, 0, rand(1, 2.6), 0, rand(.4, .8), '#9a7a5a', 5, 1); }
+      return;
+    }
+    if (ev.elem === 'b-muzzle') {
+      // 弾を撃つ：撃つ向きへ火花が散る
+      for (let i = 0; i < 40; i++) { const a = ev.ang + rand(-.6, .6), sp = rand(2, 5); addFx(x, 1 + rand(-.2, .2), z, wdx(a) * sp, rand(-.3, 1.2), wdz(a) * sp, rand(.18, .4), Math.random() < .5 ? ev.col : '#ffffff', 2, 2.5); }
+      return;
+    }
     if (ev.elem === '炎') {
       // 火の粉：ゆらゆら立ちのぼる
       for (let i = 0; i < n; i++) addFx(x + rand(-.35, .35), y + rand(-.3, .3), z + rand(-.35, .35), rand(-.5, .5), rand(1.2, 2.8), rand(-.5, .5), rand(.5, 1), pick(), -1.2, .5);
@@ -3279,15 +3313,21 @@ async function make3DRenderer(container) {
     for (const ev of battle.fx.splice(0)) spawnFx(ev);
     let n = 0;
     for (let i = fxParts.length - 1; i >= 0; i--) {
-      const p = fxParts[i]; p.life -= dt;
+      const p = fxParts[i];
+      if (p.delay > 0) { p.delay -= dt; continue; } // 順に走るエフェクト：まだ出ない
+      p.life -= dt;
       if (p.life <= 0) { fxParts.splice(i, 1); continue; }
-      if (p.swirl) { p.ang += dt * 9; const r = p.swirl * (1 + (1 - p.life / p.max)); p.x = p.cx + Math.cos(p.ang) * r; p.z = p.cz + Math.sin(p.ang) * r; p.y += p.vy * dt; }
+      if (p.swirl) {
+        p.ang += dt * 9; const k2 = 1 - p.life / p.max, r = p.swirl * (p.shrink ? 1 - k2 * .85 : 1 + k2);
+        p.x = p.cx + Math.cos(p.ang) * r; p.z = p.cz + Math.sin(p.ang) * r; p.y += p.vy * dt;
+      }
       else {
         const k = Math.max(0, 1 - p.drag * dt); p.vx *= k; p.vz *= k; p.vy -= p.grav * dt;
         p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; if (p.y < .05) { p.y = .05; p.vy *= -.3; }
       }
     }
     for (const p of fxParts) {
+      if (p.delay > 0) continue;
       const f = Math.min(1, p.life / p.max * 1.6); // 消える前に暗くなる（加算なので見えなくなる）
       // ドットらしく、位置を細かい格子にそろえる
       fxPos[n * 3] = Math.round(p.x * 18) / 18; fxPos[n * 3 + 1] = Math.round(p.y * 18) / 18; fxPos[n * 3 + 2] = Math.round(p.z * 18) / 18;

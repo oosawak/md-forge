@@ -740,9 +740,11 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
 addEventListener('blur', () => keys.clear());
 const cv = $('#cv');
-cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); joy = { sx: e.clientX, sy: e.clientY, dx: 0, dy: 0, moved: false, t: performance.now() }; });
+// タッチ：押した所からのドラッグ方向へ進む（仮想スティック）。マウス：押している間、カーソルの方へ進む。
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); joy = { sx: e.clientX, sy: e.clientY, cx: e.clientX, cy: e.clientY, dx: 0, dy: 0, moved: false, t: performance.now(), mouse: e.pointerType === 'mouse' }; });
 cv.addEventListener('pointermove', e => {
   if (!joy) return;
+  joy.cx = e.clientX; joy.cy = e.clientY;
   joy.dx = e.clientX - joy.sx; joy.dy = e.clientY - joy.sy;
   if (Math.hypot(joy.dx, joy.dy) > 14) joy.moved = true;
 });
@@ -771,7 +773,12 @@ function examine() {
 function inputVec() {
   let x = 0, y = 0;
   if (keys.has('l')) x -= 1; if (keys.has('r')) x += 1; if (keys.has('u')) y -= 1; if (keys.has('d')) y += 1;
-  if (joy && joy.moved) { const l = Math.hypot(joy.dx, joy.dy); x = joy.dx / l; y = joy.dy / l; }
+  if (joy && joy.mouse && G && (joy.moved || performance.now() - joy.t > 180)) {
+    const r = cv.getBoundingClientRect(), [ox, oy] = cam();
+    const dx = joy.cx - r.left - (ox + G.x * TS), dy = joy.cy - r.top - (oy + G.y * TS);
+    joy.moved = true;
+    if (Math.hypot(dx, dy) > TS * 0.3) { x = dx; y = dy; }
+  } else if (joy && joy.moved) { const l = Math.hypot(joy.dx, joy.dy); x = joy.dx / l; y = joy.dy / l; }
   const l = Math.hypot(x, y);
   return l ? [x / l, y / l] : [0, 0];
 }
@@ -788,12 +795,29 @@ function moveBy(e, dx, dy, r) {
   if (!blocked(e.x, e.y + dy, r)) e.y += dy; else hit = true;
   return hit;
 }
+// 角に引っかかったとき、進みたい先が空いていれば、マスの中心へ自動で寄せる（扉や細い通路に入りやすくする）
+function slideAssist(vx, vy, step) {
+  const tx = Math.floor(G.x), ty = Math.floor(G.y);
+  const nudge = (cur, center) => { const d = center - cur; return Math.abs(d) <= step ? center : cur + Math.sign(d) * step; };
+  if (Math.abs(vx) > Math.abs(vy) && blocked(G.x + Math.sign(vx) * 0.05, G.y)) {
+    const nx = tx + Math.sign(vx);
+    for (const ry of [ty, ty + (G.y - ty < 0.5 ? -1 : 1)]) {
+      if (!isSolid(nx, ry) && !isSolid(tx, ry)) { const y = nudge(G.y, ry + 0.5); if (!blocked(G.x, y)) G.y = y; break; }
+    }
+  } else if (Math.abs(vy) > Math.abs(vx) && blocked(G.x, G.y + Math.sign(vy) * 0.05)) {
+    const ny = ty + Math.sign(vy);
+    for (const rx of [tx, tx + (G.x - tx < 0.5 ? -1 : 1)]) {
+      if (!isSolid(rx, ny) && !isSolid(rx, ty)) { const x = nudge(G.x, rx + 0.5); if (!blocked(x, G.y)) G.x = x; break; }
+    }
+  }
+}
 function updatePlayer(dt) {
   const [vx, vy] = inputVec();
   if (!vx && !vy) return;
   if (Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3) G.face = Math.abs(vx) > Math.abs(vy) ? [Math.sign(vx), 0] : [0, Math.sign(vy)];
-  const sp = 3.2, px = G.x, py = G.y;
+  const sp = 4, px = G.x, py = G.y;
   moveBy(G, vx * sp * dt, vy * sp * dt);
+  slideAssist(vx, vy, sp * dt);
   const tx = Math.floor(G.x), ty = Math.floor(G.y), key = tx + ',' + ty;
   if (key === RT.lastTile) return;
   const o = legendAt(tx, ty);

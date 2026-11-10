@@ -271,6 +271,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
         <button class="primary" id="btnSortie">出撃</button>
         <button id="btnRetreat" disabled>撤退</button>
         <span class="seg" id="speedSeg"><button data-s="1" class="on">×1</button><button data-s="2">×2</button></span>
+        <span class="seg" id="viewSeg" title="バトルの見え方"><button data-v="diag">斜め</button><button data-v="vert">縦</button></span>
         <span class="muted" id="rendererNote"></span>
       </div>
       <div class="row" style="margin-bottom:8px">
@@ -2039,6 +2040,16 @@ function syncBattleButtons() {
 }
 $('#btnSortie').onclick = () => battle.start();
 $('#btnRetreat').onclick = () => battle.stop();
+/* バトルの視点（斜め／縦）。端末に覚えておく */
+let camView = 'diag';
+try { if (store.get('mdforge.camView') === 'vert') camView = 'vert'; } catch (e) {}
+function syncViewSeg() { $('#viewSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === camView)); }
+syncViewSeg();
+$('#viewSeg').onclick = e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  camView = b.dataset.v; try { store.set('mdforge.camView', camView); } catch (err) {}
+  syncViewSeg();
+};
 $('#speedSeg').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   battle.speed = parseFloat(b.dataset.s); $('#speedSeg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
@@ -2158,7 +2169,9 @@ async function make3DRenderer(container) {
   const camTarget = new THREE.Vector3(0, .8, -3);
   let camDist = 1; // 画面の縦横比で決める倍率
   /* 斜め見下ろし：主人公の右後ろ上から、進む先（-Z、画面の上）を見る */
-  const CAM_OFF = new THREE.Vector3(3.2, 7.4, 7.2);
+  // 視点：斜め＝右後ろ上から（道が斜めに見える）、縦＝真後ろ上から（道が画面の下から上へまっすぐ続く）
+  const CAM_OFFS = { diag: new THREE.Vector3(3.2, 7.4, 7.2), vert: new THREE.Vector3(0, 8.0, 8.2) };
+  const CAM_OFF = (CAM_OFFS[camView] || CAM_OFFS.diag).clone(); // 切り替えたときは、なめらかに移す
   camera.position.copy(camTarget).add(CAM_OFF); camera.lookAt(camTarget);
   /* ステージは -Z 方向（画面の上）へ続く 1 本道。ウェーブを突破するたび、主人公は STEP だけ上へ進む */
   const STEP = 10;
@@ -2447,6 +2460,7 @@ async function make3DRenderer(container) {
     return { x: (pv.x * .5 + .5) * r.width, y: (-pv.y * .5 + .5) * r.height, visible: pv.z < 1 };
   }
   function frame(dt, t) {
+    CAM_OFF.lerp(CAM_OFFS[camView] || CAM_OFFS.diag, 1 - Math.exp(-dt * 5));
     // ウェーブが進んだら、次の区切りまで歩いて上へ進む（負けて大きく戻るときは、そこへ移る）
     const want = waveZ(battle.running ? battle.wave : (S.wave || 1));
     const gap = want - heroZ;

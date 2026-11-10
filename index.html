@@ -679,7 +679,7 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 鉱石の中の金色の点々（輝石の粒）です。1 枚の鉱石に「粒の数」だけ（2 振りのときは 1.6 倍）、いくつかの「鉱脈」にかたまって入っていて、置くたびに場所が変わります。
 完成した刃に残した粒の数だけ、N 以外のレアリティが出やすくなり、攻撃も上がります（上限の粒数まで）。削ると、1 粒ごとに金が入ります。
 どこを刃にするか、2 振りのときにどちらの剣に粒を寄せるかで、できる武器が変わります。
-たまに（「大当たりの確率」％で）、粒が縦に長くつながった鉱脈が入る「大当たり」の鉱石が出ます。その鉱脈に沿って刃を作ると、粒をたくさん残せます。
+たまに（「大当たりの確率」％で）、粒が縦に長くつながった鉱脈が入る「大当たり」の鉱石が出ます。その鉱脈に沿って刃を作ると、粒をたくさん残せます。大当たりの鉱脈の粒を「輝脈の剣になる粒の数」以上残して完成させると「輝脈の剣」になり、レアリティが上がり、粒の効果の上限も上がります。
 
 | 項目 | 値 |
 | --- | --- |
@@ -690,6 +690,9 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 補正の上限 | 40 |
 | 削ったときの金 | 0.3 |
 | 大当たりの確率 | 8 |
+| 輝脈の剣になる粒の数 | 25 |
+| 輝脈の剣のレアリティ段階 | 1 |
+| 輝脈の剣の補正の上限 | 80 |
 
 ## 鍛造コスト
 
@@ -900,7 +903,7 @@ function buildBalance(text) {
   const hammerCfg = s['ハンマーの設定'] ? kv(s, 'ハンマーの設定') : null;
   const gr = s['輝石の粒'] ? kv(s, '輝石の粒') : {};
   const gv = (k, d) => isFinite(gr[k]) ? +gr[k] : d;
-  const grains = { count: Math.round(clamp(gv('粒の数', 90), 0, 600)), veins: Math.round(clamp(gv('鉱脈の数', 5), 0, 30)), rare: gv('1粒あたりのレア補正', 1.2), atk: gv('1粒あたりの攻撃', .4), cap: Math.max(0, gv('補正の上限', 40)), gold: gv('削ったときの金', .3), jackpot: clamp(gv('大当たりの確率', 8), 0, 100) };
+  const grains = { count: Math.round(clamp(gv('粒の数', 90), 0, 600)), veins: Math.round(clamp(gv('鉱脈の数', 5), 0, 30)), rare: gv('1粒あたりのレア補正', 1.2), atk: gv('1粒あたりの攻撃', .4), cap: Math.max(0, gv('補正の上限', 40)), gold: gv('削ったときの金', .3), jackpot: clamp(gv('大当たりの確率', 8), 0, 100), jpNeed: Math.max(1, gv('輝脈の剣になる粒の数', 25)), jpTier: Math.round(clamp(gv('輝脈の剣のレアリティ段階', 1), 0, 9)), jpCap: Math.max(0, gv('輝脈の剣の補正の上限', 80)) };
   const twin = s['対の剣'] ? kv(s, '対の剣') : null;
   return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg, twin, grains };
 }
@@ -1191,12 +1194,14 @@ function applyEffect(w, kind, v) {
   }
 }
 function sellPrice(w) { return Math.round((rarityInfo(w.rarity).price + w.f.count * 5) * (1 + (w.priceBonus || 0) / 100)); }
-function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt, grains }) {
+function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt, grains, jpGrains }) {
   const B = DEFS.balance;
   mat = mat || materials()[0]; sheath = sheath || sheaths()[0]; hilt = hilt || hilts()[0];
   const t = B.types.find(x => x.name === type) || B.types[0];
-  const G = grainCfg(), gn = Math.min(grains || 0, G.cap);
-  const rar = pickWeighted(rarityWeights(match, useStar, gn * G.rare), x => x.w).r;
+  const G = grainCfg(), kimyaku = (jpGrains || 0) >= G.jpNeed, gn = Math.min(grains || 0, kimyaku ? G.jpCap : G.cap);
+  let rar = pickWeighted(rarityWeights(match, useStar, gn * G.rare), x => x.w).r;
+  // 輝脈の剣：大当たりの鉱脈を刃に残したので、レアリティが上がる
+  if (kimyaku) rar = B.rarities[Math.min(B.rarities.length - 1, B.rarities.indexOf(rar) + G.jpTier)];
   const el = pickWeighted(B.elements, x => x.w * (mat.elem && x.name === mat.elem ? mat.elemW : 1));
   const sk = pickWeighted(B.skills, x => x.w);
   const g = guideFor(type);
@@ -1216,7 +1221,9 @@ function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt, grains }
     outline, grip: g.grip, star: !!useStar,
     mat: mat.name, matColor: mat.color, matElem: mat.elem, sheath: sheath.name, sheathColor: sheath.color, hilt: hilt.name, hiltColors: { guard: hilt.guard, grip: hilt.grip, wrap: hilt.wrap }, mei: null, notes: []
   };
-  if (gn > 0) { applyEffect(w, '攻撃', gn * G.atk); w.notes.push(`輝石の粒 ${grains} 個：レアリティ +${r1(gn * G.rare)}%・攻撃 +${r1(gn * G.atk)}%${grains > G.cap ? `（${G.cap} 個まで）` : ''}`); }
+  const capNow = kimyaku ? G.jpCap : G.cap;
+  if (gn > 0) { applyEffect(w, '攻撃', gn * G.atk); w.notes.push(`輝石の粒 ${grains} 個：レアリティ +${r1(gn * G.rare)}%・攻撃 +${r1(gn * G.atk)}%${grains > capNow ? `（${capNow} 個まで）` : ''}`); }
+  if (kimyaku) { w.kimyaku = true; w.notes.unshift(`大当たり！ 輝脈の剣：大当たりの鉱脈 ${jpGrains} 粒・レアリティ ${G.jpTier} 段階上・粒の効果の上限 ${G.jpCap}`); }
   w.grains = grains || 0;
   applyEffect(w, hilt.eff, hilt.val);
   w.notes.push(`持ち手「${hilt.name}」：${effLabel(hilt.eff, hilt.val)}`);
@@ -1230,7 +1237,7 @@ function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt, grains }
       S.found = S.found || {}; S.found[c.sheath + '|' + c.mat] = true;
     } else w.notes.push('鞘と材料が震えたが、共鳴しなかった');
   }
-  w.name = (w.mei ? `「${w.mei}」` : '') + (ELEM_PREFIX[w.elem] || '') + type;
+  w.name = (w.mei ? `「${w.mei}」` : '') + (w.kimyaku ? '輝脈の' : '') + (ELEM_PREFIX[w.elem] || '') + type;
   return w;
 }
 function rarityInfo(name) { return DEFS.balance.rarities.find(r => r.name === name) || { color: '#ccc', price: 10, atk: 1, skill: 1 }; }
@@ -1257,6 +1264,11 @@ function drawWeaponIcon(cv, w) {
   g.beginPath(); w.outline.forEach(([x, y], i) => i ? g.lineTo(ox + x * s, oy + y * s) : g.moveTo(ox + x * s, oy + y * s)); g.closePath();
   g.fillStyle = grad; g.fill();
   if (w.matColor) { g.globalAlpha = .3; g.fillStyle = w.matColor; g.fill(); g.globalAlpha = 1; }
+  if (w.kimyaku) { // 輝脈の剣：刃のまん中に金の筋
+    const gd0 = GUIDES[w.type] || GUIDES['長剣'];
+    g.save(); g.clip(); g.fillStyle = '#ffe9a0'; g.shadowColor = '#ffd27a'; g.shadowBlur = 6;
+    g.fillRect(ox + (w.grip[0] - 1.2) * s, oy, 2.4 * s, gd0.hiltY * s); g.restore();
+  }
   const gd = GUIDES[w.type];
   if (w.hiltColors && gd) {
     g.save(); g.clip();
@@ -1347,15 +1359,21 @@ function shiftPiece(d) {
   const hy = guideFor(forgeType()).hiltY;
   F.dirty = true; updateMatch(true);
 }
-function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 90, veins: 5, rare: 1.2, atk: .4, cap: 40, gold: .3, jackpot: 8 }; }
+function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 90, veins: 5, rare: 1.2, atk: .4, cap: 40, gold: .3, jackpot: 8, jpNeed: 25, jpTier: 1, jpCap: 80 }; }
 /* 刃（持ち手以外）に残っている粒の数を、1 振りずつ数える */
-function grainCounts(parts) {
+function grainDetail(parts) {
   return parts.map(p => {
-    const vein = extractPiece(F.vein, p.k), hilt = F.hilt ? extractPiece(F.hilt, p.k) : null;
-    let n = 0; for (let i = 0; i < vein.length; i++) if (vein[i] && p.comp.mask[i] && !(hilt && hilt[i])) n++;
-    return n;
+    const off = F.pieces[p.k], hilt = F.hilt ? extractPiece(F.hilt, p.k) : null;
+    let n = 0, jp = 0;
+    for (let y = 0; y < GH; y++) for (let px = 0; px < GW; px++) {
+      const X = off + px, li = y * GW + px; if (X < 0 || X >= FW || pieceOf(X) !== p.k) continue;
+      const v = F.vein[y * FW + X]; if (!v || !p.comp.mask[li] || (hilt && hilt[li])) continue;
+      n++; if (v === 2) jp++;
+    }
+    return { n, jp };
   });
 }
+function grainCounts(parts) { return grainDetail(parts).map(d => d.n); }
 /* 持ち手につながった刀身を、1 振りずつ取り出す */
 function forgeParts(mask) {
   return F.pieces.map((_, k) => {
@@ -1689,10 +1707,11 @@ function updateMatch(force) {
 }
 function showGrains() {
   if (!F.active && !F.hammer) return;
-  const G = grainCfg(), n = grainCounts(forgeParts(F.mask));
-  const txt = n.length === 2 ? `輝石 左 ${n[0]}・右 ${n[1]} 粒` : `輝石 ${n[0]} 粒`;
+  const G = grainCfg(), det = grainDetail(forgeParts(F.mask)), n = det.map(d => d.n);
+  let txt = n.length === 2 ? `輝石 左 ${n[0]}・右 ${n[1]} 粒` : `輝石 ${n[0]} 粒`;
+  if (F.jackpot) txt += `／大当たりの鉱脈 ${det.map(d => `${Math.min(d.jp, G.jpNeed)}/${G.jpNeed}`).join('・')}（そろうと輝脈の剣）`;
   const el = $('#grainNote'); if (el) el.textContent = `${txt}（1 粒でレア +${G.rare}%・攻撃 +${G.atk}%、${G.cap} 粒まで）${F.grainGold >= .5 ? ` ／ 削った粒 +${Math.round(F.grainGold)}G` : ''}`;
-  const chip = $('#grainChip'); if (chip) chip.textContent = `💎 ${n.join('・')}`;
+  const chip = $('#grainChip'); if (chip) chip.textContent = `💎 ${n.join('・')}` + (F.jackpot ? `　✨ ${det.map(d => `${Math.min(d.jp, G.jpNeed)}/${G.jpNeed}`).join('・')}` : '');
 }
 function showMatch(m) {
   showGrains();
@@ -1958,10 +1977,10 @@ function finishForge(mask, auto, hammerStats) {
   const parts = checkParts(mask); if (!parts) return false;
   const useStar = $('#useStar').checked && S.star > 0;
   if (useStar) S.star--;
-  const grainsLeft = grainCounts(parts);
+  const grainDet = grainDetail(parts), grainsLeft = grainDet.map(d => d.n);
   const gg = Math.round(F.grainGold || 0); if (gg) { S.gold += gg; toast(`削った輝石の粒で +${gg}G`); }
   const made = parts.map(p => {
-    const w = rollWeapon({ type, match: p.match, useStar, outline: traceOutline(p.comp.mask), mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt(), grains: grainsLeft[p.k] });
+    const w = rollWeapon({ type, match: p.match, useStar, outline: traceOutline(p.comp.mask), mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt(), grains: grainsLeft[p.k], jpGrains: grainDet[p.k].jp });
     w.auto = !!auto;
     const hr = hammerStats && hammerStats[p.k];
     if (hr) {
@@ -1978,7 +1997,8 @@ function finishForge(mask, auto, hammerStats) {
     b.notes.push(`1枚の鉱石から打った対の剣（もう一振りは No.${a.no}）`);
   }
   const meis = made.filter(w => w.mei).map(w => `「${w.mei}」`);
-  if (meis.length) toast(`共鳴！ 銘${meis.join('・')}が刻まれました`);
+  if (made.some(w => w.kimyaku)) toast('大当たり！ 輝脈の剣ができました');
+  else if (meis.length) toast(`共鳴！ 銘${meis.join('・')}が刻まれました`);
   renderComboNote();
   S.weapons.unshift(...made);
   if (!S.equipped) S.equipped = made[0].id;
@@ -2168,7 +2188,7 @@ function doFuse() {
   const er = g.elemResult; let elemMsg = '';
   if (er && er.kind !== 'mismatch') {
     const was = w.elem; w.elem = er.elem; w.elemLv = er.lv;
-    if (was === '無') w.name = (w.mei ? `「${w.mei}」` : '') + (ELEM_PREFIX[er.elem] || '') + w.type;
+    if (was === '無') w.name = (w.mei ? `「${w.mei}」` : '') + (w.kimyaku ? '輝脈の' : '') + (ELEM_PREFIX[er.elem] || '') + w.type;
     elemMsg = er.kind === 'new' ? `属性「${er.elem}」が付きました（Lv${er.lv}）` : `属性「${er.elem}」が Lv${er.lv} に強くなりました`;
   } else if (er) elemMsg = `属性キーワード「${er.elem}」は武器の属性（${w.elem}）と違うため付きませんでした`;
   const after = effStats(w);
@@ -3048,6 +3068,12 @@ async function make3DRenderer(container) {
       part(gd.hiltY, gd.guardB, w.hiltColors.guard, 1.8, .35);
       part(gd.guardB, bottom - 6, w.hiltColors.grip, 2.2, .8);
       part(bottom - 6, bottom, w.hiltColors.guard, 2, .35);
+    }
+    if (w.kimyaku && gd) { // 輝脈の剣：刃のまん中に光る金の筋
+      const top = gd.pts.reduce((a, p) => Math.min(a, p[1]), 999), len = (gd.hiltY - top - 2) * s;
+      const vein = new THREE.Mesh(new THREE.BoxGeometry(4.2 * s, len, depth * 1.4), new THREE.MeshStandardMaterial({ color: 0xfff2b8, emissive: 0xffc247, emissiveIntensity: 2.2, metalness: .6, roughness: .25 }));
+      vein.position.set(0, (gy - gd.hiltY) * s + len / 2, 0); m.add(vein);
+      const vl = new THREE.PointLight(0xffc247, .9, 1.4); vl.position.copy(vein.position); m.add(vl);
     }
     // 刃（+Y）を手の前方（+Z）へ、刃の平らな面を手の Y 方向へ向ける
     const g = new THREE.Group();

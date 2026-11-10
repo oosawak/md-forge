@@ -275,7 +275,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
         <button class="primary" id="btnSortie">出撃</button>
         <button id="btnRetreat" disabled>撤退</button>
         <span class="seg" id="speedSeg"><button data-s="1" class="on">×1</button><button data-s="2">×2</button></span>
-        <span class="seg" id="viewSeg" title="バトルの見え方"><button data-v="diag">斜め</button><button data-v="vert">縦</button></span>
+        <span class="seg" id="viewSeg" title="バトルの見え方"><button data-v="vert">縦</button><button data-v="diag">斜め</button></span>
         <span class="muted" id="rendererNote"></span>
       </div>
       <div class="row" style="margin-bottom:8px">
@@ -2214,9 +2214,9 @@ function syncBattleButtons() {
 }
 $('#btnSortie').onclick = () => battle.start();
 $('#btnRetreat').onclick = () => battle.stop();
-/* バトルの視点（斜め／縦）。端末に覚えておく */
-let camView = 'diag';
-try { if (store.get('mdforge.camView') === 'vert') camView = 'vert'; } catch (e) {}
+/* バトルの視点（縦／斜め）。標準は縦（主人公を動かせる）。選んだほうを端末に覚えておく */
+let camView = 'vert';
+try { if (store.get('mdforge.camView') === 'diag') camView = 'diag'; } catch (e) {}
 function syncViewSeg() { $('#viewSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === camView)); }
 syncViewSeg();
 $('#viewSeg').onclick = e => {

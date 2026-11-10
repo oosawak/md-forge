@@ -119,7 +119,9 @@ label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:p
 .battle-view canvas{display:block;width:100%;height:100%}
 .battle-view.free{touch-action:none;cursor:grab}
 .stick{position:absolute;width:92px;height:92px;margin:-46px 0 0 -46px;border-radius:50%;border:2px solid rgba(255,226,176,.45);background:rgba(0,0,0,.18);display:none;pointer-events:none;z-index:3}
-.stick.on{display:block}
+.stick.on,.stick.fixed{display:block}
+.stick.fixed{width:116px;height:116px;margin:-58px 0 0 -58px;background:rgba(0,0,0,.28);border-color:rgba(255,226,176,.6)}
+.stick.fixed i{width:48px;height:48px}
 .stick i{position:absolute;left:50%;top:50%;width:38px;height:38px;border-radius:50%;background:rgba(255,226,176,.55)}
 .hud{position:absolute;left:10px;right:118px;top:10px;display:flex;gap:10px;align-items:flex-start;pointer-events:none;flex-wrap:wrap}
 .gear{position:absolute;right:10px;top:10px;display:flex;gap:8px;padding:6px 8px;background:rgba(10,10,12,.62);border:1px solid rgba(255,255,255,.12);border-radius:10px;pointer-events:none;z-index:2}
@@ -2557,24 +2559,41 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => { const k = FREE_KEYMAP[e.key]; if (k) freeKeys.delete(k); });
 window.addEventListener('blur', () => { freeKeys.clear(); freeDrag.on = false; });
 {
+  // スマホ（指で操作する端末）では、左下にいつもジョイスティックを出す。
+  // そこを触ればその中心から、画面のほかの所を触ればそこを中心に動かせる。パソコンでは、触った所に出る
   const view = $('#battleView'), knob = document.createElement('div');
   knob.className = 'stick'; knob.innerHTML = '<i></i>'; view.appendChild(knob);
+  const touchUI = () => matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+  const R = () => knob.offsetWidth / 2 || 46;
+  const home = () => { const r = view.getBoundingClientRect(); return { x: 26 + R(), y: r.height - 26 - R() }; };
+  const place = (x, y) => { knob.style.left = x + 'px'; knob.style.top = y + 'px'; };
+  const center = () => { knob.firstChild.style.transform = 'translate(-50%,-50%)'; };
+  function syncStick() {
+    const fixed = battle.running && battle.free && touchUI();
+    knob.classList.toggle('fixed', fixed);
+    if (fixed && !freeDrag.on) { const h = home(); place(h.x, h.y); center(); }
+  }
+  setInterval(syncStick, 300); window.addEventListener('resize', syncStick);
   view.addEventListener('pointerdown', e => {
     if (!battle.running || !battle.free || e.target.closest('button, input, a')) return;
     e.preventDefault(); try { view.setPointerCapture(e.pointerId); } catch (err) {}
-    const r = view.getBoundingClientRect();
-    Object.assign(freeDrag, { on: true, ox: e.clientX, oy: e.clientY, x: 0, y: 0 });
-    knob.style.left = (e.clientX - r.left) + 'px'; knob.style.top = (e.clientY - r.top) + 'px'; knob.classList.add('on');
-    knob.firstChild.style.transform = 'translate(-50%,-50%)';
+    const r = view.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    let ox = px, oy = py;
+    if (knob.classList.contains('fixed')) { const h = home(); if (Math.hypot(px - h.x, py - h.y) < R() * 1.8) { ox = h.x; oy = h.y; } }
+    Object.assign(freeDrag, { on: true, ox: ox + r.left, oy: oy + r.top, x: 0, y: 0 });
+    place(ox, oy); knob.classList.add('on'); center();
+    // スティックの中心から触ったときは、その場で向きを入れる
+    if (ox !== px || oy !== py) view.dispatchEvent(new PointerEvent('pointermove', { clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId }));
   });
   view.addEventListener('pointermove', e => {
     if (!freeDrag.on) return;
-    let dx = (e.clientX - freeDrag.ox) / 46, dy = (e.clientY - freeDrag.oy) / 46; const L = Math.hypot(dx, dy);
+    const rad = R() * .65;
+    let dx = (e.clientX - freeDrag.ox) / rad, dy = (e.clientY - freeDrag.oy) / rad; const L = Math.hypot(dx, dy);
     if (L > 1) { dx /= L; dy /= L; }
     freeDrag.x = dx; freeDrag.y = -dy;
-    knob.firstChild.style.transform = `translate(calc(-50% + ${dx * 30}px), calc(-50% + ${dy * 30}px))`;
+    knob.firstChild.style.transform = `translate(calc(-50% + ${dx * rad}px), calc(-50% + ${dy * rad}px))`;
   });
-  const end = () => { freeDrag.on = false; freeDrag.x = freeDrag.y = 0; knob.classList.remove('on'); };
+  const end = () => { freeDrag.on = false; freeDrag.x = freeDrag.y = 0; knob.classList.remove('on'); center(); syncStick(); };
   view.addEventListener('pointerup', end); view.addEventListener('pointercancel', end);
 }
 /* 斜め見下ろしのステージで、敵が道の上に少し散らばって並ぶための横位置 */

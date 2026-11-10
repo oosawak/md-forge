@@ -37,8 +37,18 @@ canvas { display:block; width:100%; height:100%; }
 #screen h2 { margin:0; font-size:26px; letter-spacing:.1em; }
 #screen p { margin:0; color:var(--dim); max-width:520px; line-height:1.7; }
 #screen .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
-#act { position:absolute; right:16px; bottom:16px; width:64px; height:64px; border-radius:50%; font-size:13px; background:rgba(60,44,30,.8); display:none; }
-@media (pointer:coarse) { #act { display:block; } }
+/* スマホ用の操作（スティックとボタン）。タッチ端末か、一度でも触ったら出す */
+.touchui { display:none; }
+body.touch .touchui { display:block; }
+#stick { position:absolute; left:calc(18px + env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom)); width:124px; height:124px; border-radius:50%; background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.18); touch-action:none; }
+#stick .knob { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%; background:rgba(232,184,96,.35); border:2px solid rgba(232,184,96,.7); pointer-events:none; }
+#btns { position:absolute; right:calc(16px + env(safe-area-inset-right)); bottom:calc(18px + env(safe-area-inset-bottom)); width:150px; height:130px; }
+#btns button { position:absolute; border-radius:50%; touch-action:none; -webkit-tap-highlight-color:transparent; }
+#btns button:active, #btns button.on { filter:brightness(1.5); }
+#act { right:0; bottom:0; width:78px; height:78px; font-size:14px; font-weight:700; background:rgba(74,52,32,.85); border:2px solid var(--accent); }
+#bInv { left:0; top:0; width:56px; height:56px; font-size:11px; background:rgba(36,30,42,.85); }
+body.touch #dlg { bottom:calc(150px + env(safe-area-inset-bottom)); }
+body.touch.talking #stick { opacity:.25; }
 #toast { position:absolute; top:28px; left:50%; transform:translateX(-50%); background:rgba(30,24,34,.95); border:1px solid var(--line); padding:6px 12px; border-radius:6px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:90%; overflow:hidden; text-overflow:ellipsis; }
 dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; width:min(560px, calc(100% - 24px)); padding:16px; }
 dialog::backdrop { background:rgba(0,0,0,.6); }
@@ -67,7 +77,8 @@ dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
   <div id="fade"></div>
   <div id="chase" hidden><div></div><span>逃げろ</span></div>
   <div id="dlg" hidden><div class="name"></div><div class="text"></div><div class="choices"></div><div class="next">▼</div></div>
-  <button id="act">調べる</button>
+  <div id="stick" class="touchui"><div class="knob"></div></div>
+  <div id="btns" class="touchui"><button id="bInv">持ち物</button><button id="act">調べる</button></div>
   <div id="toast"></div>
   <div id="screen"></div>
 </main>
@@ -751,7 +762,35 @@ cv.addEventListener('pointermove', e => {
 cv.addEventListener('pointerup', () => { if (joy && !joy.moved && performance.now() - joy.t < 300) action(); joy = null; });
 cv.addEventListener('pointercancel', () => joy = null);
 $('#dlg').addEventListener('click', () => { if (dlgNext) dlgNext(); });
-$('#act').addEventListener('click', e => { e.stopPropagation(); action(); });
+// ---- スマホ用スティックとボタン ----
+const stick = { id: null, x: 0, y: 0 };
+if (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
+addEventListener('touchstart', () => document.body.classList.add('touch'), { once: true, passive: true });
+(() => {
+  const base = $('#stick'), knob = base.querySelector('.knob');
+  const set = e => {
+    const r = base.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+    const l = Math.hypot(dx, dy), max = R - 14;
+    if (l > max) { dx *= max / l; dy *= max / l; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const k = Math.hypot(dx, dy) / max;
+    if (k < 0.22) { stick.x = stick.y = 0; } else { stick.x = dx / max; stick.y = dy / max; }
+  };
+  const end = e => { if (e.pointerId !== stick.id) return; stick.id = null; stick.x = stick.y = 0; knob.style.transform = ''; };
+  base.addEventListener('pointerdown', e => { e.preventDefault(); try { base.setPointerCapture(e.pointerId); } catch (_) {} stick.id = e.pointerId; set(e); });
+  base.addEventListener('pointermove', e => { if (e.pointerId === stick.id) set(e); });
+  base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
+  // ボタンは押した瞬間に反応させる（click を待たない）
+  const press = (el, fn) => {
+    el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('on'); fn(); });
+    const off = () => el.classList.remove('on');
+    el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
+    el.addEventListener('click', e => e.stopPropagation());
+  };
+  press($('#act'), () => { if (choiceKey) choiceKey('ok'); else action(); });
+  press($('#bInv'), () => { if (S.mode === 'play' && !RT.busy) openInv(); });
+})();
 
 function action() {
   if (dlgNext) { dlgNext(); return; }
@@ -773,7 +812,8 @@ function examine() {
 function inputVec() {
   let x = 0, y = 0;
   if (keys.has('l')) x -= 1; if (keys.has('r')) x += 1; if (keys.has('u')) y -= 1; if (keys.has('d')) y += 1;
-  if (joy && joy.mouse && G && (joy.moved || performance.now() - joy.t > 180)) {
+  if (stick.x || stick.y) { x = stick.x; y = stick.y; }
+  else if (joy && joy.mouse && G && (joy.moved || performance.now() - joy.t > 180)) {
     const r = cv.getBoundingClientRect(), [ox, oy] = cam();
     const dx = joy.cx - r.left - (ox + G.x * TS), dy = joy.cy - r.top - (oy + G.y * TS);
     joy.moved = true;
@@ -1133,7 +1173,7 @@ function draw() {
 }
 
 /* ====================== ループ ====================== */
-let last = performance.now();
+let last = performance.now(), lastTalking = false;
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; RT.t += dt;
   if (S.mode === 'play' && G) {
@@ -1147,6 +1187,8 @@ function loop(now) {
       if (d > 4) { RT.comp.x = tx; RT.comp.y = ty; }
     }
   }
+  const talking = S.mode === 'play' && RT.busy && !RT.chase;
+  if (talking !== lastTalking) { lastTalking = talking; document.body.classList.toggle('talking', talking); }
   draw();
   requestAnimationFrame(loop);
 }

@@ -679,6 +679,7 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 鉱石の中の金色の点々（輝石の粒）です。1 枚の鉱石に「粒の数」だけ（2 振りのときは 1.6 倍）、いくつかの「鉱脈」にかたまって入っていて、置くたびに場所が変わります。
 完成した刃に残した粒の数だけ、N 以外のレアリティが出やすくなり、攻撃も上がります（上限の粒数まで）。削ると、1 粒ごとに金が入ります。
 どこを刃にするか、2 振りのときにどちらの剣に粒を寄せるかで、できる武器が変わります。
+たまに（「大当たりの確率」％で）、粒が縦に長くつながった鉱脈が入る「大当たり」の鉱石が出ます。その鉱脈に沿って刃を作ると、粒をたくさん残せます。
 
 | 項目 | 値 |
 | --- | --- |
@@ -688,6 +689,7 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 1粒あたりの攻撃 | 0.4 |
 | 補正の上限 | 40 |
 | 削ったときの金 | 0.3 |
+| 大当たりの確率 | 8 |
 
 ## 鍛造コスト
 
@@ -898,7 +900,7 @@ function buildBalance(text) {
   const hammerCfg = s['ハンマーの設定'] ? kv(s, 'ハンマーの設定') : null;
   const gr = s['輝石の粒'] ? kv(s, '輝石の粒') : {};
   const gv = (k, d) => isFinite(gr[k]) ? +gr[k] : d;
-  const grains = { count: Math.round(clamp(gv('粒の数', 90), 0, 600)), veins: Math.round(clamp(gv('鉱脈の数', 5), 0, 30)), rare: gv('1粒あたりのレア補正', 1.2), atk: gv('1粒あたりの攻撃', .4), cap: Math.max(0, gv('補正の上限', 40)), gold: gv('削ったときの金', .3) };
+  const grains = { count: Math.round(clamp(gv('粒の数', 90), 0, 600)), veins: Math.round(clamp(gv('鉱脈の数', 5), 0, 30)), rare: gv('1粒あたりのレア補正', 1.2), atk: gv('1粒あたりの攻撃', .4), cap: Math.max(0, gv('補正の上限', 40)), gold: gv('削ったときの金', .3), jackpot: clamp(gv('大当たりの確率', 8), 0, 100) };
   const twin = s['対の剣'] ? kv(s, '対の剣') : null;
   return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg, twin, grains };
 }
@@ -1345,7 +1347,7 @@ function shiftPiece(d) {
   const hy = guideFor(forgeType()).hiltY;
   F.dirty = true; updateMatch(true);
 }
-function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 90, veins: 5, rare: 1.2, atk: .4, cap: 40, gold: .3 }; }
+function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 90, veins: 5, rare: 1.2, atk: .4, cap: 40, gold: .3, jackpot: 8 }; }
 /* 刃（持ち手以外）に残っている粒の数を、1 振りずつ数える */
 function grainCounts(parts) {
   return parts.map(p => {
@@ -1398,6 +1400,22 @@ function makeOre(type) {
       F.vein[i] = 1; got++; placed++;
     }
   }
+  // 大当たり：たまに、粒が縦に長くつながった鉱脈が入る（刃を作れる範囲のどこか）
+  F.jackpot = Math.random() * 100 < G.jackpot;
+  if (F.jackpot) {
+    const k = (Math.random() * F.pieces.length) | 0, off = F.pieces[k];
+    // 1 振りなら、剣の位置（PIECE_MIN〜PIECE_MAX）を動かせば刃を合わせられる範囲に入れる
+    let vx = F.pieces.length === 1 ? rand(PIECE_MIN + 26, PIECE_MAX + 22) : off + rand(21, 27);
+    const w = rand(1.6, 2.6);
+    for (let y = hy - 3; y >= 5; y--) {
+      vx += Math.sin(y * .21) * .3 + rand(-.2, .2);
+      for (let x = Math.floor(vx - w); x <= Math.ceil(vx + w); x++) {
+        const i = y * FW + x;
+        if (x < 0 || x >= FW || !m[i] || Math.abs(x - vx) > w || Math.random() < .25) continue;
+        F.vein[i] = 2; // 2：大当たりの鉱脈（ふつうの粒と同じに数える）
+      }
+    }
+  }
   F.grainGold = 0;
   // 鍔と持ち手を、剣の数だけ付ける
   F.hilt = new Uint8Array(FW * GH);
@@ -1422,6 +1440,7 @@ function placeOre() {
   const mat = payForForge(); if (!mat) return;
   F.mat = mat; F.sheath = selSheath(); F.hiltDef = selHilt(); F.oreRGB = hexRGB(mat.color);
   F.mask = makeOre(); F.start = F.mask.slice(); F.heat.fill(0); F.sparks = [];
+  if (F.jackpot) { toast('大当たり！ 縦に長い輝石の鉱脈が入っています'); for (let k = 0; k < 80; k++) F.sparks.push({ x: rand(20, 70), y: rand(15, 90), vx: rand(-20, 20), vy: rand(-30, 5), life: rand(.4, 1.1), gem: 1 }); }
   [F.ox, F.oy] = oreHome(); F.tx = F.ox; F.ty = F.oy; F.flipX = F.flipY = false; F.contact = 0;
   F.active = true; F.showDone = false; F.dirty = true; F.match = forgeMatch(F.mask);
   $('#forgeMsg').style.display = 'none';
@@ -1745,7 +1764,8 @@ function drawForge(dt) {
       const s = F.shade[i], h = F.heat[i];
       const oc = F.oreRGB || [92, 98, 110];
       let r = oc[0] * s, g = oc[1] * s, b = oc[2] * s;
-      if (F.vein[i]) { const tw = .85 + .15 * Math.sin(i * 1.7); r = 255 * tw; g = 222 * tw; b = 96 * tw; } // 輝石の粒：明るい金色
+      if (F.vein[i] === 2) { const tw = .9 + .1 * Math.sin(i * 1.3); r = 255 * tw; g = 240 * tw; b = 170 * tw; } // 大当たりの鉱脈：白っぽく輝く金
+      else if (F.vein[i]) { const tw = .85 + .15 * Math.sin(i * 1.7); r = 255 * tw; g = 222 * tw; b = 96 * tw; } // 輝石の粒：明るい金色
       else if (F.speck[i]) { r = r + (200 - r) * .55; g = g + (182 - g) * .55; b = b + (150 - b) * .55; } // 見た目だけの粒：くすんだ色
       r = r + (255 - r) * h; g = g + (150 - g) * h; b = b + (50 - b) * h;
       d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;

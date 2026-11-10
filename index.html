@@ -9,7 +9,13 @@
   --bg:#14110f; --panel:#1f1a17; --panel2:#2a231f; --line:#3a312b;
   --text:#f3e9df; --muted:#b3a393; --accent:#ff8a3d; --accent2:#ffc247;
   --good:#6ee7a0; --bad:#ff5d73; --radius:12px;
+  --pixel:"DenkiChip",system-ui,"Hiragino Sans",sans-serif;
 }
+/* ドットの文字：でんきチップ（x8y12pxDenkiChip v1.100、hicc 作、SIL OFL 1.1）。fonts/ に置いたものを使う */
+@font-face{font-family:"DenkiChip";src:url("fonts/x8y12pxDenkiChip.woff2") format("woff2");font-display:swap}
+/* ゲームらしい所（見出し・ボタン・タブ・バトルの表示・作業台の上の表示）はドットの文字。説明の文は読みやすい文字のまま */
+h1,h2,button,select,.res,.rar,.hud,.floater,.banner,.ebar,.loader-title,.loader-msg,.stage-result,.grain-chip,.stage-bar,.stage-btns,.gear,#battleLoadingMsg,.wcard .name,.kv,.toast{font-family:var(--pixel)}
+.floater{letter-spacing:.02em}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);
   font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;-webkit-text-size-adjust:100%}
@@ -1943,7 +1949,7 @@ function drawHammer() {
     fg.shadowBlur = 0;
     fg.lineWidth = near ? 4 : 2.5; fg.strokeStyle = near ? d.color : 'rgba(255,255,255,.85)';
     fg.beginPath(); fg.arc(wx * C, wy * C, r * C, 0, Math.PI * 2); fg.stroke();
-    fg.font = 'bold 22px system-ui, sans-serif'; fg.textAlign = 'center'; fg.fillStyle = d.color;
+    fg.font = 'bold 22px "DenkiChip", system-ui, sans-serif'; fg.textAlign = 'center'; fg.fillStyle = d.color;
     fg.fillText(d.kind, wx * C, (wy + core + 5.5) * C);
     fg.restore();
   }
@@ -1962,15 +1968,15 @@ function drawHammer() {
     fg.restore();
   }
   // 結果の文字
-  fg.save(); fg.textAlign = 'center'; fg.font = 'bold 30px system-ui, sans-serif';
+  fg.save(); fg.textAlign = 'center'; fg.font = 'bold 30px "DenkiChip", system-ui, sans-serif';
   for (const p of H.pops) {
     fg.globalAlpha = clamp(1.2 - p.t, 0, 1); fg.fillStyle = p.color;
     fg.strokeStyle = 'rgba(0,0,0,.6)'; fg.lineWidth = 4;
     const y = (p.y - p.t * 8) * C; fg.strokeText(p.text, p.x * C, y); fg.fillText(p.text, p.x * C, y);
   }
-  fg.globalAlpha = 1; fg.font = 'bold 30px system-ui, sans-serif'; fg.fillStyle = '#ffe2b0';
+  fg.globalAlpha = 1; fg.font = 'bold 30px "DenkiChip", system-ui, sans-serif'; fg.fillStyle = '#ffe2b0';
   fg.fillText(`ハンマー　残り ${H.left} 回`, WW * C / 2, 42);
-  fg.font = '22px system-ui, sans-serif'; fg.fillStyle = 'rgba(255,226,176,.8)';
+  fg.font = '22px "DenkiChip", system-ui, sans-serif'; fg.fillStyle = 'rgba(255,226,176,.8)';
   fg.fillText('輪が光る点に重なった瞬間にタップ（スペースキー）', WW * C / 2, 76);
   fg.restore();
 }

@@ -676,12 +676,12 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 
 | 項目 | 値 |
 | --- | --- |
-| 粒の数 | 24 |
+| 粒の数 | 90 |
 | 鉱脈の数 | 5 |
-| 1粒あたりのレア補正 | 4 |
-| 1粒あたりの攻撃 | 1 |
-| 補正の上限 | 15 |
-| 削ったときの金 | 1 |
+| 1粒あたりのレア補正 | 1.2 |
+| 1粒あたりの攻撃 | 0.4 |
+| 補正の上限 | 40 |
+| 削ったときの金 | 0.3 |
 
 ## 鍛造コスト
 
@@ -892,7 +892,7 @@ function buildBalance(text) {
   const hammerCfg = s['ハンマーの設定'] ? kv(s, 'ハンマーの設定') : null;
   const gr = s['輝石の粒'] ? kv(s, '輝石の粒') : {};
   const gv = (k, d) => isFinite(gr[k]) ? +gr[k] : d;
-  const grains = { count: Math.round(clamp(gv('粒の数', 24), 0, 400)), veins: Math.round(clamp(gv('鉱脈の数', 5), 0, 30)), rare: gv('1粒あたりのレア補正', 4), atk: gv('1粒あたりの攻撃', 1), cap: Math.max(0, gv('補正の上限', 15)), gold: gv('削ったときの金', 1) };
+  const grains = { count: Math.round(clamp(gv('粒の数', 90), 0, 600)), veins: Math.round(clamp(gv('鉱脈の数', 5), 0, 30)), rare: gv('1粒あたりのレア補正', 1.2), atk: gv('1粒あたりの攻撃', .4), cap: Math.max(0, gv('補正の上限', 40)), gold: gv('削ったときの金', .3) };
   const twin = s['対の剣'] ? kv(s, '対の剣') : null;
   return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg, twin, grains };
 }
@@ -1322,7 +1322,7 @@ function placePiece(src, k, dst) {
     if (src[y * GW + px]) dst[y * FW + X] = 1;
   }
 }
-function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 24, veins: 5, rare: 4, atk: 1, cap: 15, gold: 1 }; }
+function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 90, veins: 5, rare: 1.2, atk: .4, cap: 40, gold: .3 }; }
 /* 刃（持ち手以外）に残っている粒の数を、1 振りずつ数える */
 function grainCounts(parts) {
   return parts.map(p => {
@@ -1366,7 +1366,7 @@ function makeOre(type) {
   const nv = Math.max(1, G.veins * (F.pieces.length === 2 ? 1.6 : 1) | 0);
   let placed = 0;
   for (let v = 0; v < nv && placed < target; v++) {
-    const vx = rand(x0 + 3, x1 - 3), vy = rand(6, hy - 8), rr = rand(1.8, 3.5), want = Math.ceil((target - placed) / (nv - v));
+    const vx = rand(x0 + 3, x1 - 3), vy = rand(6, hy - 8), rr = rand(3, 6), want = Math.ceil((target - placed) / (nv - v));
     let got = 0;
     for (let tries = 0; tries < want * 8 && got < want; tries++) {
       const a = rand(0, Math.PI * 2), d = Math.sqrt(Math.random()) * rr, x = Math.round(vx + Math.cos(a) * d), y = Math.round(vy + Math.sin(a) * d * 1.6);
@@ -1642,7 +1642,7 @@ function showGrains() {
   if (!F.active && !F.hammer) return;
   const G = grainCfg(), n = grainCounts(forgeParts(F.mask));
   const txt = n.length === 2 ? `輝石 左 ${n[0]}・右 ${n[1]} 粒` : `輝石 ${n[0]} 粒`;
-  const el = $('#grainNote'); if (el) el.textContent = `${txt}（1 粒でレア +${G.rare}%・攻撃 +${G.atk}%、${G.cap} 粒まで）${F.grainGold ? ` ／ 削った粒 +${F.grainGold}G` : ''}`;
+  const el = $('#grainNote'); if (el) el.textContent = `${txt}（1 粒でレア +${G.rare}%・攻撃 +${G.atk}%、${G.cap} 粒まで）${F.grainGold >= .5 ? ` ／ 削った粒 +${Math.round(F.grainGold)}G` : ''}`;
   const chip = $('#grainChip'); if (chip) chip.textContent = `💎 ${n.join('・')}`;
 }
 function showMatch(m) {
@@ -1908,7 +1908,7 @@ function finishForge(mask, auto, hammerStats) {
   const useStar = $('#useStar').checked && S.star > 0;
   if (useStar) S.star--;
   const grainsLeft = grainCounts(parts);
-  if (F.grainGold) { S.gold += F.grainGold; toast(`削った輝石の粒で +${F.grainGold}G`); }
+  const gg = Math.round(F.grainGold || 0); if (gg) { S.gold += gg; toast(`削った輝石の粒で +${gg}G`); }
   const made = parts.map(p => {
     const w = rollWeapon({ type, match: p.match, useStar, outline: traceOutline(p.comp.mask), mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt(), grains: grainsLeft[p.k] });
     w.auto = !!auto;

@@ -280,6 +280,12 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
             <button class="small" id="btnHome">手元に戻す</button>
           </div>
           <div class="row" style="margin-bottom:10px">
+            <span class="muted">剣の位置</span>
+            <button class="small" id="btnPosL" title="持ち手とガイドを左へ">◀</button>
+            <button class="small" id="btnPosR" title="持ち手とガイドを右へ">▶</button>
+            <span class="muted" id="posNote" style="font-size:12px">鉱石のどこから剣を作るか（粒の多い所へ寄せる）</span>
+          </div>
+          <div class="row" style="margin-bottom:10px">
             <button class="primary" id="btnPlace">鉱石を置く</button>
             <button id="btnDone" disabled>完成</button>
             <button id="btnRedo" disabled>やり直し</button>
@@ -1322,6 +1328,23 @@ function placePiece(src, k, dst) {
     if (src[y * GW + px]) dst[y * FW + X] = 1;
   }
 }
+/* 剣を作る位置：1 振りのとき、持ち手とガイドを鉱石の上で左右に動かす（鉱石は動かない） */
+const PIECE_MIN = 6, PIECE_MAX = 30;
+function shiftPiece(d) {
+  if (!F.active || F.pieces.length !== 1) return;
+  const off = clamp(F.pieces[0] + d, PIECE_MIN, PIECE_MAX); if (off === F.pieces[0]) return;
+  const hm = hiltMask(forgeType()), move = (mask) => {
+    for (let i = 0; i < F.hilt.length; i++) if (F.hilt[i]) mask[i] = 0; // 前の持ち手を外す
+  };
+  move(F.mask); if (F.start) move(F.start);
+  F.pieces = [off];
+  F.hilt = new Uint8Array(FW * GH); placePiece(hm, 0, F.hilt);
+  F.hiltCells = [];
+  for (let i = 0; i < F.hilt.length; i++) if (F.hilt[i]) { F.mask[i] = 1; if (F.start) F.start[i] = 1; F.hiltCells.push(i); }
+  // 鍔のすぐ上が鉱石とつながるよう、鍔の上の 3 行を埋める（もとの鉱石がある所だけ）
+  const hy = guideFor(forgeType()).hiltY;
+  F.dirty = true; updateMatch(true);
+}
 function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 90, veins: 5, rare: 1.2, atk: .4, cap: 40, gold: .3 }; }
 /* 刃（持ち手以外）に残っている粒の数を、1 振りずつ数える */
 function grainCounts(parts) {
@@ -1409,10 +1432,13 @@ function syncForgeButtons() {
   $('#btnDone').disabled = !F.active && !hm; $('#btnRedo').disabled = !F.active;
   $('#btnDone').textContent = hm ? '仕上げる（残りは叩かない）' : '完成（ハンマーへ）';
   ['#btnFlipX', '#btnFlipY', '#btnHome'].forEach(s => $(s).disabled = !F.active);
+  ['#btnPosL', '#btnPosR'].forEach(s => $(s).disabled = !F.active || F.pieces.length !== 1);
+  $('#posNote').textContent = F.active && F.pieces.length !== 1 ? '2 振りのときは位置を動かせません' : '鉱石のどこから剣を作るか（粒の多い所へ寄せる）';
   const busy = F.active || hm;
   // 鍛造していないときだけ、作業台の上に出す。出た直後は押せない（同じ所のボタンを続けて押してしまわないように）
   if (!busy && $('#stageBtns').classList.contains('hide')) stageShownAt = performance.now();
   $('#stageBtns').classList.toggle('hide', busy);
+  if (F.active && $('#stageTop').classList.contains('hide')) renderStageTop();
   $('#stageTop').classList.toggle('hide', !F.active);
   $('#grainChip').classList.toggle('hide', !busy);
   $('#stageBottom').classList.toggle('hide', !busy);
@@ -1596,7 +1622,8 @@ function renderStageTop() {
   const icon = sh => sh === '帯' ? '▮' : sh === '三角' ? '◀' : '●';
   const round = currentStone().shape === '円';
   $('#stageTop').innerHTML = stones().map(s => `<button data-stone="${esc(s.name)}" class="${s.name === F.stoneName ? 'on' : ''}" title="${esc(s.name)}">${icon(s.shape)} ${esc(s.name.replace('砥石', ''))}</button>`).join('') +
-    `<button data-proxy="btnRotL" ${round ? 'disabled' : ''} title="左へ回す">↺</button><button data-proxy="btnRotR" ${round ? 'disabled' : ''} title="右へ回す">↻</button>`;
+    `<button data-proxy="btnRotL" ${round ? 'disabled' : ''} title="左へ回す">↺</button><button data-proxy="btnRotR" ${round ? 'disabled' : ''} title="右へ回す">↻</button>` +
+    (F.pieces.length === 1 ? `<button data-proxy="btnPosL" title="剣を作る位置を左へ">◀剣</button><button data-proxy="btnPosR" title="剣を作る位置を右へ">剣▶</button>` : '');
 }
 function renderStoneSel() {
   const icon = sh => sh === '帯' ? '<rect x="7" y="2" width="6" height="16" rx="2"/>' : sh === '三角' ? '<path d="M3 10 L17 3 L17 17 Z"/>' : '<circle cx="10" cy="10" r="7.5"/>';
@@ -1629,6 +1656,8 @@ $('#btnRotR').onclick = () => setStoneAngle(F.angle + 15);
 $('#btnRot0').onclick = () => setStoneAngle(0);
 $('#btnFlipX').onclick = () => { if (F.active) F.flipX = !F.flipX; };
 $('#btnFlipY').onclick = () => { if (F.active) F.flipY = !F.flipY; };
+$('#btnPosL').onclick = () => shiftPiece(-2);
+$('#btnPosR').onclick = () => shiftPiece(2);
 $('#btnHome').onclick = () => { if (!F.active) return; [F.ox, F.oy] = oreHome(); F.tx = F.ox; F.ty = F.oy; };
 
 function updateMatch(force) {

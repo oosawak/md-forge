@@ -2272,7 +2272,7 @@ function rollEnemy(w, elems) {
   return r;
 }
 const battle = {
-  running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], shots: [], bursts: [], nextId: 1,
+  running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], shots: [], bursts: [], fx: [], nextId: 1,
   hero: { hp: 100, maxHp: 100, cool: 0, anim: -1, anim2: -1, animDur: .42, pending: null, hurt: 0 },
   log: [],
   stats() {
@@ -2349,6 +2349,8 @@ const battle = {
     }
     dmg = Math.max(1, Math.round(dmg));
     e.hp -= dmg; e.hit = .18;
+    if (this.fx.length > 60) this.fx.shift(); // 2D 表示などで使われないときに溜まりすぎないように
+    if (st.elem !== '無') this.fx.push({ elem: st.elem, sx: this.free ? e.px : laneOf(e), sf: this.free ? e.pf : e.x, h: (e.boss ? .9 : .6) * (e.size || 1), big: crit || adv, lv: st.elemLv || 1 });
     this.float((crit ? '会心 ' : '') + dmg + (adv ? ' 有利' : ''), e.x, e.boss ? 2.4 : 1.3, crit ? '#ffc247' : adv ? elemColor(st.elem) : '#fff', crit, e);
     if (st.skill === '吸命') this.hero.hp = Math.min(this.hero.maxHp, this.hero.hp + dmg * st.skillVal / 100);
     if (e.hp <= 0 && !e.dead) { e.dead = .001; }
@@ -3241,6 +3243,58 @@ async function make3DRenderer(container) {
     const tail = new THREE.Mesh(tailGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     g.add(core, halo, tail); g.userData = { core, halo, tail }; scene.add(g); return g;
   }
+  /* 属性のエフェクト：四角い点（Points）で、ドット絵のような粒を出す */
+  const FX_MAX = 900, fxPos = new Float32Array(FX_MAX * 3), fxCol = new Float32Array(FX_MAX * 3), fxParts = [];
+  const fxGeo = new THREE.BufferGeometry();
+  fxGeo.setAttribute('position', new THREE.BufferAttribute(fxPos, 3)); fxGeo.setAttribute('color', new THREE.BufferAttribute(fxCol, 3));
+  const fxPoints = new THREE.Points(fxGeo, new THREE.PointsMaterial({ size: .2, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true }));
+  fxPoints.frustumCulled = false; scene.add(fxPoints);
+  const FX_COL = { '炎': ['#ff3b1f', '#ff8a1f', '#ffd23f'], '氷': ['#bff4ff', '#6fd3ff', '#ffffff'], '雷': ['#fff27a', '#ffe14d', '#ffffff'], '風': ['#6ee7a0', '#b6ffd2', '#2fbf71'] };
+  const pc = new THREE.Color();
+  function addFx(x, y, z, vx, vy, vz, life, col, grav, drag) {
+    if (fxParts.length >= FX_MAX) fxParts.shift();
+    fxParts.push({ x, y, z, vx, vy, vz, life, max: life, col, grav: grav || 0, drag: drag || 0, swirl: 0 });
+    return fxParts[fxParts.length - 1];
+  }
+  function spawnFx(ev) {
+    const base = battle.free ? waveZ(battle.wave) : heroZ, x = ev.sx, z = base - ev.sf, y = ev.h, cols = FX_COL[ev.elem] || FX_COL['炎'];
+    const n = Math.round((ev.big ? 40 : 26) * (1 + (ev.lv - 1) * .25)), pick = () => cols[(Math.random() * cols.length) | 0];
+    if (ev.elem === '炎') {
+      // 火の粉：ゆらゆら立ちのぼる
+      for (let i = 0; i < n; i++) addFx(x + rand(-.35, .35), y + rand(-.3, .3), z + rand(-.35, .35), rand(-.5, .5), rand(1.2, 2.8), rand(-.5, .5), rand(.5, 1), pick(), -1.2, .5);
+    } else if (ev.elem === '氷') {
+      // 氷のかけら：はじけて落ちる
+      for (let i = 0; i < n; i++) { const a = rand(0, Math.PI * 2), sp = rand(1.2, 3); addFx(x, y, z, Math.cos(a) * sp, rand(.5, 2.5), Math.sin(a) * sp, rand(.45, .8), pick(), 7, 1.2); }
+    } else if (ev.elem === '雷') {
+      // 稲妻：空からジグザグに落ちる線と、はじける火花
+      let bx = x + rand(-.6, .6), bz = z + rand(-.4, .4);
+      for (let yy = 4.2; yy > y; yy -= .1) { bx += rand(-.16, .16); bz += rand(-.1, .1); addFx(bx, yy, bz, 0, 0, 0, rand(.22, .35), Math.random() < .5 ? '#ffffff' : '#fff27a'); }
+      for (let i = 0; i < n * .7; i++) { const a = rand(0, Math.PI * 2), sp = rand(2, 4.5); addFx(x, y, z, Math.cos(a) * sp, rand(-.5, 1.5), Math.sin(a) * sp, rand(.15, .35), pick(), 0, 3); }
+    } else {
+      // 風：まわりを渦巻いて上がる
+      for (let i = 0; i < n; i++) { const p = addFx(x, y + rand(-.3, .4), z, 0, rand(.6, 1.4), 0, rand(.5, .9), pick()); p.swirl = rand(.4, .8); p.ang = rand(0, Math.PI * 2); p.cx = x; p.cz = z; }
+    }
+  }
+  function drawFx(dt) {
+    for (const ev of battle.fx.splice(0)) spawnFx(ev);
+    let n = 0;
+    for (let i = fxParts.length - 1; i >= 0; i--) {
+      const p = fxParts[i]; p.life -= dt;
+      if (p.life <= 0) { fxParts.splice(i, 1); continue; }
+      if (p.swirl) { p.ang += dt * 9; const r = p.swirl * (1 + (1 - p.life / p.max)); p.x = p.cx + Math.cos(p.ang) * r; p.z = p.cz + Math.sin(p.ang) * r; p.y += p.vy * dt; }
+      else {
+        const k = Math.max(0, 1 - p.drag * dt); p.vx *= k; p.vz *= k; p.vy -= p.grav * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; if (p.y < .05) { p.y = .05; p.vy *= -.3; }
+      }
+    }
+    for (const p of fxParts) {
+      const f = Math.min(1, p.life / p.max * 1.6); // 消える前に暗くなる（加算なので見えなくなる）
+      // ドットらしく、位置を細かい格子にそろえる
+      fxPos[n * 3] = Math.round(p.x * 18) / 18; fxPos[n * 3 + 1] = Math.round(p.y * 18) / 18; fxPos[n * 3 + 2] = Math.round(p.z * 18) / 18;
+      pc.set(p.col); fxCol[n * 3] = pc.r * f; fxCol[n * 3 + 1] = pc.g * f; fxCol[n * 3 + 2] = pc.b * f; n++;
+    }
+    fxGeo.setDrawRange(0, n); fxGeo.attributes.position.needsUpdate = true; fxGeo.attributes.color.needsUpdate = true;
+  }
   const burstMeshes = [];
   function drawBursts() {
     const list = battle.free ? battle.bursts || [] : [], base = waveZ(battle.wave);
@@ -3443,7 +3497,7 @@ async function make3DRenderer(container) {
       body.rotation.x = -e.hit * 1.2;
     }
     for (const [id, g] of enemyMeshes) if (!seen.has(id)) { scene.remove(g); enemyMeshes.delete(id); }
-    drawWarnings(t); drawShots(t); drawBursts();
+    drawWarnings(t); drawShots(t); drawBursts(); drawFx(dt);
     forgeGlow.intensity = 2 + Math.sin(t * 7) * .3 + Math.sin(t * 13) * .2;
     renderer.render(scene, camera);
   }

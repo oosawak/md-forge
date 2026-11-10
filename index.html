@@ -88,6 +88,8 @@ label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:p
 .stage-bar button:disabled{opacity:.4}
 .stage-result{position:absolute;left:8px;right:8px;top:8px;z-index:3;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;background:rgba(20,16,14,.85);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 10px;font-size:14px}
 .stage-result button{font-size:13px;padding:6px 10px}
+.grain-chip{position:absolute;right:10px;bottom:62px;z-index:3;background:rgba(10,20,26,.8);border:1px solid rgba(159,232,255,.5);color:#bff1ff;border-radius:99px;padding:4px 10px;font-size:13px;pointer-events:none}
+.grain-chip.hide{display:none}
 .stage-btns{position:absolute;left:0;right:0;bottom:16px;display:flex;gap:10px;justify-content:center;z-index:3;pointer-events:none}
 .stage-btns button{pointer-events:auto;box-shadow:0 6px 20px rgba(0,0,0,.45)}
 .stage-btns button.big{font-size:17px;padding:12px 22px;border-radius:12px}
@@ -238,6 +240,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
           <button data-proxy="btnFlipX">⇆ 左右</button><button data-proxy="btnFlipY">⇅ 上下</button><button data-proxy="btnRedo">やり直し</button><button class="primary" data-proxy="btnDone" id="stageDone">完成</button>
         </div>
         <div class="stage-result hide" id="stageResult"></div>
+        <div class="grain-chip hide" id="grainChip" title="刃に残っている輝石の粒"></div>
         <div class="stage-btns" id="stageBtns">
           <button class="primary big" id="stagePlace">鉱石を置く</button>
           <button class="big" id="stageAuto">自動鍛造</button>
@@ -291,6 +294,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
             <div class="row" style="justify-content:space-between"><span class="muted">完成度（ガイドとの一致率）</span><b id="matchVal">—</b></div>
             <div class="meter" style="margin-top:4px"><i id="matchBar"></i></div>
             <div class="muted" id="matchNote" style="margin-top:4px"></div>
+            <div id="grainNote" style="margin-top:4px;font-size:12.5px;color:#9fe8ff"></div>
           </div>
         </div>
         <div class="panel" id="forgeResultPanel" style="display:none">
@@ -664,6 +668,21 @@ Markdown鍛造（仮）が鍛造のときに読む定義です。
 | 補正開始 | 60 |
 | 最大補正 | 40 |
 
+## 輝石の粒
+
+鉱石の中の金色の点々（輝石の粒）です。1 枚の鉱石に「粒の数」だけ（2 振りのときは 1.6 倍）、いくつかの「鉱脈」にかたまって入っていて、置くたびに場所が変わります。
+完成した刃に残した粒の数だけ、N 以外のレアリティが出やすくなり、攻撃も上がります（上限の粒数まで）。削ると、1 粒ごとに金が入ります。
+どこを刃にするか、2 振りのときにどちらの剣に粒を寄せるかで、できる武器が変わります。
+
+| 項目 | 値 |
+| --- | --- |
+| 粒の数 | 24 |
+| 鉱脈の数 | 5 |
+| 1粒あたりのレア補正 | 4 |
+| 1粒あたりの攻撃 | 1 |
+| 補正の上限 | 15 |
+| 削ったときの金 | 1 |
+
 ## 鍛造コスト
 
 「2振り（1枚から）」を選ぶと、1 枚の大きな鉱石から同じ型の剣を 2 振り打ちます。そのときは鉱石を「2振りの追加鉱石」だけ多く使います。
@@ -871,8 +890,11 @@ function buildBalance(text) {
     perfect: num(r['会心の一打'] || '0', 'ハンマー/会心の一打'), good: num(r['良い一打'] || '0', 'ハンマー/良い一打')
   })) : null;
   const hammerCfg = s['ハンマーの設定'] ? kv(s, 'ハンマーの設定') : null;
+  const gr = s['輝石の粒'] ? kv(s, '輝石の粒') : {};
+  const gv = (k, d) => isFinite(gr[k]) ? +gr[k] : d;
+  const grains = { count: Math.round(clamp(gv('粒の数', 24), 0, 400)), veins: Math.round(clamp(gv('鉱脈の数', 5), 0, 30)), rare: gv('1粒あたりのレア補正', 4), atk: gv('1粒あたりの攻撃', 1), cap: Math.max(0, gv('補正の上限', 15)), gold: gv('削ったときの金', 1) };
   const twin = s['対の剣'] ? kv(s, '対の剣') : null;
-  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg, twin };
+  return { rarities, base, types, elements, affinity, skills, match, cost, stones, materials, sheaths, combos, hilts, hammer, hammerCfg, twin, grains };
 }
 /* enemies.md：敵・動き・ボス・ボスの技・弾 */
 const SHAPE_KIND = { 'スライム': 'slime', 'ゴーレム': 'golem', 'ひのたま': 'wisp', 'けもの': 'beast', 'こうもり': 'bat', 'こびと': 'imp' };
@@ -1115,9 +1137,9 @@ function simplifyClosed(loop, eps) {
    性能の抽選
    ========================================================= */
 const ELEM_PREFIX = { '炎': '焔の', '氷': '霜の', '雷': '迅雷の', '風': '疾風の' };
-function rarityWeights(match, useStar) {
+function rarityWeights(match, useStar, extra) {
   const B = DEFS.balance;
-  let bonus = 0;
+  let bonus = (extra || 0) / 100;
   if (match > B.match['補正開始']) bonus += (match - B.match['補正開始']) / (100 - B.match['補正開始']) * B.match['最大補正'] / 100;
   if (useStar) bonus += B.cost['星鉄の補正'] / 100;
   return B.rarities.map((r, i) => ({ r, w: i === 0 ? r.w : r.w * (1 + bonus) }));
@@ -1161,11 +1183,12 @@ function applyEffect(w, kind, v) {
   }
 }
 function sellPrice(w) { return Math.round((rarityInfo(w.rarity).price + w.f.count * 5) * (1 + (w.priceBonus || 0) / 100)); }
-function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt }) {
+function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt, grains }) {
   const B = DEFS.balance;
   mat = mat || materials()[0]; sheath = sheath || sheaths()[0]; hilt = hilt || hilts()[0];
   const t = B.types.find(x => x.name === type) || B.types[0];
-  const rar = pickWeighted(rarityWeights(match, useStar), x => x.w).r;
+  const G = grainCfg(), gn = Math.min(grains || 0, G.cap);
+  const rar = pickWeighted(rarityWeights(match, useStar, gn * G.rare), x => x.w).r;
   const el = pickWeighted(B.elements, x => x.w * (mat.elem && x.name === mat.elem ? mat.elemW : 1));
   const sk = pickWeighted(B.skills, x => x.w);
   const g = guideFor(type);
@@ -1185,6 +1208,8 @@ function rollWeapon({ type, match, useStar, outline, mat, sheath, hilt }) {
     outline, grip: g.grip, star: !!useStar,
     mat: mat.name, matColor: mat.color, matElem: mat.elem, sheath: sheath.name, sheathColor: sheath.color, hilt: hilt.name, hiltColors: { guard: hilt.guard, grip: hilt.grip, wrap: hilt.wrap }, mei: null, notes: []
   };
+  if (gn > 0) { applyEffect(w, '攻撃', gn * G.atk); w.notes.push(`輝石の粒 ${grains} 個：レアリティ +${r1(gn * G.rare)}%・攻撃 +${r1(gn * G.atk)}%${grains > G.cap ? `（${G.cap} 個まで）` : ''}`); }
+  w.grains = grains || 0;
   applyEffect(w, hilt.eff, hilt.val);
   w.notes.push(`持ち手「${hilt.name}」：${effLabel(hilt.eff, hilt.val)}`);
   applyEffect(w, sheath.eff, sheath.val);
@@ -1297,6 +1322,15 @@ function placePiece(src, k, dst) {
     if (src[y * GW + px]) dst[y * FW + X] = 1;
   }
 }
+function grainCfg() { return (DEFS.balance && DEFS.balance.grains) || { count: 24, veins: 5, rare: 4, atk: 1, cap: 15, gold: 1 }; }
+/* 刃（持ち手以外）に残っている粒の数を、1 振りずつ数える */
+function grainCounts(parts) {
+  return parts.map(p => {
+    const vein = extractPiece(F.vein, p.k), hilt = F.hilt ? extractPiece(F.hilt, p.k) : null;
+    let n = 0; for (let i = 0; i < vein.length; i++) if (vein[i] && p.comp.mask[i] && !(hilt && hilt[i])) n++;
+    return n;
+  });
+}
 /* 持ち手につながった刀身を、1 振りずつ取り出す */
 function forgeParts(mask) {
   return F.pieces.map((_, k) => {
@@ -1320,13 +1354,27 @@ function makeOre(type) {
   for (let y = 0; y < GH; y++) for (let x = 0; x < FW; x++) {
     const i = y * FW + x;
     F.shade[i] = .82 + Math.random() * .3 + Math.sin(x * .5 + y * .2) * .06;
-    F.vein[i] = Math.random() < .035 ? 1 : 0;
+    F.vein[i] = 0;
     if (y >= hy || x < x0 || x >= x1) continue;
     // 鉱石は鍔の上までの 1 枚の塊。下の端は鍔にしっかり付くよう、角だけ丸める
     const dx = (x + .5 - cx) / (hw - 1), dy = (y + .5 - hy / 2) / (hy / 2);
     const n = Math.sin(x * .9 + y * .37) * .05 + Math.sin(y * .23) * .04 + Math.random() * .04;
     m[i] = (y >= hy - 4 && Math.abs(dx) < .7) || Math.pow(Math.abs(dx), 4) + Math.pow(Math.abs(dy), 4) <= 1 + n ? 1 : 0;
   }
+  // 輝石の粒：いくつかの鉱脈にかたまって入る（場所は置くたびに変わる）
+  const G = grainCfg(), target = Math.round(G.count * (F.pieces.length === 2 ? 1.6 : 1));
+  const nv = Math.max(1, G.veins * (F.pieces.length === 2 ? 1.6 : 1) | 0);
+  let placed = 0;
+  for (let v = 0; v < nv && placed < target; v++) {
+    const vx = rand(x0 + 3, x1 - 3), vy = rand(6, hy - 8), rr = rand(1.8, 3.5), want = Math.ceil((target - placed) / (nv - v));
+    let got = 0;
+    for (let tries = 0; tries < want * 8 && got < want; tries++) {
+      const a = rand(0, Math.PI * 2), d = Math.sqrt(Math.random()) * rr, x = Math.round(vx + Math.cos(a) * d), y = Math.round(vy + Math.sin(a) * d * 1.6);
+      const i = y * FW + x; if (x < 0 || x >= FW || y < 0 || y >= hy || !m[i] || F.vein[i]) continue;
+      F.vein[i] = 1; got++; placed++;
+    }
+  }
+  F.grainGold = 0;
   // 鍔と持ち手を、剣の数だけ付ける
   F.hilt = new Uint8Array(FW * GH);
   F.pieces.forEach((_, k) => placePiece(hm, k, F.hilt));
@@ -1366,6 +1414,7 @@ function syncForgeButtons() {
   if (!busy && $('#stageBtns').classList.contains('hide')) stageShownAt = performance.now();
   $('#stageBtns').classList.toggle('hide', busy);
   $('#stageTop').classList.toggle('hide', !F.active);
+  $('#grainChip').classList.toggle('hide', !busy);
   $('#stageBottom').classList.toggle('hide', !busy);
   $('#stageBottom').querySelectorAll('button:not(#stageDone)').forEach(b => b.style.display = hm ? 'none' : '');
   $('#stageDone').textContent = hm ? '仕上げる' : '完成（ハンマーへ）';
@@ -1451,6 +1500,7 @@ function grind() {
     const px = F.ox + lx + .5, py = F.oy + ly + .5;
     if (!inStone(g, px, py)) continue;
     F.mask[i] = 0; removed++;
+    if (F.vein[i]) { F.vein[i] = 0; F.grainGold += grainCfg().gold; for (let k = 0; k < 6; k++) { sparkFrom(g, px, py); F.sparks[F.sparks.length - 1].gem = 1; } }
     for (const n of [i - 1, i + 1, i - FW, i + FW]) if (n >= 0 && n < F.heat.length && F.mask[n] && !(F.hilt && F.hilt[n])) F.heat[n] = 1;
     if (F.sparks.length < 420) { sparkFrom(g, px, py); if (Math.random() < .5) sparkFrom(g, px, py); }
   }
@@ -1588,7 +1638,15 @@ function updateMatch(force) {
   F.match = forgeMatch(F.mask);
   showMatch(F.match);
 }
+function showGrains() {
+  if (!F.active && !F.hammer) return;
+  const G = grainCfg(), n = grainCounts(forgeParts(F.mask));
+  const txt = n.length === 2 ? `輝石 左 ${n[0]}・右 ${n[1]} 粒` : `輝石 ${n[0]} 粒`;
+  const el = $('#grainNote'); if (el) el.textContent = `${txt}（1 粒でレア +${G.rare}%・攻撃 +${G.atk}%、${G.cap} 粒まで）${F.grainGold ? ` ／ 削った粒 +${F.grainGold}G` : ''}`;
+  const chip = $('#grainChip'); if (chip) chip.textContent = `💎 ${n.join('・')}`;
+}
 function showMatch(m) {
+  showGrains();
   $('#matchVal').textContent = r1(m) + '%';
   $('#matchBar').style.width = clamp(m, 0, 100) + '%';
   const B = DEFS.balance, st = B.match['補正開始'];
@@ -1657,7 +1715,7 @@ function drawForge(dt) {
       const s = F.shade[i], h = F.heat[i];
       const oc = F.oreRGB || [92, 98, 110];
       let r = oc[0] * s, g = oc[1] * s, b = oc[2] * s;
-      if (F.vein[i]) { r = 200; g = 170; b = 110; }
+      if (F.vein[i]) { const tw = .85 + .15 * Math.sin(i * 1.7); r = 255 * tw; g = 222 * tw; b = 96 * tw; } // 輝石の粒：明るい金色
       r = r + (255 - r) * h; g = g + (150 - g) * h; b = b + (50 - b) * h;
       d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
     }
@@ -1689,7 +1747,7 @@ function drawForge(dt) {
     const p = F.sparks[i]; p.life -= dt; if (p.life <= 0) { F.sparks.splice(i, 1); continue; }
     p.vy += 60 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
     const a = clamp(p.life * 2.2, 0, 1);
-    fg.strokeStyle = `rgba(255,${190 + 65 * Math.random() | 0},${90 + 80 * Math.random() | 0},${a})`;
+    fg.strokeStyle = p.gem ? `rgba(${150 + 80 * Math.random() | 0},240,255,${a})` : `rgba(255,${190 + 65 * Math.random() | 0},${90 + 80 * Math.random() | 0},${a})`;
     fg.lineWidth = 2.6; fg.beginPath(); fg.moveTo(p.x * CS, p.y * CS); fg.lineTo((p.x - p.vx * .035) * CS, (p.y - p.vy * .035) * CS); fg.stroke();
   }
   drawHammer();
@@ -1849,8 +1907,10 @@ function finishForge(mask, auto, hammerStats) {
   const parts = checkParts(mask); if (!parts) return false;
   const useStar = $('#useStar').checked && S.star > 0;
   if (useStar) S.star--;
+  const grainsLeft = grainCounts(parts);
+  if (F.grainGold) { S.gold += F.grainGold; toast(`削った輝石の粒で +${F.grainGold}G`); }
   const made = parts.map(p => {
-    const w = rollWeapon({ type, match: p.match, useStar, outline: traceOutline(p.comp.mask), mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt() });
+    const w = rollWeapon({ type, match: p.match, useStar, outline: traceOutline(p.comp.mask), mat: F.mat || selMat(), sheath: F.sheath || selSheath(), hilt: F.hiltDef || selHilt(), grains: grainsLeft[p.k] });
     w.auto = !!auto;
     const hr = hammerStats && hammerStats[p.k];
     if (hr) {

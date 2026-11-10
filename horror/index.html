@@ -7,11 +7,14 @@
 <style>
 :root { --bg:#0b090d; --panel:#17131b; --line:#3a3040; --text:#e8e2ec; --dim:#9a90a4; --accent:#e8b860; --danger:#e05060; }
 * { box-sizing:border-box; }
-html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif; overscroll-behavior:none; }
+/* でんきチップ（x8y12pxDenkiChip, hicc, SIL OFL 1.1）。12px の倍数で使うとドットがきれいに出る */
+@font-face { font-family:"DenkiChip"; src:url("fonts/x8y12pxDenkiChip.woff2") format("woff2"); font-display:swap; }
+html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:"DenkiChip","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; font-size:12px; font-weight:normal; -webkit-font-smoothing:none; font-smooth:never; text-rendering:optimizeSpeed; overscroll-behavior:none; }
+b, strong, h1, h2, h3 { font-weight:normal; }
 body { display:flex; flex-direction:column; height:100dvh; }
 header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
-header h1 { font-size:15px; margin:0; font-weight:600; letter-spacing:.05em; }
-#roomName { color:var(--dim); font-size:13px; }
+header h1 { font-size:12px; margin:0; letter-spacing:.05em; }
+#roomName { color:var(--dim); font-size:12px; }
 #lights { margin-left:auto; white-space:nowrap; padding-top:10px; }
 /* 灯の HUD：ろうそくと揺れる炎 */
 .cdl { display:inline-block; position:relative; width:7px; height:14px; margin:0 5px; border-radius:2px; vertical-align:middle; background:linear-gradient(90deg,#d8ccb0,#f6efdc 45%,#c8bb9c); }
@@ -33,18 +36,18 @@ canvas { display:block; width:100%; height:100%; }
 @keyframes shake { 20%{transform:translate(-6px,3px)} 40%{transform:translate(5px,-4px)} 60%{transform:translate(-4px,-2px)} 80%{transform:translate(3px,4px)} }
 #fade { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .5s; }
 #dlg { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); width:min(680px, calc(100% - 24px)); background:rgba(14,11,17,.94); border:1px solid var(--line); border-radius:10px; padding:12px 14px 14px; min-height:92px; }
-#dlg .name { font-weight:700; font-size:14px; margin-bottom:4px; }
-#dlg .text { font-size:16px; line-height:1.7; white-space:pre-wrap; }
+#dlg .name { font-size:12px; margin-bottom:6px; }
+#dlg .text { font-size:24px; line-height:36px; white-space:pre-wrap; }
 #dlg .next { position:absolute; right:12px; bottom:6px; color:var(--dim); animation:blink 1s infinite; }
 @keyframes blink { 50%{opacity:0} }
 #dlg .choices { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
-#dlg .choices button { text-align:left; }
+#dlg .choices button { text-align:left; font-size:24px; line-height:30px; }
 #dlg .choices button.sel { border-color:var(--accent); background:#3a2a20; }
 #chase { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:min(360px, 70%); height:8px; border-radius:4px; background:#2a1a20; border:1px solid #5a2a30; }
 #chase div { height:100%; background:var(--danger); border-radius:4px; }
 #chase span { position:absolute; top:12px; width:100%; text-align:center; font-size:12px; color:#f0a0a8; }
 #screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:rgba(5,4,7,.9); text-align:center; padding:24px; }
-#screen h2 { margin:0; font-size:26px; letter-spacing:.1em; }
+#screen h2 { margin:0; font-size:36px; letter-spacing:.1em; }
 #screen p { margin:0; color:var(--dim); max-width:520px; line-height:1.7; }
 #screen .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 /* スマホ用の操作（スティックとボタン）。タッチ端末か、一度でも触ったら出す */
@@ -55,23 +58,23 @@ body.touch .touchui { display:block; }
 #btns { position:absolute; right:calc(16px + env(safe-area-inset-right)); bottom:calc(18px + env(safe-area-inset-bottom)); width:150px; height:130px; }
 #btns button { position:absolute; border-radius:50%; touch-action:none; -webkit-tap-highlight-color:transparent; }
 #btns button:active, #btns button.on { filter:brightness(1.5); }
-#act { right:0; bottom:0; width:78px; height:78px; font-size:14px; font-weight:700; background:rgba(74,52,32,.85); border:2px solid var(--accent); }
-#bInv { left:0; top:0; width:56px; height:56px; font-size:11px; background:rgba(36,30,42,.85); }
+#act { right:0; bottom:0; width:78px; height:78px; font-size:12px; background:rgba(74,52,32,.85); border:2px solid var(--accent); }
+#bInv { left:0; top:0; width:56px; height:56px; font-size:12px; background:rgba(36,30,42,.85); }
 body.touch #dlg { bottom:calc(150px + env(safe-area-inset-bottom)); }
 body.touch.talking #stick { opacity:.25; }
-#toast { position:absolute; top:28px; left:50%; transform:translateX(-50%); background:rgba(30,24,34,.95); border:1px solid var(--line); padding:6px 12px; border-radius:6px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:90%; overflow:hidden; text-overflow:ellipsis; }
+#toast { position:absolute; top:28px; left:50%; transform:translateX(-50%); background:rgba(30,24,34,.95); border:1px solid var(--line); padding:6px 12px; border-radius:6px; font-size:12px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:90%; overflow:hidden; text-overflow:ellipsis; }
 dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; width:min(560px, calc(100% - 24px)); padding:16px; }
 dialog::backdrop { background:rgba(0,0,0,.6); }
-dialog h3 { margin:0 0 10px; font-size:16px; }
+dialog h3 { margin:0 0 10px; font-size:24px; }
 dialog textarea { width:100%; height:160px; background:#0f0c12; color:var(--text); border:1px solid var(--line); border-radius:6px; font-family:ui-monospace,monospace; font-size:12px; padding:8px; }
 dialog .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
 dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
 .inv { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
 .inv li { display:flex; gap:10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:6px; }
 .inv .ic { font-size:22px; width:28px; text-align:center; }
-.inv .tx { flex:1; font-size:13px; }
-.inv .tx b { display:block; font-size:14px; }
-#drop { position:fixed; inset:0; background:rgba(232,184,96,.12); border:3px dashed var(--accent); display:none; align-items:center; justify-content:center; font-size:18px; z-index:9; pointer-events:none; }
+.inv .tx { flex:1; font-size:12px; }
+.inv .tx b { display:block; font-size:24px; line-height:30px; }
+#drop { position:fixed; inset:0; background:rgba(232,184,96,.12); border:3px dashed var(--accent); display:none; align-items:center; justify-content:center; font-size:24px; z-index:9; pointer-events:none; }
 [hidden] { display:none !important; }
 </style>
 </head>
@@ -1170,7 +1173,7 @@ function drawEnemy(e, ox, oy) {
     const jitter = e.st === 'freeze' ? 0 : Math.sin(e.t * 9) * 1.2;
     drawPerson(x + jitter, y, col, '#3a2a30', num(e.d['大きさ'], 0.8), [0, 1], 1, true);
     ctx.fillStyle = '#000'; ctx.fillRect(x - s * 0.1, y - s * 0.22, s * 0.05, s * 0.07); ctx.fillRect(x + s * 0.05, y - s * 0.22, s * 0.05, s * 0.07);
-    if (e.st === 'wind') { ctx.fillStyle = '#e03040'; ctx.font = `bold ${TS * 0.5}px sans-serif`; ctx.textAlign = 'center'; ctx.fillText('!', x, y - s * 0.55); }
+    if (e.st === 'wind') { ctx.fillStyle = '#e03040'; ctx.font = `24px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.fillText('!', x, y - s * 0.55); }
   }
 }
 function drawGuard(g, ox, oy) {

@@ -24,6 +24,7 @@ md-forge と同じく、`## 見出し` の下の表やテキストを定義と�
 | `items.md` | `## アイテム`。使える物（灯+1）と大事な物 |
 | `enemies.md` | `## 敵` `## 動き` `## 番人` `## 技`。md-forge の敵の動きとボスの赤い範囲攻撃を流用 |
 | `samples/swap-characters.md` | 読み込むと登場人物と玄関ホールが変わる例 |
+| `fonts/` | フォント「でんきチップ」（x8y12pxDenkiChip v1.100、(c) 2026 hicc、[SIL Open Font License 1.1](fonts/OFL.txt)、配布元 https://github.com/hicchicc/x8y12pxDenkiChip） |
 | `tools/embed.py` | .md を index.html に埋め込む（file:// で開いたときの初期値用） |
 
 ## Markdown の差し替え

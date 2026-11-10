@@ -281,9 +281,10 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
       <div class="row" style="margin-bottom:8px">
         <span class="muted">主人公（VRM）</span>
         <input type="file" id="vrmFile" accept=".vrm">
+        <button class="small" id="btnVrmSample">サンプルの VRM</button>
         <button class="small" id="btnVrmReset">簡易モデルに戻す</button>
       </div>
-      <div class="muted" id="vrmNote">VRM が読み込まれていないときは、箱と球の簡易モデルで表示します。VRM ファイルは端末の中だけで使い、保存はしません。</div>
+      <div class="muted" id="vrmNote">バトルを開くと、サンプルの VRM を素体として読み込みます（約 10MB）。自分の VRM ファイルは端末の中だけで使い、保存はしません。</div>
     </div>
     <div class="panel">
       <h2>記録</h2>
@@ -1910,6 +1911,7 @@ const battle = {
     this.running = true; this.wave = S.wave || 1;
     const st = this.stats(); this.hero.maxHp = st.maxHp; this.hero.hp = st.maxHp;
     this.beginWave(); syncBattleButtons();
+    if (this.free) setTimeout(() => this.running && this.free && this.banner('矢印キー・WASD／ドラッグで移動', '#ffe2b0'), 1500);
     this.addLog(`<b>出撃</b>：ウェーブ ${this.wave} から${this.free ? '（自由移動：矢印キー・WASD、または画面をドラッグして動く）' : ''}`);
   },
   stop() {
@@ -2044,6 +2046,22 @@ const battle = {
       }
     }
   },
+  /* 出撃中に、自動バトル（斜め）と自由移動（縦）を切り替える。敵の位置もそれぞれの形に移す */
+  setFree(on) {
+    if (!this.running || this.free === on) return;
+    const H = this.hero;
+    if (on) {
+      Object.assign(H, { px: 0, pf: 0, face: 0, moving: false, idle: 0 });
+      for (const e of this.enemies) { e.px = laneOf(e); e.pf = e.x; }
+      if (this.phase === 'clear') H.pf = 0; // 次の区切りにいる扱い
+    } else {
+      for (const e of this.enemies) e.x = Math.max(1.4, Math.hypot(e.px - H.px, e.pf - H.pf));
+      if (this.phase === 'clear') this.timer = .6;
+    }
+    this.free = on; freeKeys.clear(); freeDrag.on = false;
+    $('#battleView').classList.toggle('free', on);
+    if (on) this.banner('自由移動：矢印キー・WASD／ドラッグ', '#ffe2b0');
+  },
   /* 自由移動のバトル（縦の視点）。位置は「横 px・前 pf」（そのウェーブの出発点が 0、前＝画面の上） */
   tickFree(dt, st, alive) {
     const H = this.hero;
@@ -2170,6 +2188,7 @@ $('#viewSeg').onclick = e => {
   const b = e.target.closest('button[data-v]'); if (!b) return;
   camView = b.dataset.v; try { store.set('mdforge.camView', camView); } catch (err) {}
   syncViewSeg();
+  battle.setFree(camView === 'vert'); // 出撃中でも、縦にすれば動かせる・斜めにすれば自動に戻る
 };
 $('#speedSeg').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -2187,10 +2206,13 @@ function updateHudWeapon() {
 const STAGE_STEP = 10, FREE_X = 3.6, FREE_SPEED = 3.4;
 /* 自由移動の入力：矢印キー・WASD と、バトル画面のドラッグ（仮想スティック） */
 const freeKeys = new Set(), freeDrag = { on: false, ox: 0, oy: 0, x: 0, y: 0 };
+// 軽く押しただけでも少し動けるよう、押してから一定時間は押している扱いにする
+const keyHoldUntil = {}, KEY_MIN_HOLD = 180;
+function keyOn(k) { return freeKeys.has(k) || (keyHoldUntil[k] || 0) > performance.now(); }
 function battleInput() {
   let x = 0, y = 0;
-  if (freeKeys.has('left')) x -= 1; if (freeKeys.has('right')) x += 1;
-  if (freeKeys.has('up')) y += 1; if (freeKeys.has('down')) y -= 1;
+  if (keyOn('left')) x -= 1; if (keyOn('right')) x += 1;
+  if (keyOn('up')) y += 1; if (keyOn('down')) y -= 1;
   if (freeDrag.on) { x += freeDrag.x; y += freeDrag.y; }
   const L = Math.hypot(x, y); return L > 1 ? { x: x / L, y: y / L } : { x, y };
 }
@@ -2198,6 +2220,7 @@ const FREE_KEYMAP = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', Arr
 document.addEventListener('keydown', e => {
   if (activeTab !== 'battle' || !battle.running || !battle.free || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
   const k = FREE_KEYMAP[e.key]; if (!k) return; e.preventDefault(); freeKeys.add(k);
+  keyHoldUntil[k] = performance.now() + KEY_MIN_HOLD;
 });
 document.addEventListener('keyup', e => { const k = FREE_KEYMAP[e.key]; if (k) freeKeys.delete(k); });
 window.addEventListener('blur', () => { freeKeys.clear(); freeDrag.on = false; });
@@ -2629,10 +2652,19 @@ async function make3DRenderer(container) {
     camDist = clamp(1.05 / Math.min(1, aspect * .95), 1, 1.8);
     camera.updateProjectionMatrix(); placeCamera();
   }
-  let heroX = 0;
+  let heroX = 0, camZ = 0, camX = 0;
   function placeCamera() {
-    // 自由移動では、うしろから来る敵も見えるよう、主人公を画面の真ん中寄りに置く
-    camTarget.set(heroX * .8, .8, heroZ - (battle.free ? 1.6 : 3.4));
+    if (battle.free) {
+      // 自由移動：カメラは道の真ん中に置いたまま、主人公が画面の中を動いて見えるようにする。
+      // 前後は、主人公が画面の端に寄りすぎたときだけ追いかける（遊び 2.6）
+      const lo = heroZ - 2.6, hi = heroZ + 2.6;
+      if (camZ < lo) camZ = lo; if (camZ > hi) camZ = hi;
+      camX += (heroX * .25 - camX) * .08;
+      camTarget.set(camX, .8, camZ - 1.2);
+    } else {
+      camZ = heroZ; camX = 0;
+      camTarget.set(0, .8, heroZ - 3.4);
+    }
     camera.position.copy(camTarget).addScaledVector(CAM_OFF, camDist); camera.lookAt(camTarget);
     sun.position.set(-4, 9, heroZ + 4); sun.target.position.set(0, 0, heroZ - 3);
     ground.position.z = heroZ - 30;
@@ -2707,7 +2739,7 @@ function showTab(name) {
   activeTab = name;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('on', s.id === 'tab-' + name));
-  if (name === 'battle' && renderer) requestAnimationFrame(() => renderer.resize());
+  if (name === 'battle' && renderer) { requestAnimationFrame(() => renderer.resize()); maybeLoadSample(); }
   if (name === 'fusion') renderFusion();
   if (name === 'armory') renderArmory();
   if (name === 'defs') renderDefs();
@@ -2791,7 +2823,27 @@ $('#vrmFile').onchange = async e => {
   catch (err) { $('#vrmNote').textContent = `VRM を読み込めませんでした：${err.message}`; }
   finally { URL.revokeObjectURL(url); }
 };
-$('#btnVrmReset').onclick = () => { renderer && renderer.resetHero(); $('#vrmFile').value = ''; $('#vrmNote').textContent = '簡易モデルに戻しました。'; };
+$('#btnVrmReset').onclick = () => {
+  renderer && renderer.resetHero(); $('#vrmFile').value = ''; $('#vrmNote').textContent = '簡易モデルに戻しました（次に開いたときも簡易モデルです）。';
+  try { store.set('mdforge.hero', 'primitive'); } catch (e) {}
+};
+/* サンプルの VRM（素体）。models/ に置いた VRM1_Constraint_Twist_Sample（(c) 2022 pixiv Inc.、VRM Public License 1.0） */
+const SAMPLE_VRM = 'models/VRM1_Constraint_Twist_Sample.vrm';
+const SAMPLE_CREDIT = 'サンプルの VRM「VRM1_Constraint_Twist_Sample」（(c) 2022 pixiv Inc.、VRM Public License 1.0）';
+let sampleTried = false;
+async function loadSampleVRM(force) {
+  if (!renderer || renderer.kind !== '3d') return;
+  if (!force && (sampleTried || renderer.hasVRM)) return;
+  sampleTried = true;
+  $('#vrmNote').textContent = 'サンプルの VRM を読み込み中…（約 10MB）';
+  try { await renderer.loadVRM(SAMPLE_VRM); $('#vrmNote').textContent = `${SAMPLE_CREDIT}を表示中。自分の VRM ファイルを選ぶと入れ替わります。`; }
+  catch (err) { $('#vrmNote').textContent = `サンプルの VRM を読み込めませんでした（${err.message}）。簡易モデルで表示しています。`; }
+}
+$('#btnVrmSample').onclick = () => { try { store.set('mdforge.hero', 'sample'); } catch (e) {} $('#vrmFile').value = ''; loadSampleVRM(true); };
+function maybeLoadSample() {
+  let pref = null; try { pref = store.get('mdforge.hero'); } catch (e) {}
+  if (pref !== 'primitive') loadSampleVRM(false);
+}
 
 /* =========================================================
    起動
@@ -2811,6 +2863,8 @@ async function initRenderer() {
   }
   renderer.setWeapon(equippedWeapon());
   new ResizeObserver(() => renderer.resize()).observe(box);
+  if (activeTab === 'battle') maybeLoadSample();
+  else if (renderer.kind !== '3d') $('#btnVrmSample').disabled = true;
 }
 (async function boot() {
   loadSave();

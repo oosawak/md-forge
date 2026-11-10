@@ -9,16 +9,16 @@
   --bg:#14110f; --panel:#1f1a17; --panel2:#2a231f; --line:#3a312b;
   --text:#f3e9df; --muted:#b3a393; --accent:#ff8a3d; --accent2:#ffc247;
   --good:#6ee7a0; --bad:#ff5d73; --radius:12px;
-  --pixel:"DenkiChip",system-ui,"Hiragino Sans",sans-serif;
+  --pixel:"DenkiChip",system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;
 }
 /* ドットの文字：でんきチップ（x8y12pxDenkiChip v1.100、hicc 作、SIL OFL 1.1）。fonts/ に置いたものを使う */
 @font-face{font-family:"DenkiChip";src:url("fonts/x8y12pxDenkiChip.woff2") format("woff2");font-display:swap}
 /* ゲームらしい所（見出し・ボタン・タブ・バトルの表示・作業台の上の表示）はドットの文字。説明の文は読みやすい文字のまま */
-h1,h2,button,select,.res,.rar,.hud,.floater,.banner,.ebar,.loader-title,.loader-msg,.stage-result,.grain-chip,.stage-bar,.stage-btns,.gear,#battleLoadingMsg,.wcard .name,.kv,.toast{font-family:var(--pixel)}
+button,select,input{font-family:var(--pixel)}
 .floater{letter-spacing:.02em}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);
-  font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;-webkit-text-size-adjust:100%}
+  font-family:var(--pixel);-webkit-text-size-adjust:100%}
 body{min-height:100vh}
 .wrap{max-width:980px;margin:0 auto;padding:0 16px}
 header{position:sticky;top:0;z-index:20;background:rgba(20,17,15,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
@@ -243,7 +243,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
         <canvas id="forgeCanvas" width="576" height="900"></canvas>
         <div class="stage-bar top hide" id="stageTop"></div>
         <div class="stage-bar bottom hide" id="stageBottom">
-          <button data-proxy="btnFlipX">⇆ 左右</button><button data-proxy="btnFlipY">⇅ 上下</button><button data-proxy="btnRedo">やり直し</button><button class="primary" data-proxy="btnDone" id="stageDone">完成</button>
+          <button data-proxy="btnFlipX">←→ 左右</button><button data-proxy="btnFlipY">↑↓ 上下</button><button data-proxy="btnRedo">やり直し</button><button class="primary" data-proxy="btnDone" id="stageDone">完成</button>
         </div>
         <div class="stage-result hide" id="stageResult"></div>
         <div class="grain-chip hide" id="grainChip" title="刃に残っている輝石の粒"></div>
@@ -273,9 +273,9 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
           </div>
           <div class="row" style="margin-bottom:10px">
             <span class="muted">角度</span>
-            <button class="small" id="btnRotL" title="左へ 15° 回す（Q キー）">↺</button>
+            <button class="small" id="btnRotL" title="左へ 15° 回す（Q キー）">←回</button>
             <input type="range" id="stoneAngle" min="-180" max="180" step="5" value="0" style="flex:1;min-width:90px" aria-label="砥石の角度">
-            <button class="small" id="btnRotR" title="右へ 15° 回す（E キー）">↻</button>
+            <button class="small" id="btnRotR" title="右へ 15° 回す（E キー）">回→</button>
             <span id="stoneAngleVal" style="min-width:3.2em;text-align:right">0°</span>
             <button class="small" id="btnRot0">0°</button>
           </div>
@@ -287,8 +287,8 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
           </div>
           <div class="row" style="margin-bottom:10px">
             <span class="muted">剣の位置</span>
-            <button class="small" id="btnPosL" title="持ち手とガイドを左へ">◀</button>
-            <button class="small" id="btnPosR" title="持ち手とガイドを右へ">▶</button>
+            <button class="small" id="btnPosL" title="持ち手とガイドを左へ">◄</button>
+            <button class="small" id="btnPosR" title="持ち手とガイドを右へ">►</button>
             <span class="muted" id="posNote" style="font-size:12px">鉱石のどこから剣を作るか（粒の多い所へ寄せる）</span>
           </div>
           <div class="row" style="margin-bottom:10px">
@@ -1665,11 +1665,11 @@ document.addEventListener('keydown', e => {
 });
 /* 作業台の上の、砥石と角度の小さなボタン */
 function renderStageTop() {
-  const icon = sh => sh === '帯' ? '▮' : sh === '三角' ? '◀' : '●';
+  const icon = sh => sh === '帯' ? '■' : sh === '三角' ? '◄' : '●';
   const round = currentStone().shape === '円';
   $('#stageTop').innerHTML = stones().map(s => `<button data-stone="${esc(s.name)}" class="${s.name === F.stoneName ? 'on' : ''}" title="${esc(s.name)}">${icon(s.shape)} ${esc(s.name.replace('砥石', ''))}</button>`).join('') +
-    `<button data-proxy="btnRotL" ${round ? 'disabled' : ''} title="左へ回す">↺</button><button data-proxy="btnRotR" ${round ? 'disabled' : ''} title="右へ回す">↻</button>` +
-    (F.pieces.length === 1 ? `<button data-proxy="btnPosL" title="剣を作る位置を左へ">◀剣</button><button data-proxy="btnPosR" title="剣を作る位置を右へ">剣▶</button>` : '');
+    `<button data-proxy="btnRotL" ${round ? 'disabled' : ''} title="左へ回す">←回</button><button data-proxy="btnRotR" ${round ? 'disabled' : ''} title="右へ回す">回→</button>` +
+    (F.pieces.length === 1 ? `<button data-proxy="btnPosL" title="剣を作る位置を左へ">◄剣</button><button data-proxy="btnPosR" title="剣を作る位置を右へ">剣►</button>` : '');
 }
 function renderStoneSel() {
   const icon = sh => sh === '帯' ? '<rect x="7" y="2" width="6" height="16" rx="2"/>' : sh === '三角' ? '<path d="M3 10 L17 3 L17 17 Z"/>' : '<circle cx="10" cy="10" r="7.5"/>';
@@ -1719,7 +1719,7 @@ function showGrains() {
   let txt = n.length === 2 ? `輝石 左 ${n[0]}・右 ${n[1]} 粒` : `輝石 ${n[0]} 粒`;
   if (F.jackpot) txt += `／大当たりの鉱脈 ${det.map(d => `${Math.min(d.jp, G.jpNeed)}/${G.jpNeed}`).join('・')}（そろうと輝脈の剣）`;
   const el = $('#grainNote'); if (el) el.textContent = `${txt}（1 粒でレア +${G.rare}%・攻撃 +${G.atk}%、${G.cap} 粒まで）${F.grainGold >= .5 ? ` ／ 削った粒 +${Math.round(F.grainGold)}G` : ''}`;
-  const chip = $('#grainChip'); if (chip) chip.textContent = `💎 ${n.join('・')}` + (F.jackpot ? `　✨ ${det.map(d => `${Math.min(d.jp, G.jpNeed)}/${G.jpNeed}`).join('・')}` : '');
+  const chip = $('#grainChip'); if (chip) chip.textContent = `◆ ${n.join('・')}` + (F.jackpot ? `　★ ${det.map(d => `${Math.min(d.jp, G.jpNeed)}/${G.jpNeed}`).join('・')}` : '');
 }
 function showMatch(m) {
   showGrains();

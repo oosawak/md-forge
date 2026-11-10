@@ -1303,7 +1303,7 @@ const FW = 84;
 const PAIR_SPLIT = 42; // 2 振りのとき、この列より左が 1 振り目
 const F = {
   active: false, showDone: false, mask: new Uint8Array(FW * GH), start: null, heat: new Float32Array(FW * GH),
-  shade: new Float32Array(FW * GH), vein: new Uint8Array(FW * GH), pieces: [18],
+  shade: new Float32Array(FW * GH), vein: new Uint8Array(FW * GH), speck: new Uint8Array(FW * GH), pieces: [18],
   sparks: [], drawing: false, lastPt: null, dirty: true, match: 0, lastMatchAt: 0,
   ox: 0, oy: 0, tx: 0, ty: 0, flipX: false, flipY: false, contact: 0, spin: 0, stoneName: null, angle: 0, mat: null, sheath: null, hilt: null, hiltDef: null, hiltCells: []
 };
@@ -1378,6 +1378,7 @@ function makeOre(type) {
     const i = y * FW + x;
     F.shade[i] = .82 + Math.random() * .3 + Math.sin(x * .5 + y * .2) * .06;
     F.vein[i] = 0;
+    F.speck[i] = Math.random() < .035 ? 1 : 0; // 見た目だけの細かな粒（性能には関係しない）
     if (y >= hy || x < x0 || x >= x1) continue;
     // 鉱石は鍔の上までの 1 枚の塊。下の端は鍔にしっかり付くよう、角だけ丸める
     const dx = (x + .5 - cx) / (hw - 1), dy = (y + .5 - hy / 2) / (hy / 2);
@@ -1745,6 +1746,7 @@ function drawForge(dt) {
       const oc = F.oreRGB || [92, 98, 110];
       let r = oc[0] * s, g = oc[1] * s, b = oc[2] * s;
       if (F.vein[i]) { const tw = .85 + .15 * Math.sin(i * 1.7); r = 255 * tw; g = 222 * tw; b = 96 * tw; } // 輝石の粒：明るい金色
+      else if (F.speck[i]) { r = r + (200 - r) * .55; g = g + (182 - g) * .55; b = b + (150 - b) * .55; } // 見た目だけの粒：くすんだ色
       r = r + (255 - r) * h; g = g + (150 - g) * h; b = b + (50 - b) * h;
       d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
     }

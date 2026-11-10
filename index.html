@@ -490,10 +490,12 @@ Markdown鍛造（仮）のバトルに出る敵・ボスと、その動きの定
 
 ## 弾
 
+大きさは当たり判定の半径（マス）です。見た目は、光る芯と尾を引く光で描きます。
+
 | 項目 | 値 |
 | --- | --- |
 | 速さ | 6 |
-| 大きさ | 0.3 |
+| 大きさ | 0.14 |
 | 消えるまでの秒数 | 3 |
 </script>
 <script type="text/markdown" id="md-balance">
@@ -932,7 +934,7 @@ function buildEnemies(text) {
     skills: (r['技'] || '').split(/[・,、\s]+/).filter(x => skills[x])
   }));
   const sh = s['弾'] ? kv(s, '弾') : {};
-  const shot = { speed: isFinite(sh['速さ']) ? +sh['速さ'] : 6, size: isFinite(sh['大きさ']) ? +sh['大きさ'] : .3, life: isFinite(sh['消えるまでの秒数']) ? +sh['消えるまでの秒数'] : 3 };
+  const shot = { speed: isFinite(sh['速さ']) ? +sh['速さ'] : 6, size: isFinite(sh['大きさ']) ? +sh['大きさ'] : .14, life: isFinite(sh['消えるまでの秒数']) ? +sh['消えるまでの秒数'] : 3 };
   return { enemies, moves, bosses, skills, shot };
 }
 function buildFusion(text) {
@@ -2270,7 +2272,7 @@ function rollEnemy(w, elems) {
   return r;
 }
 const battle = {
-  running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], shots: [], nextId: 1,
+  running: false, speed: 1, phase: 'idle', timer: 0, wave: 1, queue: [], enemies: [], floaters: [], shots: [], bursts: [], nextId: 1,
   hero: { hp: 100, maxHp: 100, cool: 0, anim: -1, anim2: -1, animDur: .42, pending: null, hurt: 0 },
   log: [],
   stats() {
@@ -2322,7 +2324,7 @@ const battle = {
         color: b.color, size: b.size, spd: b.spd, skills: b.skills.length ? b.skills : ['前', '円'], maxHp: Math.round(hpS * b.hp), atk: atkS * b.atk });
     }
     $('#hudWave').textContent = `ウェーブ ${w}${boss ? '（ボス）' : ''}`;
-    this.shots = [];
+    this.shots = []; this.bursts = [];
     this.banner(boss ? `ウェーブ ${w}　ボス出現` : `ウェーブ ${w}`, boss ? '#ffc247' : '#fff');
   },
   spawn(def) {
@@ -2500,6 +2502,15 @@ const battle = {
     dmg = Math.max(1, Math.round(dmg)); H.hp -= dmg; H.hurt = big ? .35 : .25;
     this.float('-' + dmg, 0, big ? 2.1 : 1.9, big ? '#ff4d4d' : '#ff6b6b', !!big);
   },
+  /* 弾が砕けたときの飛び散り（見た目だけ） */
+  burst(px, pf, color, vx, vf) {
+    const back = vx || vf ? Math.atan2(-(vx || 0), -(vf || 0)) : null, parts = [];
+    for (let i = 0; i < 12; i++) {
+      const a = back === null ? rand(0, Math.PI * 2) : back + rand(-1.3, 1.3), sp = rand(1.5, 4.5);
+      parts.push({ vx: Math.sin(a) * sp, vf: Math.cos(a) * sp, vy: rand(.5, 3.5) });
+    }
+    this.bursts.push({ px, pf, color, t: 0, parts });
+  },
   /* 弾：敵から角度 a（前＝0）の向きへ飛ぶ */
   fireShot(e, a, dmg) {
     const S2 = DEFS.enemies.shot;
@@ -2561,7 +2572,16 @@ const battle = {
     H.moving = Math.hypot(v.x, v.y) > .05;
     if (H.moving) { H.px += v.x * FREE_SPEED * dt; H.pf += v.y * FREE_SPEED * dt; H.face = Math.atan2(v.x, v.y); }
     H.px = clamp(H.px, -FREE_X, FREE_X);
-    H.pf = clamp(H.pf, this.phase === 'clear' ? -STAGE_STEP - 4 : -6, this.phase === 'clear' ? .3 : 7);
+    // 柱・岩・木は通り抜けられない（当たったら外へ押し戻す）
+    const obs = renderer && renderer.obstacles ? renderer.obstacles() : [];
+    const pushOut = (o2, rad) => {
+      for (const o of obs) {
+        const dx = o2.px - o.px, df = o2.pf - o.pf, d = Math.hypot(dx, df), min = o.r + rad;
+        if (d < min) { if (d < 1e-4) { o2.px += min; continue; } o2.px = o.px + dx / d * min; o2.pf = o.pf + df / d * min; }
+      }
+    };
+    pushOut(H, .3);
+    H.pf = clamp(H.pf, this.phase === 'clear' ? -STAGE_STEP - 4 : FREE_F[0], this.phase === 'clear' ? .3 : FREE_F[1]);
     if (this.phase === 'clear') {
       if (H.pf >= -.4) this.beginWave(); // 次の区切りに着いたら、次のウェーブ
       return;
@@ -2589,13 +2609,24 @@ const battle = {
         const ox = e.px - o.px, of = e.pf - o.pf, od = Math.hypot(ox, of), min = (e.boss || o.boss) ? .5 * Math.max(e.size || 1, o.size || 1) + .4 : .85;
         if (od > 0 && od < min) { const push = (min - od) * .5; e.px += ox / od * push; e.pf += of / od * push; }
       }
+      pushOut(e, e.boss ? .35 * (e.size || 1) : .3);
+      // 主人公が入れない所に居座らないよう、いったん中に入った敵は、主人公の届く範囲の中に留める
+      const edge = .7 + (e.boss ? .3 * (e.size || 1) : 0);
+      const inX = Math.abs(e.px) <= FREE_X + edge, inF = e.pf >= FREE_F[0] - edge && e.pf <= FREE_F[1] + edge;
+      if (inX && inF) e.inside = true;
+      // 左右はいつでも、前後は中に入ってから（撃つ敵は離れて居座るので、いつでも）留める
+      e.px = clamp(e.px, -FREE_X - edge, FREE_X + edge);
+      if (e.inside || e.move === '撃つ') e.pf = clamp(e.pf, FREE_F[0] - edge, FREE_F[1] + edge);
       e.x = dist(e);
     }
-    // 弾：まっすぐ飛び、主人公に当たるとダメージ
+    // 弾：まっすぐ飛び、主人公に当たるとダメージ。柱・岩・木に当たると砕けて飛び散る（obs は上で取った配置物）
     for (const sh of this.shots) {
       sh.px += sh.vx * dt; sh.pf += sh.vf * dt; sh.life -= dt;
-      if (Math.hypot(sh.px - H.px, sh.pf - H.pf) < sh.r + .35) { sh.life = 0; this.hurtHero(sh.dmg * rand(.9, 1.1), st); }
+      if (Math.hypot(sh.px - H.px, sh.pf - H.pf) < sh.r + .22) { sh.life = 0; this.hurtHero(sh.dmg * rand(.9, 1.1), st); this.burst(sh.px, sh.pf, sh.color); continue; }
+      for (const o of obs) if (Math.hypot(sh.px - o.px, sh.pf - o.pf) < sh.r + o.r) { sh.life = 0; this.burst(sh.px, sh.pf, sh.color, sh.vx, sh.vf); break; }
     }
+    for (const b of this.bursts) b.t += dt;
+    this.bursts = this.bursts.filter(b => b.t < .55);
     this.shots = this.shots.filter(sh => sh.life > 0);
     // 主人公：届く範囲のいちばん近い敵を自動で攻撃し、そちらを向く
     const reach = e => e.boss ? 1.5 + .45 * (e.size || 1) : 1.9;
@@ -2721,6 +2752,7 @@ function updateHudWeapon() {
 function skillDef(name) { return (DEFS.enemies && DEFS.enemies.skills[name]) || DEFAULT_SKILLS[name] || DEFAULT_SKILLS['前']; }
 /* ステージの 1 区切り（ウェーブ 1 つ）の長さ。自由移動で動ける横幅と速さ */
 const STAGE_STEP = 10, FREE_X = 3.6, FREE_SPEED = 3.4;
+const FREE_F = [-6, 7]; // 戦っている間に主人公が動ける前後の範囲（ウェーブの出発点から）
 /* 自由移動の入力：矢印キー・WASD と、バトル画面のドラッグ（仮想スティック） */
 const freeKeys = new Set(), freeDrag = { on: false, ox: 0, oy: 0, x: 0, y: 0 };
 // 軽く押しただけでも少し動けるよう、押してから一定時間は押している扱いにする
@@ -2920,12 +2952,13 @@ async function make3DRenderer(container) {
   stones3.receiveShadow = true; decor.add(stones3);
   // 道の両側の岩
   const rockMat = new THREE.MeshStandardMaterial({ color: 0x6b6f78, roughness: .9, flatShading: true });
+  const propList = []; // 弾が当たる配置物（decor の中の位置と半径）
   const nRocks = 140, rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(.4), rockMat, nRocks);
   for (let i = 0; i < nRocks; i++) {
     const side = i % 2 ? 1 : -1;
     ps.set(side * rand(2.4, 9), rand(0, .1), -rand(-TILE, TILE * 3)); q.setFromEuler(new THREE.Euler(rand(0, 3), rand(0, 3), 0));
     const k = rand(.4, 1.5) * (Math.abs(ps.x) > 5 ? 1.6 : 1); sc.set(k, k * rand(.6, 1), k);
-    rocks.setMatrixAt(i, mtx.compose(ps, q, sc));
+    rocks.setMatrixAt(i, mtx.compose(ps, q, sc)); propList.push({ x: ps.x, z: ps.z, r: .38 * k });
   }
   rocks.castShadow = true; rocks.receiveShadow = true; decor.add(rocks);
   // 枯れ木
@@ -2934,7 +2967,7 @@ async function make3DRenderer(container) {
     const t = new THREE.Group(), side = i % 2 ? 1 : -1, h = rand(1.4, 2.6);
     const tr = new THREE.Mesh(new THREE.CylinderGeometry(.06, .12, h, 6), trunkMat); tr.position.y = h / 2; tr.castShadow = true; t.add(tr);
     for (let k = 0; k < 3; k++) { const br = new THREE.Mesh(new THREE.CylinderGeometry(.02, .05, h * .45, 5), trunkMat); br.position.y = h * rand(.55, .9); br.rotation.z = rand(.6, 1.1) * (k % 2 ? 1 : -1); br.rotation.y = rand(0, 3); t.add(br); }
-    t.position.set(side * rand(3.2, 8), 0, -rand(-TILE, TILE * 3)); decor.add(t);
+    t.position.set(side * rand(3.2, 8), 0, -rand(-TILE, TILE * 3)); decor.add(t); propList.push({ x: t.position.x, z: t.position.z, r: .16 });
   }
   // 道の左右の森：針葉樹と、丸い葉の木（同じ形をたくさん並べるので InstancedMesh）
   {
@@ -2948,13 +2981,13 @@ async function make3DRenderer(container) {
     const spot = () => { const side = Math.random() < .5 ? -1 : 1; return [side * rand(4.6, 12), -rand(-TILE, TILE * 3)]; }; // 主人公が歩ける幅（FREE_X）より外に生やす
     for (let i = 0; i < nPine; i++) {
       const [x, z] = spot(), k = rand(.8, 1.6);
-      trunks.setMatrixAt(ti++, mtx.compose(ps.set(x, .5 * k, z), up, sc.set(k, k, k)));
+      trunks.setMatrixAt(ti++, mtx.compose(ps.set(x, .5 * k, z), up, sc.set(k, k, k))); propList.push({ x, z, r: .5 * k });
       pines.setMatrixAt(i * 2, mtx.compose(ps.set(x, 1.5 * k, z), up, sc.set(k, k, k)));
       pines.setMatrixAt(i * 2 + 1, mtx.compose(ps.set(x, 2.3 * k, z), up, sc.set(k * .72, k * .8, k * .72)));
     }
     for (let i = 0; i < nLeaf; i++) {
       const [x, z] = spot(), k = rand(.8, 1.5);
-      trunks.setMatrixAt(ti++, mtx.compose(ps.set(x, .6 * k, z), up, sc.set(k, k * 1.2, k)));
+      trunks.setMatrixAt(ti++, mtx.compose(ps.set(x, .6 * k, z), up, sc.set(k, k * 1.2, k))); propList.push({ x, z, r: .55 * k });
       q.setFromEuler(new THREE.Euler(rand(0, 3), rand(0, 3), 0));
       leaves.setMatrixAt(i, mtx.compose(ps.set(x, 1.55 * k, z), q, sc.set(k * 1.1, k, k * 1.1)));
     }
@@ -2977,6 +3010,21 @@ async function make3DRenderer(container) {
     const bn = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.6), bannerMat); bn.position.set(0, 2.7, .32); arch.add(bn);
     g.add(arch); g.userData.arch = arch;
     scene.add(g); gates.push(g);
+  }
+  /* 弾が当たる配置物を、ステージの座標（横 px・前 pf）で返す。主人公の近くだけ */
+  function obstacles() {
+    const base = waveZ(battle.wave), out = [], dz = decor.position.z;
+    for (const o of propList) {
+      const z = o.z + dz; if (Math.abs(z - heroZ) > 16 || Math.abs(o.x) > 8) continue;
+      out.push({ px: o.x, pf: base - z, r: o.r });
+    }
+    for (const g of gates) {
+      if (!g.visible) continue;
+      const pf = base - g.position.z; if (Math.abs(g.position.z - heroZ) > 16) continue;
+      out.push({ px: -2, pf, r: .22 }, { px: 2, pf, r: .22 });
+      if (g.userData.arch.visible) out.push({ px: -2.6, pf, r: .3 }, { px: 2.6, pf, r: .3 });
+    }
+    return out;
   }
   function placeGates() {
     const w0 = Math.max(1, Math.round(-heroZ / STEP) + 1);
@@ -3183,18 +3231,42 @@ async function make3DRenderer(container) {
   const circleEdge = new THREE.Mesh(new THREE.RingGeometry(.96, 1, 64), new THREE.MeshBasicMaterial({ color: 0xff5050, transparent: true, opacity: .9, depthWrite: false, side: THREE.DoubleSide }));
   for (const m of [circleBase, circleFill, circleEdge]) { m.rotation.x = -Math.PI / 2; circleWarn.add(m); }
   lineWarn.visible = circleWarn.visible = false; scene.add(lineWarn); scene.add(circleWarn);
-  // 弾：光る玉（使い回す）
-  const shotMeshes = [], shotGeo = new THREE.SphereGeometry(1, 12, 8);
+  // 弾：小さく光る芯と、まわりのぼんやりした光、進む向きと逆に伸びる尾（使い回す）
+  const shotMeshes = [], coreGeo = new THREE.SphereGeometry(1, 10, 8), tailGeo = new THREE.ConeGeometry(1, 1, 8, 1, true);
+  tailGeo.rotateX(Math.PI / 2); tailGeo.translate(0, 0, .5); // 尾：+Z に向かって細くなる
+  function makeShot() {
+    const g = new THREE.Group();
+    const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    const halo = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .35, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const tail = new THREE.Mesh(tailGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    g.add(core, halo, tail); g.userData = { core, halo, tail }; scene.add(g); return g;
+  }
+  const burstMeshes = [];
+  function drawBursts() {
+    const list = battle.free ? battle.bursts || [] : [], base = waveZ(battle.wave);
+    let n = 0;
+    for (const b of list) for (const p of b.parts) {
+      if (!burstMeshes[n]) { const m = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); scene.add(m); burstMeshes[n] = m; }
+      const m = burstMeshes[n++], k = b.t / .55;
+      m.visible = true;
+      m.position.set(b.px + p.vx * b.t, .9 + p.vy * b.t - 6 * b.t * b.t, base - (b.pf + p.vf * b.t));
+      m.scale.setScalar(.06 * (1 - k) + .015); m.material.color.set(b.color); m.material.opacity = 1 - k;
+    }
+    for (; n < burstMeshes.length; n++) burstMeshes[n].visible = false;
+  }
   function drawShots(t) {
     const list = battle.free ? battle.shots || [] : [], base = waveZ(battle.wave);
-    while (shotMeshes.length < list.length) {
-      const m = new THREE.Mesh(shotGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.2 }));
-      scene.add(m); shotMeshes.push(m);
-    }
-    shotMeshes.forEach((m, i) => {
-      const sh = list[i]; m.visible = !!sh; if (!sh) return;
-      m.position.set(sh.px, .9 + Math.sin(t * 10 + i) * .05, base - sh.pf); m.scale.setScalar(sh.r);
-      m.material.color.set(sh.color); m.material.emissive.set(sh.color);
+    while (shotMeshes.length < list.length) shotMeshes.push(makeShot());
+    shotMeshes.forEach((g, i) => {
+      const sh = list[i]; g.visible = !!sh; if (!sh) return;
+      const { core, halo, tail } = g.userData, r = sh.r;
+      g.position.set(sh.px, .9, base - sh.pf);
+      g.rotation.y = Math.atan2(-sh.vx, sh.vf); // 尾を、進む向きの逆へ
+      core.scale.setScalar(r * .8);
+      halo.scale.setScalar(r * (2.2 + .4 * Math.sin(t * 20 + i)));
+      tail.scale.set(r * .9, r * .9, r * 9);
+      core.material.color.set('#ffffff').lerp(new THREE.Color(sh.color), .35);
+      halo.material.color.set(sh.color); tail.material.color.set(sh.color);
     });
   }
   function drawWarnings(t) {
@@ -3371,13 +3443,13 @@ async function make3DRenderer(container) {
       body.rotation.x = -e.hit * 1.2;
     }
     for (const [id, g] of enemyMeshes) if (!seen.has(id)) { scene.remove(g); enemyMeshes.delete(id); }
-    drawWarnings(t); drawShots(t);
+    drawWarnings(t); drawShots(t); drawBursts();
     forgeGlow.intensity = 2 + Math.sin(t * 7) * .3 + Math.sin(t * 13) * .2;
     renderer.render(scene, camera);
   }
   resize();
   return {
-    kind: '3d', resize, project, frame, clearEnemies, loadVRM, resetHero,
+    kind: '3d', resize, project, frame, clearEnemies, loadVRM, resetHero, obstacles,
     setWeapon(w) { currentWeapon = w; attachWeapon(); },
     get hasVRM() { return !!vrm; }
   };

@@ -38,3 +38,14 @@
 ## 経緯
 
 [oosawak/neta-cho](https://github.com/oosawak/neta-cho) の `claude-code-works/md-forge/` で作った試作を、ここへ移して開発を続けています。
+
+## クレジット・ライセンス
+
+| 使っているもの | 作者 | ライセンス |
+| --- | --- | --- |
+| フォント「でんきチップ」（x8y12pxDenkiChip v1.100）`fonts/` | hicc（[github.com/hicchicc/x8y12pxDenkiChip](https://github.com/hicchicc/x8y12pxDenkiChip)） | SIL Open Font License 1.1（[fonts/OFL.txt](fonts/OFL.txt)） |
+| サンプル VRM「VRM1_Constraint_Twist_Sample」`models/` | (c) 2022 pixiv Inc. | [VRM Public License 1.0](https://vrm.dev/licenses/1.0/)（[models/README.md](models/README.md)） |
+| three.js 0.160.0（CDN） | three.js authors | MIT |
+| @pixiv/three-vrm 2.1.0（CDN） | pixiv Inc. | MIT |
+
+ゲームの中では「定義」タブの「クレジット・ライセンス」に同じ内容を出しています。敵・地面・木・岩・門・金床などは、すべてこのゲームのために three.js の図形で作ったものです。

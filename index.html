@@ -94,6 +94,7 @@ label.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:p
 .stage-bar button:disabled{opacity:.4}
 .stage-result{position:absolute;left:8px;right:8px;top:8px;z-index:3;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;background:rgba(20,16,14,.85);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:8px 10px;font-size:14px}
 .stage-result button{font-size:13px;padding:6px 10px}
+.credits{margin:0;padding-left:18px;line-height:1.7;font-size:13px}.credits li{margin-bottom:8px}.credits a{color:#ffc58f}
 .grain-chip{position:absolute;right:10px;bottom:62px;z-index:3;background:rgba(10,20,26,.8);border:1px solid rgba(159,232,255,.5);color:#bff1ff;border-radius:99px;padding:4px 10px;font-size:13px;pointer-events:none}
 .grain-chip.hide{display:none}
 .stage-btns{position:absolute;left:0;right:0;bottom:16px;display:flex;gap:10px;justify-content:center;z-index:3;pointer-events:none}
@@ -422,6 +423,17 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
     <div class="panel"><h2>balance.md</h2><pre class="md" id="balanceText"></pre></div>
     <div class="panel"><h2>fusion.md</h2><pre class="md" id="fusionText"></pre></div>
     <div class="panel"><h2>enemies.md</h2><pre class="md" id="enemiesText"></pre></div>
+    <div class="panel" id="credits">
+      <h2>クレジット・ライセンス</h2>
+      <ul class="credits">
+        <li><b>フォント「でんきチップ」</b>（x8y12pxDenkiChip v1.100）<br>作者：hicc ／ <a href="https://github.com/hicchicc/x8y12pxDenkiChip" target="_blank" rel="noopener">github.com/hicchicc/x8y12pxDenkiChip</a><br>
+          ライセンス：SIL Open Font License 1.1（<a href="fonts/OFL.txt" target="_blank" rel="noopener">全文</a>）</li>
+        <li><b>主人公のサンプル VRM</b>「VRM1_Constraint_Twist_Sample」<br>(c) 2022 pixiv Inc. ／ ライセンス：<a href="https://vrm.dev/licenses/1.0/" target="_blank" rel="noopener">VRM Public License 1.0</a>（<a href="models/README.md" target="_blank" rel="noopener">利用条件</a>）</li>
+        <li><b>three.js</b>（0.160.0）<br>© three.js authors ／ ライセンス：MIT（<a href="https://github.com/mrdoob/three.js/blob/r160/LICENSE" target="_blank" rel="noopener">全文</a>）</li>
+        <li><b>@pixiv/three-vrm</b>（2.1.0）<br>© pixiv Inc. ／ ライセンス：MIT（<a href="https://github.com/pixiv/three-vrm/blob/v2.1.0/LICENSE" target="_blank" rel="noopener">全文</a>）</li>
+      </ul>
+      <p class="muted" style="margin:6px 0 0">敵・地面・木・岩・門・金床などは、すべてこのゲームのために three.js の図形で作ったものです。</p>
+    </div>
     <div class="panel">
       <h2>データ</h2>
       <div class="row"><button class="small" id="btnWipe">記録を消して最初から</button></div>

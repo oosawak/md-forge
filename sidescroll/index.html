@@ -1,0 +1,2394 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>止まり写真館</title>
+<style>
+:root { --bg:#0b090d; --panel:#17131b; --line:#3a3040; --text:#e8e2ec; --dim:#9a90a4; --accent:#e8b860; --danger:#e05060; }
+* { box-sizing:border-box; }
+/* でんきチップ（x8y12pxDenkiChip, hicc, SIL OFL 1.1）。12px の倍数で使うとドットがきれいに出る */
+@font-face { font-family:"DenkiChip"; src:url("fonts/x8y12pxDenkiChip.woff2") format("woff2"); font-display:swap; }
+html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:"DenkiChip","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; font-size:12px; font-weight:normal; -webkit-font-smoothing:none; font-smooth:never; text-rendering:optimizeSpeed; overscroll-behavior:none; }
+b, strong, h1, h2, h3 { font-weight:normal; }
+body { display:flex; flex-direction:column; height:100dvh; }
+header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+header h1 { font-size:12px; margin:0; letter-spacing:.05em; }
+#roomName { color:var(--dim); font-size:12px; }
+#lights { margin-left:auto; white-space:nowrap; padding-top:10px; }
+/* 灯の HUD：ろうそくと揺れる炎 */
+.cdl { display:inline-block; position:relative; width:7px; height:14px; margin:0 5px; border-radius:2px; vertical-align:middle; background:linear-gradient(90deg,#d8ccb0,#f6efdc 45%,#c8bb9c); }
+.cdl::before { content:""; position:absolute; left:50%; top:-3px; width:1px; height:3px; background:#3a2a20; }
+.cdl i { position:absolute; left:50%; bottom:calc(100% + 1px); width:8px; height:13px; margin-left:-4px; border-radius:50% 50% 45% 45% / 65% 65% 35% 35%;
+  background:radial-gradient(ellipse at 50% 78%, #fffbe0 0 22%, #ffd060 38%, #ff8a20 60%, rgba(255,60,10,0) 78%);
+  transform-origin:50% 100%; animation:flick .8s ease-in-out infinite alternate; filter:drop-shadow(0 0 5px rgba(255,150,50,.9)); }
+.cdl.off { opacity:.35; }
+.cdl.off i { display:none; }
+.cdl.out i { display:block; animation:snuff .6s forwards; }
+@keyframes flick { 0%{transform:scale(1,1) skewX(0)} 30%{transform:scale(.9,1.1) skewX(5deg)} 55%{transform:scale(1.06,.94) skewX(-4deg)} 80%{transform:scale(.94,1.12) skewX(3deg)} 100%{transform:scale(1,.96) skewX(-2deg)} }
+@keyframes snuff { to { transform:scale(.2,.4) translateY(-6px); opacity:0; } }
+button { font:inherit; color:var(--text); background:#241e2a; border:1px solid var(--line); border-radius:6px; padding:6px 10px; cursor:pointer; }
+button:hover { border-color:var(--accent); }
+button.primary { background:#4a3420; border-color:var(--accent); }
+main { position:relative; flex:1; overflow:hidden; touch-action:none; user-select:none; -webkit-user-select:none; }
+canvas { display:block; width:100%; height:100%; }
+.shake { animation:shake .35s; }
+@keyframes shake { 20%{transform:translate(-6px,3px)} 40%{transform:translate(5px,-4px)} 60%{transform:translate(-4px,-2px)} 80%{transform:translate(3px,4px)} }
+#fade { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .5s; }
+#dlg { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); width:min(680px, calc(100% - 24px)); background:rgba(14,11,17,.94); border:1px solid var(--line); border-radius:10px; padding:12px 14px 14px; min-height:92px; }
+#dlg .name { font-size:12px; margin-bottom:6px; }
+#dlg .text { font-size:24px; line-height:36px; white-space:pre-wrap; }
+#dlg .next { position:absolute; right:12px; bottom:6px; color:var(--dim); animation:blink 1s infinite; }
+@keyframes blink { 50%{opacity:0} }
+#dlg .choices { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+#dlg .choices button { text-align:left; font-size:24px; line-height:30px; }
+#dlg .choices button.sel { border-color:var(--accent); background:#3a2a20; }
+#dlg .ask { display:flex; gap:8px; flex-wrap:wrap; }
+#dlg .ask input { flex:1; min-width:140px; font:inherit; font-size:24px; color:var(--text); background:#0f0c12; border:1px solid var(--accent); border-radius:6px; padding:4px 8px; }
+#goal { padding:4px 12px; font-size:12px; color:#d8e8e0; background:#11161a; border-bottom:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#goal::before { content:"目的："; color:var(--accent); }
+#goal.new { animation:goalnew 1.6s; }
+@keyframes goalnew { 0%,40% { background:#3a3020; } 100% { background:#11161a; } }
+#mini { position:absolute; left:8px; top:8px; width:auto; height:auto; border:1px solid var(--line); border-radius:6px; background:rgba(8,10,14,.78); cursor:pointer; z-index:2; }
+#buff { font-size:12px; color:#ffd890; margin-left:6px; }
+#invHead { color:var(--dim); margin:0 0 8px; }
+#chase { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:min(360px, 70%); height:8px; border-radius:4px; background:#2a1a20; border:1px solid #5a2a30; }
+#chase div { height:100%; background:var(--danger); border-radius:4px; }
+#chase span { position:absolute; top:12px; width:100%; text-align:center; font-size:12px; color:#f0a0a8; }
+#screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:rgba(5,4,7,.9); text-align:center; padding:24px; }
+#screen h2 { margin:0; font-size:36px; letter-spacing:.1em; }
+#screen h2.big { font-size:48px; letter-spacing:.2em; color:#e8f0f0; text-shadow:0 0 18px rgba(120,220,200,.35); }
+#screen .catch { color:#a8c8c0; }
+body.titling header h1 { visibility:hidden; }
+#screen .menu { margin-top:28px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+#screen .desc { font-size:12px; }
+#screen .press { color:var(--text); animation:blink 1.4s infinite; cursor:pointer; }
+#screen p { margin:0; color:var(--dim); max-width:520px; line-height:1.7; }
+#screen .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+/* スマホ用の操作（スティックとボタン）。タッチ端末か、一度でも触ったら出す */
+.touchui { display:none; }
+body.touch .touchui { display:block; }
+#stick { position:absolute; left:calc(18px + env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom)); width:124px; height:124px; border-radius:50%; background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.18); touch-action:none; }
+#stick .knob { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%; background:rgba(232,184,96,.35); border:2px solid rgba(232,184,96,.7); pointer-events:none; }
+#btns { position:absolute; right:calc(16px + env(safe-area-inset-right)); bottom:calc(18px + env(safe-area-inset-bottom)); width:150px; height:130px; }
+#btns button { position:absolute; border-radius:50%; touch-action:none; -webkit-tap-highlight-color:transparent; }
+#btns button:active, #btns button.on { filter:brightness(1.5); }
+#act { right:0; bottom:0; width:78px; height:78px; font-size:12px; background:rgba(74,52,32,.85); border:2px solid var(--accent); }
+#bInv { left:0; top:0; width:56px; height:56px; font-size:12px; background:rgba(36,30,42,.85); }
+body.touch #dlg { bottom:calc(150px + env(safe-area-inset-bottom)); }
+body.touch.talking #stick { opacity:.25; }
+#toast { position:absolute; top:28px; left:50%; transform:translateX(-50%); background:rgba(30,24,34,.95); border:1px solid var(--line); padding:6px 12px; border-radius:6px; font-size:12px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:90%; overflow:hidden; text-overflow:ellipsis; }
+dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; width:min(560px, calc(100% - 24px)); padding:16px; }
+dialog::backdrop { background:rgba(0,0,0,.6); }
+dialog h3 { margin:0 0 10px; font-size:24px; }
+dialog textarea { width:100%; height:160px; background:#0f0c12; color:var(--text); border:1px solid var(--line); border-radius:6px; font-family:ui-monospace,monospace; font-size:12px; padding:8px; }
+dialog .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
+.inv { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
+.inv li { display:flex; gap:10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:6px; }
+.inv .ic { font-size:22px; width:28px; text-align:center; }
+.inv .tx { flex:1; font-size:12px; }
+.inv .tx b { display:block; font-size:24px; line-height:30px; }
+#drop { position:fixed; inset:0; background:rgba(232,184,96,.12); border:3px dashed var(--accent); display:none; align-items:center; justify-content:center; font-size:24px; z-index:9; pointer-events:none; }
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">止まり写真館</h1><span id="roomName"></span>
+  <span id="lights"></span><span id="buff"></span>
+  <button id="btnInv">持ち物</button>
+  <button id="btnMd">Markdown</button>
+</header>
+<div id="goal" hidden></div>
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <canvas id="mini" hidden title="全体図（タップで拡大）"></canvas>
+  <div id="fade"></div>
+  <div id="chase" hidden><div></div><span>逃げろ</span></div>
+  <div id="dlg" hidden><div class="name"></div><div class="text"></div><div class="choices"></div><div class="next">▼</div></div>
+  <div id="stick" class="touchui"><div class="knob"></div></div>
+  <div id="btns" class="touchui"><button id="bInv">持ち物</button><button id="act">調べる</button></div>
+  <div id="toast"></div>
+  <div id="screen"></div>
+</main>
+<div id="drop">.md をドロップすると定義が変わります</div>
+
+<dialog id="mdDlg">
+  <h3>Markdown を読み込む</h3>
+  <p class="note">同じ <code>## 見出し</code> の定義が置き換わります（<code>## 部屋 ID</code> と <code>## イベント ID</code> は ID で判定）。画面に .md をドロップしても読み込めます。</p>
+  <div class="row"><input type="file" id="mdFile" accept=".md,.markdown,.txt,text/markdown" multiple></div>
+  <textarea id="mdText" placeholder="ここに Markdown を貼り付けて「反映」"></textarea>
+  <div class="row">
+    <button class="primary" id="mdApply">反映</button>
+    <button id="mdReset">最初の定義に戻す</button>
+    <button id="mdRestart">最初から始める</button>
+    <span style="flex:1"></span><button id="mdClose">閉じる</button>
+  </div>
+  <p class="note" id="mdInfo"></p>
+</dialog>
+
+<dialog id="invDlg">
+  <h3>持ち物</h3>
+  <p id="invHead"></p>
+  <ul class="inv" id="invList"></ul>
+  <div class="row"><span style="flex:1"></span><button id="invClose">閉じる</button></div>
+</dialog>
+
+<!--EMBED-START-->
+<script type="text/markdown" data-file="scenario.md">
+# scenario.md — 止まり写真館 設定とイベント
+
+md-forge Horror エンジン横スクロール版（sidescroll/）の確認用サンプルです。4 部屋・エンディング 1 つ。
+
+## 設定
+
+| 項目 | 値 |
+| --- | --- |
+| タイトル | 止まり写真館 |
+| 説明 | 六十年前に店を閉めた写真館へ、祖母の家族写真を受け取りに行く。横スクロールの短い探索ホラー（確認用サンプル）。 |
+| キャッチ | 写っていないのは、だれ？ |
+| 開始部屋 | lobby |
+| 開始イベント | opening |
+| 最初の灯 | 3 |
+| 灯の最大 | 4 |
+| 持ち物の上限 | 3 |
+| 入室の猶予 | 2 |
+| 最初の目的 | 受付（カウンター）を調べる |
+
+## 書き方
+
+> この見出しはメモです（`イベント` で始まらない見出しは無視します）。
+>
+> **基本（horror/・scientists/ と同じ）**
+>
+> - 1 行が 1 つの命令です。行頭の `- ` は付けても付けなくても同じ。`>` で始まる行はメモとして読み飛ばします。
+> - `名前「セリフ」` で話します（行の最後が 」 のとき）。名前は `{主人公}` `{同行者}` `{番人}` と書くと、characters.md の役に合わせて名前が入ります。それ以外の行は地の文。地の文を 」 で終えたいときは、後ろに 。 などを付けます。
+> - `[取得 物]` `[失う 物]` `[フラグ 名前]` `[消す 名前]` `[灯 +1]` `[灯 -1]` `[好感 +1]`
+> - `[分岐 条件 → イベント]`：条件が合えばそのイベントへ移る。条件は `持つ:物` `フラグ:名前` `済:イベント` `好感>=1` `灯<=1` `数値:名前>=3` `解放:名前` `部屋:ID`。`!` で否定、`&` でつなぐ。
+> - `[選択 はい → イベントA / いいえ]`：`→` が無い選択肢は、そのまま次の行へ進む。
+> - `[済 → イベント]`：2 回目以降はそのイベントへ移る（最後まで読んだときだけ「済」になる）。
+> - `[数値 名前 +1]` `[解放 名前]` `[入力 答え|別解 → イベント]` `[目的 文]` `[暗く]` `[明るく]`
+> - `[移動 部屋:記号]` `[追跡 番人 秒数]` `[追跡 番人 秒数 → 灯が尽きたときのイベント]` `[同行 名前]` `[離脱]` `[揺れ]` `[暗転]` `[待つ 秒]` `[止める]`
+> - `[終わり エンディング名]` `[ゲームオーバー 文]`
+> - `## イベント 入室:部屋ID` は、その部屋に入るたびに動きます。`## イベント 満杯` は、持ち物がいっぱいのときに動きます。
+>
+> **横スクロール版で増えた命令（壁のギミック）**
+>
+> - `[変化 記号 見た目]`：今の部屋のその物の見た目を変える（例 `[変化 p 絵:目]` で肖像の目が開いて主人公を追う）。`[変化 部屋ID:記号 見た目]` で別の部屋の物も変えられる。見た目を書かないと元に戻る。セーブに残る。
+> - `[文字 文]`：壁に赤い文字が浮かび、消える（2.6 秒待つ）。
+> - `[落書き 記号 文]`：その物の上の壁に文字を残す（消えない）。`[落書き 記号]` で消す。
+> - `[手 記号]`：その物から白い手が伸びる。会話が閉じてから 0.9 秒後に伸び、そのとき左右 1 マス以内にいると灯が 1 つ消える。逃げる間を作るため、イベントの最後の方に置く。記号を書かないと主人公の位置から。
+> - `[振り向く]`：主人公が反対を向く。`[向き 左]` `[向き 右]` で向きを決める。
+>
+> **扉の演出（map.md の列）**
+>
+> - 鍵つきの扉：条件 `持つ:鍵`、だめなとき に鍵がかかっているイベント。
+> - 条件つきの扉：条件に `フラグ:…` など。開くと取っ手が金色になる。
+> - 閉めると背後から何か来る：扉の「通ったら」にイベントを書く。そのイベントで `[手 扉の記号]`（閉めた扉から手）や `[追跡 番人 秒数]`（番人位置が無い部屋では、入ってきた扉＝背後から出る）。
+> - 隠し扉：扉の「出る」に条件を書くと、それまで壁のまま。
+>
+> **操作**：←→ で歩く。扉・階段の前で ↑ か「調べる」。物の前で「調べる」（近い物の上に ▼ が出る）。同じ列に壁の物と床の物があるときは、「調べる」は床の物、↑ は壁の物。暗幕などの「隠れる」の前で調べると隠れ、左右に動くと出る。
+
+## イベント 満杯
+
+これ以上は持てない。何かを使ってから、もう一度調べよう。
+
+## イベント opening
+
+[暗く]
+町はずれの坂の上に、看板の文字が半分はがれた写真館がある。
+六十年前に店を閉めたはずなのに、夜になると、二階の窓だけが白く光るという。
+[待つ 0.6]
+{主人公}「おばあちゃんに頼まれたの。昔ここで撮った家族写真を、受け取ってきてほしいって」
+{主人公}「引換券も無いのに……。それに、どうして夜じゃないとだめなんだろう」
+【操作】移動：←→ キー・AD・ドラッグ（スマホは左下のスティック）
+【操作】調べる・会話を進める：スペース・Enter・クリック（スマホは「調べる」）。扉や階段、壁に掛かった物は ↑ でも調べられる。
+【操作】持ち物：I キー・「持ち物」ボタン。右上のろうそくが体力。何かに触れられると消える。
+[明るく]
+扉に、鍵はかかっていなかった。
+{主人公}「ごめんください……」
+返事はない。壁の時計も、針が止まっている。
+
+## イベント counter
+
+[分岐 持つ:暗室の鍵 → counter_after]
+受付には誰もいない。古い呼び鈴が置いてある。
+[選択 呼び鈴を鳴らす → counter_bell / やめておく]
+呼び鈴には触れずにおいた。
+
+## イベント counter_bell
+
+チン、と澄んだ音が、廊下の奥まで響いた。
+……少しして、奥のほうから、かすれた声がした。
+声「……いらっしゃいませ。お写真の、お受け取りですね」
+声「引換券は……暗室に……置いたままで……」
+{主人公}「あの、どなたですか？」
+返事はない。いつの間にか、カウンターの上に古い鍵が置かれていた。
+[取得 暗室の鍵]
+[目的 廊下（右の扉）の奥にある暗室で、引換券を探す]
+
+## イベント counter_after
+
+カウンターの奥に、預かり札の棚がある。どの札も、名前が黒く塗りつぶされている。
+
+## イベント bench
+
+[分岐 フラグ:薬_取った → bench_after]
+長椅子の上に、誰かの忘れ物の巾着袋がある。中に痛み止めが入っていた。
+[取得 薬]
+[フラグ 薬_取った]
+
+## イベント bench_after
+
+色あせた長椅子。座面に、小さな手の形のくぼみが残っている。
+
+## イベント clock
+
+[分岐 フラグ:写真を受け取った → clock_back]
+柱時計。針は七時十二分で止まっている。
+振り子の箱に、小さく文字が彫ってある。開店記念、とある。
+
+## イベント clock_back
+
+柱時計の針が、逆向きに回っている。
+
+## イベント lobby_notice
+
+古い張り紙だ。
+「お客様へ　撮影室は二階です。階段は、引換券をお持ちの方のみお上がりください」
+「暗室の赤い灯りは、点けたら消さないでください」
+
+## イベント lobby_photo
+
+[分岐 フラグ:写真を受け取った → lobby_photo_after]
+[済 → lobby_photo2]
+見本の写真が飾ってある。三人の家族が、こちらを向いて笑っている。
+[変化 c 写真:目]
+……今、三人の目が、同時にこちらへ動いた。
+[揺れ]
+
+## イベント lobby_photo2
+
+見本の写真。三人とも、じっとこちらを見ている。
+
+## イベント lobby_photo_after
+
+見本の写真から、まん中の一人がいなくなっている。
+
+## イベント lobby_window
+
+[分岐 フラグ:写真を受け取った → lobby_window_hands]
+窓の外は真っ暗だ。坂の下の街灯も、ここからは見えない。
+
+## イベント lobby_window_hands
+
+[変化 f 窓:手]
+[揺れ]
+窓ガラスに、手の跡がびっしりと付いている。
+{主人公}「……内側から？」
+
+## イベント front_door
+
+[分岐 フラグ:写真を受け取った → ending_door]
+入ってきた扉だ。
+{主人公}「写真を受け取るまでは、帰れない」
+
+## イベント 入室:hall
+
+[分岐 持つ:引換券 & !フラグ:写真を受け取った & !済:hall_shadow → hall_shadow]
+[済 → hall_after]
+細長い廊下。壁に、額に入った肖像画が並んでいる。
+どれも古いのに、ガラスだけは磨いたように光っている。
+
+## イベント hall_after
+
+> 2 回目以降は何もしない。
+
+## イベント hall_shadow
+
+廊下の空気が、さっきより冷たい。
+床の上を、黒い影がゆっくり行き来している。
+{主人公}「……見つかったら、まずい気がする」
+【ヒント】影は、向いている方しか見ていない（うっすら赤い帯）。暗幕の前で「調べる」と隠れられる。影が通り過ぎたら、左右に動いて出よう。
+
+## イベント portrait_lady
+
+[分岐 フラグ:写真を受け取った → portrait_lady3]
+[済 → portrait_lady2]
+着物の婦人の肖像。目を伏せている。
+[変化 p 絵:目]
+……婦人が、ゆっくりと目を上げた。
+{主人公}「っ……！」
+
+## イベント portrait_lady2
+
+婦人の目が、わたしの動きに合わせて動く。
+
+## イベント portrait_lady3
+
+額の中から、婦人がいなくなっている。
+
+## イベント portrait_boy
+
+[済 → portrait_boy2]
+半ズボンの少年の肖像。額のガラスに、内側から指の跡がついている。
+もっとよく見ようと、顔を近づけた——
+[揺れ]
+[手 q]
+{主人公}「……っ、離れなきゃ！」
+
+## イベント portrait_boy2
+
+少年の肖像。ガラスの指の跡が、さっきより増えている。
+
+## イベント hall_notice
+
+[済 → hall_notice2]
+何も書かれていない張り紙。
+……と思ったら、紙の上に、じわりと赤い文字がにじみ出てきた。
+[変化 s 張り紙:血]
+[文字 みないで]
+[落書き s みないで]
+
+## イベント hall_notice2
+
+張り紙ににじんだ文字が、まだ乾いていない。
+
+## イベント peephole
+
+[分岐 フラグ:赤ランプ → peephole_red]
+[済 → peephole2]
+暗室の扉の横に、小さな覗き穴がある。
+そっと覗いてみた。
+真っ暗だ。……いや、暗いのではない。
+[変化 h 覗き穴:目]
+[揺れ]
+向こう側から、誰かの目が、こちらを覗き返していた。
+[変化 h]
+
+## イベント peephole2
+
+覗き穴。もう一度覗く気にはなれない。
+
+## イベント peephole_red
+
+覗き穴の向こうは、赤い灯りで満ちている。今は誰もいない。
+
+## イベント darkroom_locked
+
+暗室、関係者以外立入禁止、の札。鍵がかかっている。
+
+## イベント darkroom_close
+
+> 鉄の扉を通ったときに動く（map.md の「通ったら」）。閉めた扉の背後から手が伸びる。
+[済 → darkroom_close2]
+中に入ると、背後で扉がひとりでに閉まった。
+ガチャ、ガチャ。外から、ノブを回す音がする。
+声「……あけて……あけて……」
+{主人公}「誰……？」
+音が止んだ。扉の隙間から、白い指が這い出してくる。
+[手 D]
+
+## イベント darkroom_close2
+
+> 2 回目以降は何もしない。
+
+## イベント 入室:darkroom
+
+[済 → darkroom_after]
+酢のような、つんとする匂い。ほとんど何も見えない。
+{主人公}「暗い……。灯りのスイッチ、どこかにないかな」
+
+## イベント darkroom_after
+
+> 2 回目以降は何もしない。
+
+## イベント darkroom_switch
+
+[分岐 フラグ:赤ランプ → darkroom_switch_on]
+壁のスイッチを入れた。
+[フラグ 赤ランプ]
+[変化 w スイッチ:入]
+[落書き z まだ ひとり たりない]
+天井の赤いランプが、じじ、と音を立てて灯った。
+部屋じゅうが、血のような赤に染まる。
+{主人公}「……壁に、何か書いてある」
+
+## イベント darkroom_switch_on
+
+スイッチは入ったままだ。消さないでください、という張り紙を思い出す。
+
+## イベント darkroom_writing
+
+壁一面に、赤い文字で同じ言葉が書かれている。
+まだ ひとり たりない。まだ ひとり たりない。まだ……
+
+## イベント too_dark
+
+暗くて、手元がよく見えない。
+
+## イベント darkroom_shelf
+
+[分岐 フラグ:電球_取った → darkroom_shelf_after]
+[分岐 !フラグ:赤ランプ → too_dark]
+薬品の瓶が並ぶ棚。一番下に、使い捨てのフラッシュ電球が残っていた。
+[取得 フラッシュ電球]
+[フラグ 電球_取った]
+
+## イベント darkroom_shelf_after
+
+薬品の瓶が並んでいる。ラベルはどれも読めない。
+
+## イベント darkroom_tray
+
+[分岐 持つ:引換券 → darkroom_tray_after]
+[分岐 !フラグ:赤ランプ → too_dark]
+現像液のバットに、印画紙が一枚沈んでいる。その下に紙の札——写真の引換券だ。
+[取得 引換券]
+引換券を拾い上げたとき、印画紙の像が浮かび上がってきた。
+写っているのは、この写真館の廊下。そして、そこを歩く、わたしの後ろ姿。
+{主人公}「……いつ、撮られたの？」
+廊下のほうで、何かが床をこする音がした。
+[目的 廊下の右の階段から、二階の撮影室へ上がる]
+
+## イベント darkroom_tray_after
+
+バットの中の印画紙は、真っ黒に焼けている。
+
+## イベント stairs_locked
+
+階段の前に、鎖が渡してある。札が下がっている。
+撮影室は二階。引換券をお持ちの方のみ。
+
+## イベント hall_flower
+
+花瓶の花は茶色く枯れて、形だけが残っている。
+
+## イベント hall_mirror
+
+[分岐 持つ:引換券 & !フラグ:写真を受け取った → hall_mirror_shadow]
+古い姿見。少し疲れた顔のわたしが映っている。
+
+## イベント hall_mirror_shadow
+
+[変化 m 鏡:影]
+姿見に、わたしが映っている。その後ろに、黒い人影が。
+[振り向く]
+……誰もいない。
+[変化 m]
+
+## イベント 入室:studio
+
+[済 → studio_after]
+二階の撮影室。大きな木のカメラが、部屋のまん中に据えられている。
+窓は白く光っている。けれど、今夜は月が出ていなかった。
+{主人公}「受け取り待ちの写真……どこだろう」
+[目的 撮影室で、家族写真を探す]
+
+## イベント studio_after
+
+> 2 回目以降は何もしない。
+
+## イベント studio_photo
+
+[分岐 フラグ:写真を受け取った → studio_photo_after]
+額の下に、受け取り待ち、と書かれた封筒が留めてある。
+写真には、若い夫婦と、小さな女の子——子どものころの、おばあちゃん。
+その隣に、ひとり分の、不自然な空白がある。
+{主人公}「……ここにも、誰かがいたの？」
+[選択 写真を受け取る → studio_take / まだやめておく]
+まだ触れずにおいた。
+
+## イベント studio_take
+
+[取得 家族写真]
+[フラグ 写真を受け取った]
+[変化 P 額縁]
+[変化 b 風景:赤]
+[変化 hall:p 絵:無い]
+[変化 lobby:c 写真:欠け]
+[変化 lobby:k 時計:逆]
+写真を、封筒ごと抜き取った。
+カシャッ。
+窓のほうで、シャッターの音がした。
+声「……まだ、ひとり、たりない」
+[揺れ]
+【ヒント】左の階段まで逃げれば振り切れる。持ち物のフラッシュ電球を使うと、しばらく相手が止まる。
+[追跡 写真師 12]
+……足音が、遠ざかっていく。
+{主人公}「早く、ここを出よう」
+[目的 一階の待合室の玄関（左端）から外へ出る]
+
+## イベント studio_photo_after
+
+空になった額。
+
+## イベント studio_backdrop
+
+[分岐 フラグ:写真を受け取った → studio_backdrop2]
+撮影用の書き割り。穏やかな海辺の景色が描かれている。
+
+## イベント studio_backdrop2
+
+書き割りの海が、赤く塗りつぶされている。
+
+## イベント studio_window
+
+窓の外は、真っ白な光で何も見えない。ガラスは、触れると氷のように冷たい。
+
+## イベント studio_chair
+
+撮影用の小さな椅子。座面が、まだほんのりあたたかい。
+
+## イベント studio_camera
+
+[済 → studio_camera2]
+古い大判カメラ。黒い布をめくって、ピントグラスを覗いてみた。
+逆さまに映った撮影室。椅子に、女の子が座っている。
+[揺れ]
+顔を上げると、椅子には誰もいない。
+
+## イベント studio_camera2
+
+カメラのレンズは、ずっと椅子のほうを向いている。
+
+## イベント ending_door
+
+扉を押すと、冷たい夜風が吹き込んだ。
+外へ一歩出たところで、背中のほうから、シャッターの音がした。
+[振り向く]
+[文字 またの おこしを]
+[暗く]
+家に帰って写真を渡すと、祖母は長いこと黙っていた。
+写真には四人が写っていた。あの空白に、知らない女の子が立って、笑っている。
+祖母「……サヨ。わたしの妹よ。この写真を撮った日の夜に、いなくなったの」
+祖母「ずっと、ここで待っていたのね。誰かが、受け取りに来るのを」
+[待つ 0.6]
+ふと、写真の端に気づいた。
+写真館の二階の窓から、こちらへカメラを向けている人影が、小さく写っていた。
+[終わり 夜明けの写真]
+</script>
+<script type="text/markdown" data-file="map.md">
+# map.md — 止まり写真館（横スクロール版・4 部屋）
+
+横から見た部屋を、**2 行**で描きます。書き方の全体は scenario.md の `## 書き方` にもあります。
+
+- 1 行目：**壁の列**（絵・額縁・張り紙・スイッチ・覗き穴・窓・扉・階段など、壁についている物）
+- 2 行目：**床の列**（家具・暗幕・敵・`@` 始めの位置など、床に置く物）
+- 1 文字が横 1 マス。`.` は何もない所。`|` と `#` は行き止まり（両端に置く）。2 行は同じ長さにそろえると読みやすい
+- 同じ記号は 1 つの意味しか持てません（壁の列と床の列で別の記号を使う）
+- 同じ列に壁の物と床の物を置くと、「調べる」は床の物、↑ は壁の物を調べます（待合室の写真とカウンターがその例）
+
+コードブロックの外に、部屋の設定を書けます（省略可）：
+
+- `- 壁の色：#2c2430` / `- 床の色：#221a16`
+- `- 明るさ：0`（0＝真っ暗で灯の届く所だけ見える〜1＝全部見える）
+
+表の列（空欄でよい列は省略してもかまいません）：
+
+| 列 | 意味 |
+| --- | --- |
+| 記号 | コードブロックの中の 1 文字 |
+| 種類 | `調べる`（前で調べるとイベント）・`置物`（調べるとイベント。対象が空なら飾り）・`扉`・`階段`（前で ↑ か「調べる」で移動）・`隠れる`（前で調べると隠れる。左右に動くと出る）・`障害`（条件が合うまで通れない。ぶつかると「だめなとき」）・`床`（その位置まで歩くとイベント）・`敵`・`番人位置`（追跡のとき番人が出る所） |
+| 対象 | 扉・階段は `部屋ID:記号`（着く場所）。調べる・置物・床はイベント名。敵は enemies.md の敵の名前 |
+| 条件 | 扉は開く条件、敵は出てくる条件、ほかはイベントが動く条件（書き方は scenario.md と同じ） |
+| だめなとき | 条件が合わないときに動くイベント（鍵のかかった扉など） |
+| 出る | この条件が合うまで、その物は無いのと同じ（見えない・調べられない・光らない）。隠し扉や、灯りを点けると現れる文字に |
+| 見た目 | 描き方。下の一覧。`名前:状態` の形で、イベントの `[変化 記号 見た目]` で書き換えられる |
+| 絵 | 見た目が無いときに出す 1 文字（絵文字も可） |
+| 色 | 下地や扉の色 |
+| 光 | 周りを照らす広さ（マス）。見た目に「消」が付いている間は光らない。「赤」が付くと部屋を赤く染める |
+| 通ったら | 扉・階段を通って着いたときに動くイベント（「入室:部屋ID」より先に動く）。閉めた扉の背後から何か来る、など |
+
+見た目の一覧：
+
+- 壁：`絵`（肖像。`絵:目` 目が主人公を追う・`絵:泣く`・`絵:笑う`・`絵:無い` 人物が抜け出た）・`写真`（家族写真。`写真:目`・`写真:欠け` まん中が消えた・`写真:空き` 一人分の空白）・`額縁`（空の額）・`風景`（`風景:赤`）・`張り紙`（`張り紙:白`・`張り紙:血`）・`スイッチ`（`スイッチ:入`）・`覗き穴`（`覗き穴:目`）・`窓`（`窓:手` 手形・`窓:顔`・`窓:白`）・`時計`（`時計:逆` 針が逆に回る）・`鏡`（近づくと自分が映る。`鏡:影`）・`ランプ`（`ランプ:赤`・`ランプ:消`）
+- 扉・階段：`扉`（`扉:鉄`・`扉:開`）・`階段:上`・`階段:下`。種類が `調べる` でも見た目を `扉` にすると扉の絵になる（玄関など、イベントで扱いたい扉）
+- 床：`カウンター`・`机`・`長椅子`・`椅子`・`棚`・`カーテン`／`暗幕`・`カメラ`・`台`・`花台`・`箱`
+
+## 部屋 lobby 待合室
+
+- 壁の色：#2e2a2c
+- 床の色：#241c18
+- 明るさ：0.15
+
+```
+|.D...k...n..c...f..E.|
+|.....@......r..b.....|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D | 調べる | front_door | | | | 扉 | #3a2a20 | | |
+| k | 調べる | clock | | | | 時計 | | | |
+| n | 調べる | lobby_notice | | | | 張り紙 | | | |
+| c | 調べる | lobby_photo | | | | 写真 | | | |
+| f | 調べる | lobby_window | | | | 窓 | | | |
+| E | 扉 | hall:L | | | | 扉 | #4a3020 | | |
+| r | 調べる | counter | | | | カウンター | | 1.2 | |
+| b | 調べる | bench | | | | 長椅子 | | | |
+
+## 部屋 hall 写真の廊下
+
+- 壁の色：#2a2630
+- 床の色：#1e1816
+- 明るさ：0.05
+
+```
+|.L...p....q....s...h.K.....m....U..|
+|.........t.............a..e........|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| L | 扉 | lobby:E | | | | 扉 | #4a3020 | | |
+| p | 調べる | portrait_lady | | | | 絵 | #3a2a30 | | |
+| q | 調べる | portrait_boy | | | | 絵 | #2a3030 | | |
+| s | 調べる | hall_notice | | | | 張り紙:白 | | | |
+| h | 調べる | peephole | | | | 覗き穴 | | | |
+| K | 扉 | darkroom:D | 持つ:暗室の鍵 | darkroom_locked | | 扉:鉄 | | | darkroom_close |
+| m | 調べる | hall_mirror | | | | 鏡 | | | |
+| U | 階段 | studio:S | 持つ:引換券 | stairs_locked | | 階段:上 | | | |
+| t | 置物 | hall_flower | | | | 花台 | | | |
+| a | 隠れる | | | | | 暗幕 | #3a1420 | | |
+| e | 敵 | 焼き付き | 持つ:引換券 & !フラグ:写真を受け取った | | | | | | |
+
+## 部屋 darkroom 暗室
+
+- 壁の色：#201a1e
+- 床の色：#161012
+- 明るさ：0
+
+```
+|.D...w...x...z.|
+|...g......v....|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D | 扉 | hall:K | | | | 扉:鉄 | | | |
+| w | 調べる | darkroom_switch | | | | スイッチ | | | |
+| x | 置物 | | | | フラグ:赤ランプ | ランプ:赤 | | 5 | |
+| z | 調べる | darkroom_writing | | | フラグ:赤ランプ | | | | |
+| g | 調べる | darkroom_shelf | | | | 棚 | | | |
+| v | 調べる | darkroom_tray | | | | 台 | | | |
+
+## 部屋 studio 撮影室（二階）
+
+- 壁の色：#34303a
+- 床の色：#2a2220
+- 明るさ：0.25
+
+```
+|.S...b....P.....j...|
+|.......x...C......G.|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 階段 | hall:U | | | | 階段:下 | | | |
+| b | 調べる | studio_backdrop | | | | 風景 | | | |
+| P | 調べる | studio_photo | | | | 写真:空き | | | |
+| j | 調べる | studio_window | | | | 窓:白 | | 3 | |
+| x | 調べる | studio_chair | | | | 椅子 | | | |
+| C | 調べる | studio_camera | | | | カメラ | | | |
+| G | 番人位置 | | | | | | | | |
+</script>
+<script type="text/markdown" data-file="characters.md">
+# characters.md — 止まり写真館 登場人物
+
+役：`主人公`（操作する人）・`同行者`（[同行 名前] でついてくる人）・`番人`（追跡で迫ってくる者）・`その他`（会話の名前の色だけ）。
+服・髪の色で描きます。会話の名前の色は髪の色（黒のときは服の色）。
+
+## キャラ
+
+| 名前 | 役 | 服 | 髪 | 背 | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| ミチル | 主人公 | #3a4a6a | #2a1e1a | 1 | 17 歳。祖母に頼まれ、昔の家族写真を受け取りに来た |
+| 声 | その他 | #000000 | #a8b8c0 | 1 | 写真館の奥から聞こえる、かすれた声 |
+| 祖母 | その他 | #6a5a50 | #c8c0b8 | 0.95 | ミチルの祖母 |
+| 写真師 | 番人 | #1a1a20 | #000000 | 2 | 写真館の主。まだ一人、撮り足りない |
+</script>
+<script type="text/markdown" data-file="items.md">
+# items.md — 止まり写真館 持ち物
+
+「使う」がある物は消耗品で、scenario.md の「持ち物の上限」まで持てます。空欄は大事な物（上限に数えない・1 つだけ）。
+使う欄の効果：`灯+1`（灯を回復）・`光+1`（5 分間、見える範囲を 1 段広げる）・`気をそらす`（その部屋の敵と番人を 3 秒止める）・`イベント:名前`（使うとそのイベントが動く）。`、` で複数書けます。
+
+## アイテム
+
+| 名前 | 分類 | 絵 | 使う | 説明 |
+| --- | --- | --- | --- | --- |
+| 薬 | 回復 | 💊 | 灯+1 | 誰かの忘れ物の痛み止め。少し落ち着く |
+| フラッシュ電球 | 回避 | 💡 | 気をそらす | 使い捨ての閃光電球。光らせると、しばらく相手の目がくらむ |
+| 暗室の鍵 | 謎解き | 🗝 | | 受付に置かれていた古い鍵。札に「暗室」 |
+| 引換券 | 謎解き | 🎫 | | 写真の引換券。日付は六十年前 |
+| 家族写真 | 謎解き | 🖼 | | 「受け取り待ち」の封筒に入っていた、祖母の家族の写真 |
+</script>
+<script type="text/markdown" data-file="enemies.md">
+# enemies.md — 止まり写真館 敵・動き・番人・技
+
+触れられると灯が 1 つ消え、0 でゲームオーバーです。主人公は戦えません。逃げる・隠れる・気をそらすで切り抜けます。
+
+横スクロール版では、敵は左右にだけ動きます。
+
+- 見回りの敵は、**向いている方**しか見ていません（画面ではうっすら赤い帯）。隠れている主人公には気づかず、すり抜けていきます。
+- 隠れていると、見回り以外の敵も見失って止まります。番人（追跡）には隠れても見つかります。
+- 横スクロール版で使える動き：近づく・ふらふら・突進・撃つ・見張り・うしろ・止まる・見回り（「見回り」で始まる名前も可）。それ以外は「近づく」になります。
+
+## 敵
+
+- 形：人形・影・目玉・獣・菌・鏡、または `人:名前`（characters.md のその人の姿で描く）
+- 話す：近くで調べると動くイベント
+- 害：`いいえ` と書くと、触れても灯が減らない（会話の相手など）
+
+| 名前 | 形 | 色 | 大きさ | 速さ | 動き | 話す | 害 | 説明 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 焼き付き | 影 | #000000 | 1.0 | 1.3 | 見回り影 | | | 現像に失敗した写真から抜け出した影。前しか見えない |
+
+## 動き
+
+| 動き | 値1 | 値2 | 説明 |
+| --- | --- | --- | --- |
+| 近づく | 0 | 0 | まっすぐ近づく |
+| ふらふら | 0.8 | 3 | 速くなったり遅くなったりしながら近づく |
+| 突進 | 0.8 | 4 | 構えてから突っ込む（値1：構える秒、値2：速さの倍率） |
+| 撃つ | 4 | 2.2 | 値1 マス離れて、値2 秒ごとに弾を撃つ |
+| 見張り | 3 | 0 | 値1 マスまで近づくまで動かない |
+| うしろ | 0 | 0 | こちらが背中を向けている間だけ近づく |
+| 止まる | 0 | 0 | その場から動かない |
+| 見回り | 4 | 1.6 | 持ち場の左右 5 マスを歩き、立ち止まって振り返る。向いている方の値1 マス以内に入ると「!」で追う（速さの値2 倍）。隠れる・離れると「?」で探し、3 秒で持ち場へ戻る |
+| 見回り影 | 4 | 1.7 | 見回りと同じ。少し速く追う |
+
+## 番人
+
+| 名前 | 形 | 色 | 大きさ | 速さ | 技 |
+| --- | --- | --- | --- | --- | --- |
+| 写真師 | 番人 | #1a1a20 | 2 | 1.9 | 閃光・シャッター |
+
+## 技
+
+横スクロール版では、`前` は向いている方へ長さ L マス、`円` は左右 L マス、`弾` は L 個の弾を横に撃ちます（幅は使いません）。
+
+| 技 | 種類 | 長さ | 幅 | 構え | 間隔 |
+| --- | --- | --- | --- | --- | --- |
+| 閃光 | 前 | 3.5 | 0 | 0.9 | 1.6 |
+| シャッター | 円 | 1.8 | 0 | 1.0 | 1.8 |
+</script>
+<!--EMBED-END-->
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const FILES = ['scenario.md', 'map.md', 'characters.md', 'items.md', 'enemies.md'];
+
+/* ====================== Markdown → 定義 ====================== */
+// 見出しごとに区切る。部屋とイベントは ID をキーにする（表示名が違っても置き換わる）。
+function secKey(head) {
+  const m = /^(部屋|イベント)\s+(\S+)/.exec(head);
+  return m ? m[1] + ' ' + m[2] : head;
+}
+function parseMd(text, src) {
+  const secs = {}; let cur = null, inCode = false;
+  for (const ln of text.replace(/\r/g, '').split('\n')) {
+    if (/^\s*```/.test(ln)) inCode = !inCode;
+    const m = !inCode && /^##\s+(.+?)\s*$/.exec(ln);
+    if (m) { cur = { head: m[1], lines: [], src }; secs[secKey(m[1])] = cur; continue; }
+    if (cur) cur.lines.push(ln);
+  }
+  return secs;
+}
+function splitRow(l) { let s = l.trim(); if (s.startsWith('|')) s = s.slice(1); if (s.endsWith('|')) s = s.slice(0, -1); return s.split('|').map(x => x.trim()); }
+function secTable(sec) {
+  const L = sec.lines;
+  const i = L.findIndex((l, k) => /^\s*\|/.test(l) && L[k + 1] && /^\s*\|[\s:|-]+\|?\s*$/.test(L[k + 1]));
+  if (i < 0) return [];
+  const hdr = splitRow(L[i]), rows = [];
+  for (let k = i + 2; k < L.length && /^\s*\|/.test(L[k]); k++) {
+    const c = splitRow(L[k]), o = {};
+    hdr.forEach((h, j) => o[h] = (c[j] ?? '').trim());
+    rows.push(o);
+  }
+  return rows;
+}
+function secCode(sec) {
+  const out = []; let inCode = false, done = false;
+  for (const l of sec.lines) {
+    if (/^\s*```/.test(l)) { if (inCode) { done = true; break; } inCode = true; continue; }
+    if (inCode) out.push(l.replace(/\s+$/, ''));
+  }
+  return done || inCode ? out : [];
+}
+function secScript(sec) {
+  const out = []; let inCode = false;
+  for (let l of sec.lines) {
+    if (/^\s*```/.test(l)) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    l = l.trim();
+    if (!l || l.startsWith('>') || l.startsWith('<!--')) continue;
+    l = l.replace(/^[-*]\s+/, '');
+    if (l) out.push(l);
+  }
+  return out;
+}
+const num = (v, d) => { const n = parseFloat(v); return isFinite(n) ? n : d; };
+
+let RAW = {}, DEFAULT_RAW = {}, W = null;
+function applyText(text, src, target = RAW) {
+  const s = parseMd(text, src);
+  Object.assign(target, s);
+  return Object.values(s).map(x => x.head);
+}
+function buildWorld() {
+  const w = { settings: {}, chars: [], items: {}, enemies: {}, moves: {}, guards: {}, skills: {}, rooms: {}, events: {} };
+  for (const [key, sec] of Object.entries(RAW)) {
+    let m;
+    if (key === '設定') secTable(sec).forEach(r => w.settings[r['項目']] = r['値']);
+    else if (key === 'キャラ') w.chars = secTable(sec);
+    else if (key === 'アイテム') secTable(sec).forEach(r => w.items[r['名前']] = r);
+    else if (key === '敵') secTable(sec).forEach(r => w.enemies[r['名前']] = r);
+    else if (key === '動き') secTable(sec).forEach(r => w.moves[r['動き']] = r);
+    else if (key === '番人') secTable(sec).forEach(r => w.guards[r['名前']] = r);
+    else if (key === '技') secTable(sec).forEach(r => w.skills[r['技']] = r);
+    else if ((m = /^部屋\s+(\S+)\s*(.*)$/.exec(sec.head))) w.rooms[m[1]] = buildRoom(m[1], m[2] || m[1], sec);
+    else if ((m = /^イベント\s+(\S+)/.exec(sec.head))) w.events[m[1]] = secScript(sec);
+  }
+  return w;
+}
+// 横スクロール版の部屋：コードブロックの 1 行目が「壁の列」、2 行目が「床の列」。1 文字が横 1 マス
+// コードブロックの外の「- 壁の色：#xxxxxx」のような行は、部屋の設定になる
+function buildRoom(id, name, sec) {
+  const rows = secCode(sec).filter(l => l.trim() !== '');
+  const legend = {}, props = {};
+  secTable(sec).forEach(r => { if (r['記号']) legend[r['記号']] = r; });
+  let inCode = false;
+  for (const l of sec.lines) {
+    if (/^\s*```/.test(l)) { inCode = !inCode; continue; }
+    const m = !inCode && /^\s*[-*]\s*([^：:|]+?)\s*[：:]\s*(.+?)\s*$/.exec(l);
+    if (m) props[m[1]] = m[2];
+  }
+  const wall = rows[0] || '', floor = rows[1] || '';
+  const w = Math.max(1, wall.length, floor.length), objs = [];
+  [['wall', wall], ['floor', floor]].forEach(([layer, row]) => {
+    for (let x = 0; x < row.length; x++) { const o = legend[row[x]]; if (o) objs.push({ sym: row[x], x, layer, o }); }
+  });
+  return { id, name, wall, floor, legend, props, objs, w, h: 1 };
+}
+
+
+/* ====================== 状態 ====================== */
+const S = { mode: 'title' };       // title | play | end
+let G = null;                       // 保存する状態
+let checkpoint = null;
+const RT = { enemies: [], shots: [], warns: [], guard: null, chase: null, inv: 0, busy: false, lastTile: '', t: 0, comp: null, flash: 0, stun: 0, hazards: [], floats: [], hide: false, hideAt: null };
+const roleChar = role => W.chars.find(c => c['役'] === role);
+const charByName = n => W.chars.find(c => c['名前'] === n);
+const room = () => W.rooms[G.room];
+const setting = (k, d) => (W.settings[k] ?? '') !== '' ? W.settings[k] : d;
+const saveKey = () => 'md-forge-sidescroll:' + setting('タイトル', 'untitled');
+
+function sub(s) {
+  return s.replace(/\{(主人公|同行者|番人)\}/g, (_, r) => { const c = roleChar(r); return c ? c['名前'] : r; })
+          .replace(/\{数値[:：]([^}]+)\}/g, (_, n) => String(G ? (G.vars[n.trim()] || 0) : 0));
+}
+// 古いセーブにも新しい項目を足す
+function normalizeState(st) {
+  st.visited = st.visited || (st.room ? [st.room] : []);
+  st.vars = st.vars || {}; st.areas = st.areas || []; st.buff = st.buff || 0; st.buffLv = st.buffLv || 0;
+  st.items = st.items || []; st.flags = st.flags || {}; st.done = st.done || {};
+  st.looks = st.looks || {}; st.writes = st.writes || {}; st.y = 0; if (!st.face || !st.face[0]) st.face = [1, 0];
+  return st;
+}
+// 自動セーブ（部屋の移動時とイベント終了時）。追跡中・ゲームオーバー中は保存しない
+function saveGame() {
+  if (!G || S.mode !== 'play' || RT.chase) return;
+  try { localStorage.setItem(saveKey(), JSON.stringify(G)); } catch (e) {}
+}
+function loadSaved() { try { const v = JSON.parse(localStorage.getItem(saveKey()) || 'null'); return v ? normalizeState(v) : null; } catch (e) { return null; } }
+
+/* ====================== 部屋（横から見た 1 列） ====================== */
+// | と # は行き止まり。種類「障害」は条件が合うまでふさぐ。「出る」が合わない物は、無いのと同じ
+const KIND_USE = /^(調べる|置物|扉|階段|隠し扉|隠れる|障害)$/;
+function colCh(layer, x) { return room()[layer][x] || '.'; }
+const shown = ob => cond(ob.o['出る']) && (ob.o['種類'] !== '隠し扉' || cond(ob.o['条件']));
+function objsAt(x) { return room().objs.filter(ob => ob.x === x && shown(ob)); }
+function isSolid(x) {
+  const r = room();
+  if (x < 0 || x >= r.w) return true;
+  if (/[#|]/.test(colCh('wall', x)) || /[#|]/.test(colCh('floor', x))) return true;
+  return objsAt(x).some(ob => ob.o['種類'] === '障害' && !cond(ob.o['条件']));
+}
+function findSym(sym) {
+  const r = room();
+  for (const layer of ['floor', 'wall']) { const x = r[layer].indexOf(sym); if (x >= 0) return [x, 0]; }
+  return null;
+}
+function floorTiles() { const r = room(), out = []; for (let x = 0; x < r.w; x++) if (!isSolid(x)) out.push([x, 0]); return out; }
+const lookKey = (rid, sym) => rid + ':' + sym;
+// 見た目は [変化] で書き換えられる（セーブに残る）
+function lookOf(ob) { return (G.looks && G.looks[lookKey(G.room, ob.sym)]) ?? ob.o['見た目'] ?? ''; }
+function enterRoom(id, sym, keepPos, noSave) {
+  if (!W.rooms[id]) { toast(`部屋「${id}」がありません`); return false; }
+  G.room = id; G.y = 0;
+  G.visited = G.visited || [];
+  if (!G.visited.includes(id)) G.visited.push(id);
+  if (!keepPos) {
+    const p = (sym && findSym(sym)) || findSym('@') || floorTiles()[0] || [1, 0];
+    G.x = p[0] + 0.5;
+    if (blocked(G.x)) { const f = floorTiles().sort((a, b) => Math.abs(a[0] - p[0]) - Math.abs(b[0] - p[0]))[0]; if (f) G.x = f[0] + 0.5; }
+  }
+  RT.entryX = sym && !keepPos ? G.x : null;   // 入ってきた扉の位置（追跡の番人は、ここ＝背後から来る）
+  RT.lastCol = Math.floor(G.x); RT.bumpCol = null; RT.hide = false; RT.hideAt = null;
+  RT.grace = num(setting('入室の猶予', 2), 2);   // 部屋に入ってすぐは敵に見つからない（秒）
+  if (RT.chase) endChase('escaped');
+  RT.shots = []; RT.warns = []; RT.guard = null; RT.hazards = []; RT.floats = [];
+  spawnEnemies();
+  if (RT.comp) RT.comp.x = G.x - G.face[0] * 0.8;
+  $('#roomName').textContent = room().name;
+  checkpoint = JSON.parse(JSON.stringify(G));
+  if (!noSave) saveGame();
+  resize();
+  return true;
+}
+function spawnEnemies() { RT.enemies = []; refreshEnemies(); }
+// 条件が合った敵を出し、合わなくなった敵を消す（イベントの後にも呼ぶ）
+function refreshEnemies() {
+  const keep = [];
+  for (const ob of room().objs) {
+    if (ob.o['種類'] !== '敵' || !shown(ob) || !cond(ob.o['条件'])) continue;
+    const d = W.enemies[ob.o['対象']];
+    if (!d) continue;
+    const key = ob.sym + ob.x;
+    keep.push(RT.enemies.find(e => e.key === key) || { key, d, x: ob.x + 0.5, y: 0, hx: ob.x + 0.5, face: -1, t: Math.random() * 6, st: 'idle', timer: 0, vx: 0, cd: 1, mark: 0 });
+  }
+  RT.enemies = keep;
+}
+
+
+/* ====================== 条件 ====================== */
+function cmp(a, op, b) { return op === '>=' ? a >= b : op === '<=' ? a <= b : op === '>' ? a > b : op === '<' ? a < b : a === b; }
+function cond(s) {
+  s = sub((s || '').trim());
+  if (!s) return true;
+  return s.split(/\s*[&＆]\s*/).every(c => {
+    let neg = false, v, m;
+    c = c.trim();
+    if (/^[!！]/.test(c)) { neg = true; c = c.slice(1).trim(); }
+    if ((m = /^持つ[:：](.+)$/.exec(c))) v = G.items.includes(m[1].trim());
+    else if ((m = /^フラグ[:：](.+)$/.exec(c))) v = !!G.flags[m[1].trim()];
+    else if ((m = /^済[:：](.+)$/.exec(c))) v = !!G.done[m[1].trim()];
+    else if ((m = /^(好感|灯)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(m[1] === '好感' ? G.aff : G.light, m[2], +m[3]);
+    else if ((m = /^数値[:：](.+?)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(G.vars[m[1].trim()] || 0, m[2], +m[3]);
+    else if ((m = /^解放[:：](.+)$/.exec(c))) v = G.areas.includes(m[1].trim());
+    else if ((m = /^部屋[:：](.+)$/.exec(c))) v = G.room === m[1].trim();
+    else v = !!G.flags[c];
+    return neg ? !v : v;
+  });
+}
+
+/* ====================== 会話 ====================== */
+let dlgNext = null;
+function nameColor(n) { const c = charByName(n); return c ? (c['髪'] && c['髪'] !== '#000000' ? c['髪'] : c['服']) : '#e8b860'; }
+function say(name, text) {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false;
+    d.querySelector('.choices').innerHTML = '';
+    const nm = d.querySelector('.name'); nm.textContent = name || ''; nm.style.color = name ? nameColor(name) : '';
+    const tx = d.querySelector('.text'); tx.textContent = name ? '「' + text + '」' : text;
+    const full = tx.textContent; let i = 0; tx.textContent = '';
+    d.querySelector('.next').hidden = true;
+    const iv = setInterval(() => { i += 2; tx.textContent = full.slice(0, i); if (i >= full.length) stop(); }, 28);
+    function stop() { clearInterval(iv); tx.textContent = full; d.querySelector('.next').hidden = false; typing = false; }
+    let typing = true;
+    dlgNext = () => { if (typing) stop(); else { dlgNext = null; res(); } };
+  });
+}
+function choose(opts) {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false; d.querySelector('.next').hidden = true;
+    const box = d.querySelector('.choices'); box.innerHTML = '';
+    let sel = 0;
+    const btns = opts.map((o, i) => {
+      const b = document.createElement('button'); b.textContent = (i + 1) + '. ' + o.label;
+      b.onclick = e => { e.stopPropagation(); done(i); };
+      box.appendChild(b); return b;
+    });
+    const mark = () => btns.forEach((b, i) => b.classList.toggle('sel', i === sel));
+    mark();
+    function done(i) { dlgNext = null; choiceKey = null; box.innerHTML = ''; res(opts[i]); }
+    choiceKey = k => {
+      if (k === 'up') { sel = (sel + opts.length - 1) % opts.length; mark(); }
+      else if (k === 'down') { sel = (sel + 1) % opts.length; mark(); }
+      else if (k === 'ok') done(sel);
+      else if (/^[1-9]$/.test(k) && +k <= opts.length) done(+k - 1);
+    };
+    dlgNext = null;
+  });
+}
+let choiceKey = null;
+function hideDlg() { $('#dlg').hidden = true; }
+// 暗号入力：テキスト欄を出して、入力を返す
+function askText() {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false; d.querySelector('.next').hidden = true;
+    const box = d.querySelector('.choices');
+    box.innerHTML = '<div class="ask"><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="答えを入力"><button class="primary">決定</button><button>やめる</button></div>';
+    const inp = box.querySelector('input'), [ok, cancel] = box.querySelectorAll('button');
+    const done = v => { dlgNext = null; box.innerHTML = ''; res(v); };
+    ok.onclick = e => { e.stopPropagation(); done(inp.value); };
+    cancel.onclick = e => { e.stopPropagation(); done(null); };
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.isComposing) done(inp.value); });
+    dlgNext = null;
+    setTimeout(() => inp.focus(), 50);
+  });
+}
+// 全角半角・大文字小文字・ひらがなカタカナの違いは同じとみなす
+function normAnswer(s) {
+  return (s || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, '').replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+}
+
+/* ====================== イベント ====================== */
+async function runEvent(id) {
+  if (RT.busy || !id) return;
+  RT.busy = true; keys.clear(); joy = null;
+  try { for (const i of [].concat(id)) { if (S.mode !== 'play') break; await exec(i); } }   // 複数のイベントを続けて動かせる
+  catch (e) { console.error(e); toast('イベントでエラー: ' + e.message); }
+  finally { RT.busy = false; hideDlg(); updateHud(); if (S.mode === 'play') { refreshEnemies(); saveGame(); } }
+}
+async function exec(id, depth = 0) {
+  if (depth > 50) throw new Error('イベントの移動が多すぎます: ' + id);
+  const lines = W.events[id];
+  if (!lines) { await say(null, `（イベント「${id}」がありません）`); return; }
+  const first = !G.done[id];
+  // 「済」は最後まで進んだときだけ付ける。途中で別のイベントへ移った（暗くて見えない・持ち物がいっぱい等）ときは、もう一度調べられる
+  for (const raw of lines) {
+    if (S.mode !== 'play') return 'stop';
+    const ln = sub(raw);
+    const m = /^\[(\S+)\s*([\s\S]*?)\]$/.exec(ln);
+    if (m) {
+      const r = await command(m[1], m[2].trim(), first);
+      if (r === 'stop') return 'stop';
+      if (r && r.goto) return exec(r.goto, depth + 1);
+      continue;
+    }
+    const d = /^(.+?)「([\s\S]*)」$/.exec(ln);
+    if (d) await say(d[1].trim(), d[2]); else await say(null, ln);
+  }
+  if (S.mode === 'play') G.done[id] = (G.done[id] || 0) + 1;
+}
+const arrow = s => s.split(/\s*(?:→|->)\s*/);
+async function command(name, arg, first) {
+  switch (name) {
+    case '取得': {
+      const cons = isConsumable(arg);
+      if (!cons && G.items.includes(arg)) break;            // 大事な物は 1 つだけ
+      if (cons && consumableCount() >= itemLimit()) {      // 持ち物の上限（消耗品だけ数える）
+        if (W.events['満杯']) return { goto: '満杯' };
+        await say(null, `${arg} を見つけたが、これ以上は持てない。`); break;
+      }
+      G.items.push(arg); updateHud(); await say(null, `${itemIcon(arg)} ${arg} を手に入れた。`); break;
+    }
+    case '失う': { const i = G.items.indexOf(arg); if (i >= 0) G.items.splice(i, 1); updateHud(); break; }
+    case '数値': {   // [数値 名前 +1] / [数値 名前 -1] / [数値 名前 =0]
+      const m = /^(.+?)\s*([+\-=＋－＝])\s*(-?\d+)$/.exec(arg);
+      if (!m) { await say(null, `（[数値 ${arg}] の書き方が違います）`); break; }
+      const k = m[1].trim(), v = +m[3], op = m[2].normalize('NFKC');
+      G.vars[k] = op === '=' ? v : (G.vars[k] || 0) + (op === '+' ? v : -v);
+      break;
+    }
+    case '解放': if (!G.areas.includes(arg)) G.areas.push(arg); break;
+    case '入力': {   // [入力 答え → イベント]。答えは | で複数書ける
+      const [ans, to] = arrow(arg);
+      const v = await askText();
+      if (v != null && ans.split(/[|｜]/).some(a => normAnswer(a) === normAnswer(v))) return { goto: to };
+      break;
+    }
+    case 'フラグ': G.flags[arg] = true; break;
+    case '消す': delete G.flags[arg]; break;
+    case '灯': {
+      const v = parseInt(arg, 10) || 0;
+      if (v < 0) { for (let i = 0; i < -v; i++) hurt(true); if (S.mode !== 'play') return 'stop'; }
+      else { G.light = Math.min(maxLight(), G.light + v); updateHud(); }
+      break;
+    }
+    case '好感': G.aff += parseInt(arg, 10) || 0; break;
+    case '分岐': { const [c, to] = arrow(arg); if (cond(c)) return { goto: to }; break; }
+    case '済': { const [, to] = arrow(arg); if (!first) return { goto: to || arg }; break; }
+    case '選択': {
+      const opts = arg.split(/\s*[/／]\s*/).map(o => { const [label, to] = arrow(o); return { label, to }; });
+      const o = await choose(opts);
+      if (o.to) return { goto: o.to };
+      break;
+    }
+    case '移動': {
+      const [rid, sym] = arg.split(/[:：]/);
+      await fade(true); enterRoom(rid.trim(), sym && sym.trim()); await fade(false);
+      if (W.events['入室:' + rid.trim()]) await exec('入室:' + rid.trim());
+      break;
+    }
+    case '追跡': {   // [追跡 名前 秒数] / [追跡 名前 秒数 → 灯が尽きたときのイベント]
+      const [head, fail] = arrow(arg);
+      const [gn, secs] = head.split(/\s+/);
+      hideDlg();
+      const r = await chase(gn, num(secs, 15), fail);
+      if (r === 'fail') return { goto: fail };
+      if (r === 'dead' || S.mode !== 'play') return 'stop';
+      break;
+    }
+    case '同行': G.companion = arg; RT.comp = { x: G.x, y: G.y }; break;
+    case '離脱': G.companion = null; RT.comp = null; break;
+    case '揺れ': shake(); await wait(0.35); break;
+    case '暗転': await fade(true); await wait(0.4); await fade(false); break;
+    case '目的': G.goal = arg; updateGoal(true); break;   // 画面上部の「目的」を書き換える。{数値:名前} も使える
+    case '暗く': hideDlg(); await fade(true); break;     // 黒い画面のまま、次の文を出す（導入・場面転換用）
+    case '明るく': hideDlg(); await fade(false); break;
+    case '待つ': hideDlg(); await wait(num(arg, 1)); break;
+    case '止める': return 'stop';
+    case '終わり': hideDlg(); ending(arg); return 'stop';
+    case 'ゲームオーバー': hideDlg(); gameOver(arg); return 'stop';
+    // ---- 横スクロール版で増えた命令（壁のギミック用） ----
+    case '変化': {   // [変化 記号 見た目] / [変化 部屋ID:記号 見た目]。見た目を書かないと元に戻る
+      const [where, ...rest] = arg.split(/\s+/);
+      const [a, b] = where.split(/[:：]/), key = b ? lookKey(a, b) : lookKey(G.room, a);
+      if (rest.length) G.looks[key] = rest.join(' '); else delete G.looks[key];
+      break;
+    }
+    case '落書き': {   // [落書き 記号 文]：その物の上の壁に文字を残す（消えない）。文を書かないと消す
+      const m = /^(\S+)\s*([\s\S]*)$/.exec(arg) || ['', '', ''];
+      const [a, b] = m[1].split(/[:：]/), key = b ? lookKey(a, b) : lookKey(G.room, a);
+      if (m[2]) G.writes[key] = m[2]; else delete G.writes[key];
+      break;
+    }
+    case '文字': hideDlg(); RT.floats.push({ text: arg, x: G.x, t: 0, dur: 3 }); await wait(2.6); break;   // 壁に文字が浮かんで消える
+    case '手': {   // [手 記号]：その壁から手が伸びる。会話が閉じて少しすると伸び、近くにいると灯が消える
+      const p = arg && findSym(arg);
+      RT.hazards.push({ x: p ? p[0] + 0.5 : G.x, t: 0, hit: false, seed: Math.random() * 9 });
+      break;
+    }
+    case '振り向く': G.face = [-G.face[0], 0]; await wait(0.3); break;
+    case '向き': G.face = [/左/.test(arg) ? -1 : 1, 0]; break;
+    default: await say(null, `（命令「${name}」は知りません）`);
+  }
+}
+const wait = s => new Promise(r => setTimeout(r, s * 1000));
+function fade(on) { $('#fade').style.opacity = on ? 1 : 0; return wait(0.5); }
+function shake() { const m = $('#stage'); m.classList.remove('shake'); void m.offsetWidth; m.classList.add('shake'); }
+
+/* ====================== 持ち物・灯 ====================== */
+const maxLight = () => num(setting('灯の最大', 5), 5);
+const itemIcon = n => (W.items[n] && W.items[n]['絵']) || '◆';
+function updateHud() {
+  if (!G) { $('#lights').innerHTML = ''; return; }
+  const prev = updateHud.shown ?? G.light;
+  let h = '';
+  for (let i = 0; i < maxLight(); i++) {
+    const cls = i < G.light ? 'on' : (i < prev ? 'off out' : 'off');   // 今消えた灯は、しぼむように消す
+    h += `<span class="cdl ${cls}"><i style="animation-delay:${(-i * 0.37).toFixed(2)}s"></i></span>`;
+  }
+  $('#lights').innerHTML = h;
+  updateHud.shown = G.light;
+  updateGoal();
+}
+const isConsumable = n => !!((W.items[n] || {})['使う'] || '').trim();
+const consumableCount = () => G.items.filter(isConsumable).length;
+const itemLimit = () => num(setting('持ち物の上限', ''), Infinity);
+const effLight = () => G.light + (G.buff > 0 ? G.buffLv : 0);
+// 「使う」欄の効果。読点・カンマで複数書ける：灯+1 / 光+1 / 気をそらす
+function applyEffect(spec) {
+  const done = [];
+  for (const part of spec.split(/[、,，]/).map(s => s.trim()).filter(Boolean)) {
+    let m;
+    if ((m = /^灯\s*([+-]?\d+)$/.exec(part))) { G.light = Math.min(maxLight(), G.light + +m[1]); done.push('灯'); }
+    else if ((m = /^光\s*([+-]?\d+)$/.exec(part))) { G.buffLv = Math.max(G.buffLv || 0, +m[1]); G.buff = 300; done.push('光'); }
+    else if (part === '気をそらす') { RT.stun = 3; done.push('気をそらす'); }
+  }
+  return done.length > 0;
+}
+function useItem(n) {
+  const it = W.items[n] || {};
+  const ev = /^イベント[:：](.+)$/.exec((it['使う'] || '').trim());
+  if (ev) { $('#invDlg').close(); if (!RT.busy) runEvent(ev[1].trim()); return; }   // 使った結果はイベントで決める
+  if (!applyEffect(it['使う'] || '')) return;
+  const i = G.items.indexOf(n); if (i >= 0) G.items.splice(i, 1);
+  updateHud(); saveGame(); openInv(); toast(`${n} を使った。`);
+}
+let MINI = null, miniBig = false, miniTick = 0;
+// 全体図の置き方：左右の端の扉は左右へ、階段は上下へ（見た目「階段:下」は下）、壁の途中の扉は上へ
+function doorDir(r, ob) {
+  if (ob.o['種類'] === '階段') return /下/.test(ob.o['見た目'] || '') ? [0, 1] : [0, -1];
+  return ob.x < r.w * 0.2 ? [-1, 0] : ob.x >= r.w * 0.8 ? [1, 0] : [0, -1];
+}
+function buildMiniLayout() {
+  const pos = {}, edges = [], used = new Set(), start = setting('開始部屋', Object.keys(W.rooms)[0]);
+  if (!W.rooms[start]) return { pos, edges };
+  pos[start] = [0, 0]; used.add('0,0');
+  const q = [start];
+  while (q.length) {
+    const id = q.shift(), r = W.rooms[id];
+    for (const ob of r.objs) {
+      if (!/扉|階段/.test(ob.o['種類'])) continue;
+      const to = (ob.o['対象'] || '').split(/[:：]/)[0].trim();
+      if (!W.rooms[to]) continue;
+      if (!edges.some(e => (e.a === id && e.b === to) || (e.a === to && e.b === id))) edges.push({ a: id, b: to, o: ob.o });
+      if (pos[to]) continue;
+      const d = doorDir(r, ob);
+      let k = 1, pp;
+      do { pp = [pos[id][0] + d[0] * k, pos[id][1] + d[1] * k]; k++; } while (used.has(pp + '') && k < 8);
+      pos[to] = pp; used.add(pp + ''); q.push(to);
+    }
+  }
+  return { pos, edges };
+}
+
+function drawMini() {
+  const c = $('#mini');
+  if (!G || S.mode !== 'play' || !W.rooms[G.room]) { c.hidden = true; return; }
+  if (!MINI) MINI = buildMiniLayout();
+  const vis = new Set(G.visited || []);
+  // 見せる線：訪れた部屋から出ていて、隠し扉なら条件が合っているもの
+  const edges = MINI.edges.filter(e => (vis.has(e.a) || vis.has(e.b)) && ((cond(e.o['出る']) && (e.o['種類'] !== '隠し扉' || cond(e.o['条件']))) || (vis.has(e.a) && vis.has(e.b))));
+  const known = new Set([...vis]); edges.forEach(e => { known.add(e.a); known.add(e.b); });
+  const ids = [...known].filter(id => MINI.pos[id]);
+  if (!ids.length) { c.hidden = true; return; }
+  const xs = ids.map(id => MINI.pos[id][0]), ys = ids.map(id => MINI.pos[id][1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys), cols = Math.max(...xs) - minX + 1, rows = Math.max(...ys) - minY + 1;
+  const cw = miniBig ? 46 : 20, chh = miniBig ? 28 : 12, gap = miniBig ? 18 : 8, pad = miniBig ? 12 : 6;
+  const W2 = pad * 2 + cols * cw + (cols - 1) * gap, H2 = pad * 2 + rows * chh + (rows - 1) * gap + (miniBig ? 0 : 0);
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  if (c.width !== W2 * dpr || c.height !== H2 * dpr) { c.width = W2 * dpr; c.height = H2 * dpr; c.style.width = W2 + 'px'; c.style.height = H2 + 'px'; }
+  c.hidden = false;
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W2, H2);
+  const at = id => { const [x, y] = MINI.pos[id]; return [pad + (x - minX) * (cw + gap), pad + (y - minY) * (chh + gap)]; };
+  g.strokeStyle = 'rgba(200,210,220,.45)'; g.lineWidth = 1.5;
+  for (const e of edges) { if (!MINI.pos[e.a] || !MINI.pos[e.b]) continue; const [ax, ay] = at(e.a), [bx, by] = at(e.b); g.beginPath(); g.moveTo(ax + cw / 2, ay + chh / 2); g.lineTo(bx + cw / 2, by + chh / 2); g.stroke(); }
+  for (const id of ids) {
+    const [x, y] = at(id), cur = id === G.room, seen = vis.has(id);
+    g.fillStyle = cur ? '#5a4628' : seen ? '#2c333c' : 'rgba(20,22,28,.9)';
+    g.fillRect(x, y, cw, chh);
+    g.strokeStyle = cur ? '#e8b860' : seen ? '#8a96a4' : 'rgba(140,150,160,.5)';
+    g.setLineDash(seen ? [] : [3, 2]); g.lineWidth = cur ? 2 : 1; g.strokeRect(x + 0.5, y + 0.5, cw - 1, chh - 1); g.setLineDash([]);
+    if (cur) {   // 部屋の中での自分の位置
+      const r = room(); g.fillStyle = '#fff4c0';
+      g.beginPath(); g.arc(x + G.x / r.w * cw, y + chh / 2, miniBig ? 3 : 2, 0, 7); g.fill();
+    }
+    if (miniBig) { g.fillStyle = seen ? '#d8e0e8' : '#7a828c'; g.font = '12px DenkiChip, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+      const nm = seen ? (W.rooms[id].name || id) : '？'; g.fillText(nm.length > 7 ? nm.slice(0, 7) : nm, x + cw / 2, y + chh + 2); }
+  }
+}
+$('#mini').addEventListener('click', e => { e.stopPropagation(); miniBig = !miniBig; drawMini(); });
+$('#mini').addEventListener('pointerdown', e => e.stopPropagation());
+function updateGoal(changed) {
+  const el = $('#goal'), txt = G && G.goal && S.mode === 'play' ? sub(G.goal) : '';
+  if (el.hidden !== !txt) { el.hidden = !txt; resize(); }
+  el.textContent = txt;
+  if (changed && txt) { el.classList.remove('new'); void el.offsetWidth; el.classList.add('new'); toast('目的が更新された'); }
+}
+function hurt(scripted) {
+  if (!scripted && RT.inv > 0) return;
+  G.light -= 1; RT.inv = 1.4; RT.flash = 0.4; shake(); updateHud();
+  if (G.light <= 0 && RT.chase && RT.chase.fail) { G.light = 0; endChase('fail'); return; }   // 失敗イベントのある追跡は、ゲームオーバーにしない
+  if (G.light <= 0) gameOver('灯が、すべて消えた。');
+}
+function openInv() {
+  if (!G) return;
+  const ul = $('#invList'); ul.innerHTML = '';
+  if (!G.items.length) ul.innerHTML = '<li><span class="tx">何も持っていない。</span></li>';
+  const lim = itemLimit();
+  $('#invHead').textContent = isFinite(lim) ? `消耗品 ${consumableCount()} / ${lim}` : '';
+  [...new Set(G.items)].forEach(n => {
+    const it = W.items[n] || {}, cnt = G.items.filter(x => x === n).length;
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="ic">${itemIcon(n)}</span><span class="tx"><b></b><span></span></span>`;
+    li.querySelector('b').textContent = n + (cnt > 1 ? ` ×${cnt}` : '') + (it['分類'] ? `（${it['分類']}）` : '');
+    li.querySelector('.tx span').textContent = it['説明'] || '';
+    if (isConsumable(n)) {
+      const b = document.createElement('button'); b.textContent = '使う';
+      b.onclick = () => useItem(n);
+      li.appendChild(b);
+    }
+    ul.appendChild(li);
+  });
+  if (!$('#invDlg').open) $('#invDlg').showModal();
+}
+
+/* ====================== 入力 ====================== */
+const keys = new Set();
+let joy = null;   // {sx, sy, dx, dy, moved, t}
+const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+addEventListener('keydown', e => {
+  if (document.querySelector('dialog[open]') || /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const k = KEYMAP[e.code];
+  if (choiceKey) {
+    if (k === 'u') choiceKey('up'); else if (k === 'd') choiceKey('down');
+    else if (/^(Space|Enter|KeyZ)$/.test(e.code)) choiceKey('ok');
+    else if (/^Digit[1-9]$/.test(e.code)) choiceKey(e.code.slice(5));
+    e.preventDefault(); return;
+  }
+  if (/^(Space|Enter|KeyZ)$/.test(e.code)) { e.preventDefault(); if (e.repeat) return; if (titleNext) titleNext(); else action(); return; }
+  if (e.code === 'KeyI') { openInv(); return; }
+  if (k) { keys.add(k); e.preventDefault(); }
+});
+addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+addEventListener('blur', () => keys.clear());
+const cv = $('#cv');
+// タッチ：押した所からのドラッグ方向へ進む（仮想スティック）。マウス：押している間、カーソルの方へ進む。
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); joy = { sx: e.clientX, sy: e.clientY, cx: e.clientX, cy: e.clientY, dx: 0, dy: 0, moved: false, t: performance.now(), mouse: e.pointerType === 'mouse' }; });
+cv.addEventListener('pointermove', e => {
+  if (!joy) return;
+  joy.cx = e.clientX; joy.cy = e.clientY;
+  joy.dx = e.clientX - joy.sx; joy.dy = e.clientY - joy.sy;
+  if (Math.hypot(joy.dx, joy.dy) > 14) joy.moved = true;
+});
+cv.addEventListener('pointerup', () => { if (joy && !joy.moved && performance.now() - joy.t < 300) action(); joy = null; });
+cv.addEventListener('pointercancel', () => joy = null);
+$('#dlg').addEventListener('click', () => { if (dlgNext) dlgNext(); });
+// ---- スマホ用スティックとボタン ----
+const stick = { id: null, x: 0, y: 0 };
+if (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
+addEventListener('touchstart', () => document.body.classList.add('touch'), { once: true, passive: true });
+(() => {
+  const base = $('#stick'), knob = base.querySelector('.knob');
+  const set = e => {
+    const r = base.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+    const l = Math.hypot(dx, dy), max = R - 14;
+    if (l > max) { dx *= max / l; dy *= max / l; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const k = Math.hypot(dx, dy) / max;
+    if (k < 0.22) { stick.x = stick.y = 0; } else { stick.x = dx / max; stick.y = dy / max; }
+  };
+  const end = e => { if (e.pointerId !== stick.id) return; stick.id = null; stick.x = stick.y = 0; knob.style.transform = ''; };
+  base.addEventListener('pointerdown', e => { e.preventDefault(); try { base.setPointerCapture(e.pointerId); } catch (_) {} stick.id = e.pointerId; set(e); });
+  base.addEventListener('pointermove', e => { if (e.pointerId === stick.id) set(e); });
+  base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
+  // ボタンは押した瞬間に反応させる（click を待たない）
+  const press = (el, fn) => {
+    el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('on'); fn(); });
+    const off = () => el.classList.remove('on');
+    el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
+    el.addEventListener('click', e => e.stopPropagation());
+  };
+  press($('#act'), () => { if (choiceKey) choiceKey('ok'); else action(); });
+  press($('#bInv'), () => { if (S.mode === 'play' && (!RT.busy || RT.chase)) openInv(); });
+})();
+
+/* ====================== 調べる・扉 ====================== */
+function action() {
+  if (dlgNext) { dlgNext(); return; }
+  if (S.mode !== 'play') return;
+  if (RT.chase) { const t = nearObj(true); if (t) interact(t); return; }   // 追跡中は扉と階段だけ使える
+  if (RT.busy) return;
+  examine();
+}
+// 主人公の前にある、いちばん近い調べられる物。onlyDoor：扉と階段だけ。wall：壁の物を優先（↑ キー）
+function nearObj(onlyDoor, wall) {
+  let best = null, bd = Infinity;
+  for (const ob of room().objs) {
+    const k = ob.o['種類'];
+    if (!KIND_USE.test(k) || !shown(ob)) continue;
+    if (onlyDoor && !/扉|階段/.test(k)) continue;
+    if (k === '置物' && !ob.o['対象']) continue;
+    if (k === '障害' && cond(ob.o['条件'])) continue;   // もう通れる障害は調べない
+    const lim = k === '障害' ? 1.05 : 0.8;
+    let d = Math.abs(ob.x + 0.5 - G.x);
+    if (d > lim) continue;
+    if (Math.sign(ob.x + 0.5 - G.x) === -G.face[0]) d += 0.15;   // 向いている側を少し優先
+    if ((ob.layer === 'wall') === !!wall) d -= 0.05;             // 同じ位置なら、調べるは手前（床の物）、↑ は壁の物を優先
+    if (d < bd) { bd = d; best = ob; }
+  }
+  return best;
+}
+function interact(ob) {
+  const o = ob.o, k = o['種類'];
+  if (/扉|階段/.test(k)) {
+    if (!cond(o['条件'])) { if (o['だめなとき']) runEvent(o['だめなとき']); else toast('開かない。'); return; }
+    goDoor(o['対象'], o['通ったら']);
+    return;
+  }
+  if (k === '隠れる') {
+    if (!cond(o['条件'])) { if (o['だめなとき']) runEvent(o['だめなとき']); return; }
+    RT.hide = true; RT.hideAt = ob; G.x = ob.x + 0.5; keys.clear(); joy = null;
+    toast('隠れた（左右に動くと出る）');
+    return;
+  }
+  if (cond(o['条件'])) { if (o['対象']) runEvent(o['対象']); }
+  else if (o['だめなとき']) runEvent(o['だめなとき']);
+}
+function examine() {
+  if (RT.hide) { RT.hide = false; return; }
+  const t = nearObj();
+  if (t) { interact(t); return; }
+  const talker = RT.enemies.find(e => e.d['話す'] && Math.abs(e.x - G.x) < 1.3);
+  if (talker && W.events[talker.d['話す']]) { runEvent(talker.d['話す']); return; }
+  if (RT.comp && Math.abs(RT.comp.x - G.x) < 1.4 && W.events['同行者と話す']) runEvent('同行者と話す');
+}
+function inputVec() {
+  let x = 0, y = 0;
+  if (keys.has('l')) x -= 1; if (keys.has('r')) x += 1; if (keys.has('u')) y -= 1; if (keys.has('d')) y += 1;
+  if (stick.x || stick.y) { x = stick.x; y = stick.y; }
+  else if (joy && joy.mouse && G && (joy.moved || performance.now() - joy.t > 180)) {   // マウス：押している間、カーソルの方へ歩く
+    const r = cv.getBoundingClientRect(), [ox] = cam();
+    const dx = joy.cx - r.left - (ox + G.x * TS);
+    joy.moved = true;
+    if (Math.abs(dx) > TS * 0.25) x = Math.sign(dx);
+  } else if (joy && joy.moved) { const l = Math.hypot(joy.dx, joy.dy); x = joy.dx / l; y = joy.dy / l; }
+  return [Math.abs(x) < 0.25 ? 0 : Math.max(-1, Math.min(1, x)), y];
+}
+
+/* ====================== 移動 ====================== */
+const PR = 0.3, SPD = 3.4;
+function blocked(x, r = PR) { return isSolid(Math.floor(x - r)) || isSolid(Math.floor(x + r)); }
+// 横に動かす。ふさがれたら、ぶつかった所まで寄せて true を返す
+function moveX(e, dx, r = PR) {
+  if (!blocked(e.x + dx, r)) { e.x += dx; return false; }
+  if (dx > 0) { const c = Math.floor(e.x + r + dx); e.x = Math.max(e.x, Math.min(e.x + dx, c - r - 0.001)); }
+  else if (dx < 0) { const c = Math.floor(e.x - r + dx); e.x = Math.min(e.x, Math.max(e.x + dx, c + 1 + r + 0.001)); }
+  return true;
+}
+function updatePlayer(dt) {
+  const [vx, vy] = inputVec();
+  // 上（↑・W・スティックを上へ）：前にある扉・階段に入る。壁の物を調べる（追跡中は扉と階段だけ）
+  const up = vy < -0.6 && Math.abs(vy) > Math.abs(vx);
+  if (up && !RT.upHeld) { RT.upHeld = true; const t = nearObj(!!RT.chase, true); if (t && (RT.chase || /扉|階段/.test(t.o['種類']) || t.layer === 'wall')) { interact(t); return; } }
+  if (!up) RT.upHeld = false;
+  if (RT.hide) { if (Math.abs(vx) > 0.5) RT.hide = false; else { RT.pv = [0, 0]; return; } }
+  RT.pv = [vx * SPD, 0];
+  RT.walk = vx ? (RT.walk || 0) + dt : 0;
+  if (!vx) return;
+  G.face = [Math.sign(vx), 0];
+  if (moveX(G, vx * SPD * dt)) {   // ふさがれた。障害なら「だめなとき」を 1 回だけ動かす
+    const col = Math.floor(G.x + Math.sign(vx) * (PR + 0.05));
+    if (RT.bumpCol !== col) {
+      RT.bumpCol = col;
+      const ob = objsAt(col).find(b => b.o['種類'] === '障害' && !cond(b.o['条件']));
+      if (ob && ob.o['だめなとき'] && !RT.chase) runEvent(ob.o['だめなとき']);
+    }
+    return;
+  }
+  const col = Math.floor(G.x);
+  if (col === RT.lastCol) return;
+  RT.lastCol = col; RT.bumpCol = null;
+  if (RT.chase) return;
+  for (const ob of objsAt(col)) {   // 種類「床」：その位置まで歩くとイベント
+    if (ob.o['種類'] !== '床') continue;
+    if (cond(ob.o['条件'])) { if (ob.o['対象']) { runEvent(ob.o['対象']); return; } }
+    else if (ob.o['だめなとき']) { runEvent(ob.o['だめなとき']); return; }
+  }
+}
+async function goDoor(target, after) {
+  const [rid, sym] = (target || '').split(/[:：]/).map(s => s && s.trim());
+  if (!W.rooms[rid]) { toast(`扉の行き先「${target}」がありません`); return; }
+  const prev = RT.busy;
+  RT.busy = true; RT.hide = false;
+  if (RT.chase) endChase('escaped');
+  await fade(true); enterRoom(rid, sym); await fade(false);
+  RT.busy = prev;
+  if (prev) return;   // 追跡中に扉から逃げた場合は、元のイベントが続きを進める
+  toast(room().name);
+  // 扉の「通ったら」→ 部屋の「入室:ID」の順に動かす
+  const evs = [after, '入室:' + rid].filter(e => e && W.events[e]);
+  if (evs.length) runEvent(evs);
+}
+
+/* ====================== 敵（横の動き） ====================== */
+function moveDef(name) { return W.moves[name] || { 値1: 0, 値2: 0 }; }
+// 見回り：歩く・立ち止まって振り返る → 前に見つけると「!」で追う → 隠れる・離れると「?」で探す → 持ち場へ戻る
+// 敵は向いている方しか見ない。隠れている主人公には気づかず、すり抜けていく
+function patrolStep(e, dt, sp, v1, v2, dist, ux) {
+  const see = RT.grace <= 0 && !RT.hide && dist < v1 && (ux === e.face || dist < 0.9);
+  let v = 0;
+  if (see && e.st !== 'chase') { e.st = 'chase'; e.mark = 0.9; }
+  if (e.st === 'chase') {
+    if (!RT.hide && dist < v1 + 2) { e.lx = G.x; v = ux * sp * v2; }
+    else { e.st = 'lost'; e.timer = 3; }
+  } else if (e.st === 'lost') {
+    const d = e.lx - e.x; v = Math.abs(d) > 0.3 ? Math.sign(d) * sp * 0.7 : 0;
+    if (!v && Math.floor(e.timer * 1.5) !== Math.floor((e.timer - dt) * 1.5)) e.face = -e.face;   // きょろきょろする
+    e.timer -= dt; if (e.timer <= 0) e.st = 'return';
+  } else if (e.st === 'return') {
+    const d = e.hx - e.x; v = Math.sign(d) * sp * 0.5; if (Math.abs(d) < 0.3) e.st = 'patrol';
+  } else {
+    e.st = 'patrol';
+    if (e.pause > 0) { const before = e.pause; e.pause -= dt; if (before >= 0.7 && e.pause < 0.7) e.face = -e.face; }   // 立ち止まって振り返る
+    else {
+      if (e.wp == null) {
+        const near = floorTiles().filter(([x]) => Math.abs(x + 0.5 - e.hx) < 5.5 && Math.abs(x + 0.5 - e.x) > 1.5);
+        const t = near[Math.floor(Math.random() * near.length)];
+        e.wp = t ? t[0] + 0.5 : e.hx;
+      }
+      if (Math.abs(e.wp - e.x) < 0.15) { e.wp = null; e.pause = 1.2 + Math.random() * 1.2; }
+      else v = Math.sign(e.wp - e.x) * sp * 0.45;
+    }
+  }
+  return v;
+}
+function updateEnemies(dt) {
+  if (RT.stun > 0) { RT.shots = RT.shots.filter(s => (s.life -= dt) > 0); return; }   // 気をそらしている間は止まる
+  for (const e of RT.enemies) {
+    e.t += dt; e.mark = Math.max(0, (e.mark || 0) - dt);
+    const dx = G.x - e.x, dist = Math.abs(dx) || 0.001, ux = Math.sign(dx) || 1;
+    const sp = num(e.d['速さ'], 1.2), mv = e.d['動き'] || '', md = moveDef(mv), v1 = num(md['値1'], 0), v2 = num(md['値2'], 0);
+    const patrol = /^見回り/.test(mv);   // 「見回り」で始まる名前の動きは、値だけ違う見回りとして扱う
+    let v = 0;
+    switch (patrol ? '見回り' : mv) {
+      case 'ふらふら': v = ux * sp * (0.7 + Math.sin(e.t * (v2 || 3)) * (v1 || 0.8) * 0.6); break;
+      case '突進':
+        if (e.st !== 'wind' && e.st !== 'dash') { v = ux * sp * 0.4; if (dist < 4.5) { e.st = 'wind'; e.timer = v1 || 0.8; } }
+        else if (e.st === 'wind') { e.timer -= dt; if (e.timer <= 0) { e.st = 'dash'; e.timer = 0.7; e.vx = ux; } }
+        else { v = e.vx * sp * (v2 || 4); e.timer -= dt; if (e.timer <= 0) e.st = 'idle'; }
+        break;
+      case '撃つ':
+        v = ux * sp * (dist > v1 + 0.5 ? 1 : dist < v1 - 0.5 ? -1 : 0);
+        e.cd -= dt; if (e.cd <= 0) { e.cd = v2 || 2; RT.shots.push({ x: e.x, vx: ux * 4, life: 4 }); }
+        break;
+      case '見張り': if (e.st === 'wake' || (dist < v1 && !RT.hide)) { e.st = 'wake'; v = ux * sp; } break;
+      case 'うしろ': e.st = G.face[0] === -ux ? 'freeze' : 'move'; if (e.st === 'move') v = ux * sp; break;   // こちらが見ている間は止まる
+      case '見回り': v = patrolStep(e, dt, sp, v1, v2 || 1, dist, ux); break;
+      case '止まる': break;
+      default: v = ux * sp;   // 近づく（横スクロール版では「先回り」「広がる」もこれになる）
+    }
+    if (RT.hide && !patrol) v = 0;   // 隠れていると、見回り以外の敵も見失って止まる
+    if (Math.abs(v) > 0.01) e.face = Math.sign(v);
+    else if (!patrol && mv !== '止まる') e.face = ux;
+    if (moveX(e, v * dt, 0.25) && e.st === 'patrol') e.wp = null;
+    if (e.d['害'] !== 'いいえ' && !RT.hide && dist < 0.45 + num(e.d['大きさ'], 1) * 0.15 && RT.inv <= 0) {
+      hurt(); moveX(G, ux * 1.1); moveX(e, -ux * 0.6, 0.25);
+      if (e.st === 'dash') e.st = 'idle';
+    }
+  }
+  for (const s of RT.shots) {
+    s.x += s.vx * dt; s.life -= dt;
+    if (isSolid(Math.floor(s.x))) s.life = 0;
+    if (!RT.hide && Math.abs(s.x - G.x) < 0.3) { hurt(); s.life = 0; }
+  }
+  RT.shots = RT.shots.filter(s => s.life > 0);
+}
+// 壁から伸びる手（[手 記号]）。0.9 秒の予兆のあと 1.3 秒伸びる。その間に近くにいると灯が 1 つ消える
+function updateHazards(dt) {
+  for (const h of RT.hazards) {
+    h.t += dt;
+    if (!h.hit && h.t > 0.9 && h.t < 2.2 && Math.abs(G.x - h.x) < 1.15 && !RT.hide) { h.hit = true; hurt(); }
+  }
+  RT.hazards = RT.hazards.filter(h => h.t < 2.8);
+}
+
+/* ====================== 追跡（番人が横から迫る） ====================== */
+function chase(name, secs, fail) {
+  return new Promise(res => {
+    const gd = W.guards[name] || Object.values(W.guards)[0];
+    if (!gd) { res('none'); return; }
+    // 出る場所：番人位置 → 入ってきた扉（すぐ背後）→ 背中側の少し離れた所
+    const gp = room().objs.find(ob => ob.o['種類'] === '番人位置');
+    let x;
+    if (gp) x = gp.x + 0.5;
+    else if (RT.entryX != null && Math.abs(RT.entryX - G.x) < 2.5) x = RT.entryX;
+    else {
+      const cols = floorTiles().map(t => t[0] + 0.5), back = -G.face[0];
+      const behind = cols.filter(c => Math.sign(c - G.x) === back && Math.abs(c - G.x) >= 3);
+      x = behind.length ? behind.sort((a, b) => Math.abs(a - G.x - back * 5) - Math.abs(b - G.x - back * 5))[0]
+        : (cols.sort((a, b) => Math.abs(b - G.x) - Math.abs(a - G.x))[0] ?? G.x);
+    }
+    RT.guard = { d: gd, x, y: 0, alpha: 0, cd: 1.4, act: null, wait: 1.2, face: Math.sign(G.x - x) || 1 };
+    RT.chase = { t: secs, total: secs, res, fail };
+    $('#chase').hidden = false;
+    keys.clear(); RT.hide = false;
+  });
+}
+function endChase(result) {
+  if (!RT.chase) return;
+  const r = RT.chase.res; RT.chase = null; RT.guard = null; RT.warns = [];
+  RT.shots = []; $('#chase').hidden = true;
+  r(result);
+}
+function updateChase(dt) {
+  const c = RT.chase, g = RT.guard;
+  c.t -= dt;
+  $('#chase div').style.width = Math.max(0, c.t / c.total * 100) + '%';
+  if (c.t <= 0) { endChase('survived'); return; }
+  g.alpha = Math.min(1, g.alpha + dt * 1.2);
+  if (g.wait > 0) { g.wait -= dt; return; }   // 出てきてすぐは動かない（逃げ出す間）
+  if (RT.stun > 0) return;
+  const dx = G.x - g.x, dist = Math.abs(dx), ux = Math.sign(dx) || 1;
+  const size = num(g.d['大きさ'], 1.6);
+  if (!g.act) {
+    g.face = ux;
+    moveX(g, ux * num(g.d['速さ'], 1) * dt, 0.3);
+    g.cd -= dt;
+    if (g.cd <= 0) {
+      const list = (g.d['技'] || '').split(/[・,、]/).map(s => s.trim()).filter(s => W.skills[s]);
+      if (list.length) {
+        const sk = W.skills[list[Math.floor(Math.random() * list.length)]];
+        g.act = { sk, t: num(sk['構え'], 1), total: num(sk['構え'], 1), dir: ux, ox: g.x };
+        RT.warns = [g.act];
+      } else g.cd = 2;
+    }
+  } else {
+    const a = g.act; a.t -= dt;
+    if (a.t <= 0) {
+      const kind = a.sk['種類'], L = num(a.sk['長さ'], 3);
+      if (kind === '前') { const along = (G.x - a.ox) * a.dir; if (along > -0.3 && along < L) hurt(); }
+      else if (kind === '円') { if (Math.abs(G.x - a.ox) < L + 0.2) hurt(); }
+      else if (kind === '弾') { const n = Math.max(1, Math.round(L)); for (let i = 0; i < n; i++) RT.shots.push({ x: a.ox, vx: a.dir * (3 + i * 1.3), life: 4 }); }
+      RT.flash = Math.max(RT.flash, kind === '弾' ? 0 : 0.15);
+      g.cd = num(a.sk['間隔'], 1.6); g.act = null; RT.warns = [];
+    }
+  }
+  if (RT.chase && dist < 0.35 + size * 0.2) hurt();
+}
+
+
+/* ====================== 画面遷移 ====================== */
+function newGame() {
+  G = { room: setting('開始部屋', Object.keys(W.rooms)[0]), x: 1.5, y: 0, face: [1, 0], looks: {}, writes: {}, light: num(setting('最初の灯', 3), 3), items: [], flags: {}, aff: 0, done: {}, companion: null, vars: {}, areas: [], buff: 0, buffLv: 0, goal: setting('最初の目的', ''), visited: [] };
+  RT.comp = null;
+  startPlay();
+  enterRoom(G.room);
+  updateHud();
+  const ev = setting('開始イベント', '');
+  if (ev) runEvent(ev);
+}
+function startPlay() {
+  document.body.classList.remove('titling');
+  S.mode = 'play'; $('#screen').hidden = true; $('#screen').onclick = null; titleNext = null; hideDlg();
+  RT.busy = false; RT.chase = null; RT.guard = null; RT.inv = 0; RT.stun = 0; $('#chase').hidden = true;
+}
+function loadState(st, noSave) {
+  G = normalizeState(JSON.parse(JSON.stringify(st)));
+  startPlay();
+  RT.comp = G.companion ? { x: G.x, y: G.y } : null;
+  enterRoom(G.room, null, true, noSave);
+  updateHud();
+}
+function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; $('#goal').hidden = true; $('#mini').hidden = true; }
+let titleNext = null;
+// タイトルは 1 枚だけ。「はじめる」を押すと、同じ画面の下にメニューが出る
+function titleScreen() {
+  S.mode = 'title'; hideDlg(); $('#chase').hidden = true; $('#fade').style.opacity = 0;
+  const t = setting('タイトル', '灯の館（仮）');
+  $('#title').textContent = t; document.title = t; $('#roomName').textContent = '';
+  document.body.classList.add('titling');   // タイトル中はヘッダーの題名を隠す（2 重にしない）
+  showScreen(`<h2 class="big"></h2><p class="catch"></p><div class="menu"><p class="press">クリック または スペースキーで はじめる</p></div>`);
+  $('#screen h2').textContent = t; $('#screen .catch').textContent = setting('キャッチ', '');
+  const go = () => { titleNext = null; $('#screen').onclick = null; titleMenu(); };
+  titleNext = go; $('#screen').onclick = go;
+}
+function titleMenu() {
+  const saved = loadSaved();
+  const m = $('#screen .menu');
+  m.innerHTML = `<div class="row"><button class="primary" id="sNew">はじめから</button><button id="sCont" ${saved ? '' : 'disabled'}>つづきから</button><button id="sMd">Markdown を読み込む</button></div><p class="desc"></p>`;
+  m.querySelector('.desc').textContent = setting('説明', '');
+  $('#sNew').onclick = () => { if (saved && !confirm('今のセーブを消して、最初から始めますか？')) return; newGame(); };
+  if (saved) $('#sCont').onclick = () => { if (W.rooms[saved.room]) loadState(saved); else newGame(); };
+  $('#sMd').onclick = openMd;
+  $('#sNew').focus();
+}
+function ending(name) {
+  S.mode = 'end';
+  try { localStorage.removeItem(saveKey()); } catch (e) {}
+  showScreen(`<p>END</p><h2></h2><div class="row"><button class="primary" id="sTitle">タイトルへ</button></div>`);
+  $('#screen h2').textContent = name || 'おわり';
+  $('#sTitle').onclick = titleScreen;
+}
+function gameOver(msg) {
+  if (S.mode !== 'play') return;
+  S.mode = 'end';
+  if (RT.chase) endChase('dead');
+  showScreen(`<h2 style="color:var(--danger)">GAME OVER</h2><p></p><div class="row"><button class="primary" id="sRetry">部屋の入口からやり直す</button><button id="sTitle">タイトルへ</button></div>`);
+  $('#screen p').textContent = msg || '';
+  $('#sRetry').onclick = () => loadState(checkpoint, true);   // セーブは上書きしない
+  $('#sTitle').onclick = titleScreen;
+}
+let toastT = 0;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = 0, 2200); }
+
+/* ====================== 描画（横から見た部屋） ====================== */
+const ctx = cv.getContext('2d');
+const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
+let VW = 0, VH = 0, TS = 64, DPR = 1, FLOOR_Y = 0, PSX = 0;
+const ACT = 2.1;   // 人物の大きさ（1 マスに対する倍率）
+function resize() {
+  const r = $('#stage').getBoundingClientRect();
+  DPR = Math.min(2, devicePixelRatio || 1); VW = r.width; VH = r.height;
+  cv.width = dark.width = VW * DPR; cv.height = dark.height = VH * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  TS = Math.max(40, Math.min(104, Math.floor(Math.min((VH - 40) / 4.4, VW / 7))));
+  const lift = document.body.classList.contains('touch') ? TS * 0.7 : TS * 0.35;   // 会話欄やスティックに隠れないよう、少し上に寄せる
+  FLOOR_Y = Math.max(10, (VH - TS * 4.1) / 2 - lift) + TS * 3.1;
+}
+addEventListener('resize', resize);
+// 返すのは [部屋の左端の画面 x, 床の画面 y]
+function cam() {
+  const rm = room(), ww = rm.w * TS;
+  const cx = ww <= VW ? (VW - ww) / 2 : Math.min(0, Math.max(VW - ww, VW / 2 - G.x * TS));
+  return [cx, FLOOR_Y];
+}
+
+function drawPerson(x, y, cloth, hair, scale, face, alpha = 1, plain = false) {
+  const s = TS * scale;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, s * 0.32, s * 0.28, s * 0.1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = cloth; ctx.beginPath(); ctx.moveTo(-s * 0.24, s * 0.3); ctx.lineTo(s * 0.24, s * 0.3); ctx.lineTo(s * 0.14, -s * 0.12); ctx.lineTo(-s * 0.14, -s * 0.12); ctx.fill();
+  // 頭（少し大きめにして顔を見やすくする）
+  const hy = -s * 0.27, hr = s * 0.2;
+  if (face[1] < 0) {   // 後ろ姿：髪だけ
+    ctx.fillStyle = '#efd9c8'; ctx.beginPath(); ctx.arc(0, hy, hr, 0, 7); ctx.fill();
+    ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(0, hy, hr * 1.06, 0, 7); ctx.fill();
+    ctx.restore(); return;
+  }
+  const fx = face[0] * hr * 0.35;   // 横を向くと顔が寄る
+  // 後ろ髪
+  ctx.fillStyle = hair; ctx.beginPath(); ctx.ellipse(-fx * 0.3, hy + hr * 0.15, hr * 1.08, hr * 1.05, 0, 0, 7); ctx.fill();
+  // 顔
+  ctx.fillStyle = '#efd9c8'; ctx.beginPath(); ctx.ellipse(fx * 0.4, hy + hr * 0.12, hr * 0.86, hr * 0.84, 0, 0, 7); ctx.fill();
+  // 前髪
+  ctx.fillStyle = hair; ctx.beginPath();
+  ctx.moveTo(-hr * 1.05, hy + hr * 0.1);
+  ctx.quadraticCurveTo(-hr * 0.9, hy - hr * 1.15, 0, hy - hr * 1.05);
+  ctx.quadraticCurveTo(hr * 0.9, hy - hr * 1.15, hr * 1.05, hy + hr * 0.1);
+  ctx.lineTo(hr * 0.6 + fx, hy - hr * 0.15); ctx.lineTo(hr * 0.25 + fx, hy - hr * 0.3); ctx.lineTo(fx, hy - hr * 0.12);
+  ctx.lineTo(-hr * 0.3 + fx, hy - hr * 0.32); ctx.lineTo(-hr * 0.65 + fx, hy - hr * 0.12);
+  ctx.closePath(); ctx.fill();
+  // 目（瞬きあり）
+  const blinkNow = Math.sin(RT.t * 0.9 + x * 0.37) > 0.985;
+  const eh = blinkNow ? hr * 0.05 : hr * 0.24, ew = hr * 0.16, ey = hy + hr * 0.2;
+  const ea = fx * 1.2, eyes = face[0] === 0 ? [-hr * 0.35, hr * 0.35] : [ea - hr * 0.28, ea + hr * 0.28];
+  if (plain) { ctx.restore(); return; }   // 人形は顔を描かない（うつろな目は drawEnemy で描く）
+  for (const exx of eyes) {
+    ctx.fillStyle = '#2a1e2a'; ctx.beginPath(); ctx.ellipse(exx, ey, ew, eh, 0, 0, 7); ctx.fill();
+    if (!blinkNow) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(exx + ew * 0.3, ey - eh * 0.35, ew * 0.38, 0, 7); ctx.fill(); }
+  }
+  // 頬と口
+  ctx.fillStyle = 'rgba(230,120,130,.35)';
+  for (const exx of eyes) { ctx.beginPath(); ctx.ellipse(exx + (exx < fx ? -1 : 1) * hr * 0.08, ey + hr * 0.32, ew * 0.9, ew * 0.45, 0, 0, 7); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(120,60,60,.7)'; ctx.lineWidth = Math.max(1, s * 0.012);
+  ctx.beginPath(); ctx.moveTo(fx * 1.1 - hr * 0.08, hy + hr * 0.6); ctx.lineTo(fx * 1.1 + hr * 0.08, hy + hr * 0.6); ctx.stroke();
+  ctx.restore();
+}
+// 燭台（真鍮の台とろうそく）
+function drawCandleStand(cx, cy) {
+  const s = TS;
+  ctx.fillStyle = '#7a5a2a'; ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.32, s * 0.26, s * 0.08, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#a07a38'; ctx.fillRect(cx - s * 0.04, cy - s * 0.02, s * 0.08, s * 0.34);
+  ctx.fillStyle = '#b8904a'; ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.02, s * 0.16, s * 0.05, 0, 0, 7); ctx.fill();
+  const g = ctx.createLinearGradient(cx - s * 0.07, 0, cx + s * 0.07, 0);
+  g.addColorStop(0, '#cbbf9f'); g.addColorStop(0.45, '#f6efdc'); g.addColorStop(1, '#b8aa88');
+  ctx.fillStyle = g; ctx.fillRect(cx - s * 0.07, cy - s * 0.24, s * 0.14, s * 0.23);
+  ctx.fillStyle = '#efe6cc'; ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.24, s * 0.07, s * 0.025, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, s * 0.015); ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.24); ctx.lineTo(cx, cy - s * 0.29); ctx.stroke();
+}
+// ゆらめく炎：外の光・炎の本体・芯の近くの青・舞い上がる火の粉
+function drawFlame(x, y, size, seed) {
+  const t = RT.t + seed;
+  const h = size * (1.25 + Math.sin(t * 11) * 0.12 + Math.sin(t * 23.7) * 0.08 + Math.sin(t * 5.3) * 0.06);
+  const sway = (Math.sin(t * 4.1) * 0.5 + Math.sin(t * 9.7) * 0.3) * size * 0.18;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(x, y - h * 0.3, 0, x, y - h * 0.3, size * 3.2);
+  glow.addColorStop(0, 'rgba(255,170,70,.35)'); glow.addColorStop(0.4, 'rgba(255,120,40,.12)'); glow.addColorStop(1, 'rgba(255,90,20,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y - h * 0.3, size * 3.2, 0, 7); ctx.fill();
+  const w = size * 0.42;
+  const flame = (k, c0, c1) => {
+    const hh = h * k, ww = w * k, tx = x + sway * k;
+    const g = ctx.createLinearGradient(x, y, x, y - hh);
+    g.addColorStop(0, c0); g.addColorStop(1, c1);
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.moveTo(x, y + ww * 0.5);
+    ctx.bezierCurveTo(x - ww * 1.2, y + ww * 0.3, x - ww * 0.8, y - hh * 0.55, tx, y - hh);
+    ctx.bezierCurveTo(x + ww * 0.8, y - hh * 0.55, x + ww * 1.2, y + ww * 0.3, x, y + ww * 0.5);
+    ctx.fill();
+  };
+  flame(1, 'rgba(255,110,30,.9)', 'rgba(255,60,10,0)');
+  flame(0.72, 'rgba(255,200,80,.95)', 'rgba(255,150,40,.1)');
+  flame(0.42, 'rgba(255,250,220,1)', 'rgba(255,230,150,.3)');
+  ctx.fillStyle = 'rgba(90,140,255,.45)'; ctx.beginPath(); ctx.ellipse(x, y + w * 0.15, w * 0.35, w * 0.3, 0, 0, 7); ctx.fill();
+  for (let i = 0; i < 3; i++) {   // 火の粉
+    const ph = ((RT.t * 0.6 + i / 3 + seed * 0.13) % 1 + 1) % 1;
+    const ex = x + sway + Math.sin(ph * 7 + i * 2 + seed) * size * 0.5, ey = y - h - ph * size * 2.6;
+    ctx.fillStyle = `rgba(255,${160 + i * 30},80,${(1 - ph) * 0.8})`;
+    ctx.beginPath(); ctx.arc(ex, ey, Math.max(0.8, size * 0.07 * (1 - ph)), 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawEnemy(e, ox, oy) {
+  const x = ox + e.x * TS, y = oy + e.y * TS, s = TS * num(e.d['大きさ'], 1), col = e.d['色'] || '#ddd';
+  const shape = e.d['形'] || '';
+  const who = /^人[:：](.+)$/.exec(shape);
+  if (who) {   // 人:名前 … characters.md のその人の色で描く（会話の相手など）
+    const c = charByName(who[1].trim()) || {}, dx = G.x - e.x, dy = G.y - e.y;
+    const face = Math.hypot(dx, dy) < 4 ? (Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy) || 1]) : [0, 1];
+    drawPerson(x, y, c['服'] || col, c['髪'] || '#333', num(c['背'], 1), face);
+  } else if (shape === '影') {
+    ctx.save(); ctx.globalAlpha = 0.85;
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, s * 0.5); gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 7); ctx.fill();
+    const fo = (e.face || 0) * s * 0.12;   // 横スクロール版：目が向いている方へ寄る
+    ctx.fillStyle = '#e03040'; ctx.fillRect(x - s * 0.12 + fo, y - s * 0.08, s * 0.06, s * 0.04); ctx.fillRect(x + s * 0.06 + fo, y - s * 0.08, s * 0.06, s * 0.04);
+    ctx.restore();
+  } else if (shape === '獣') {   // 四つ足の融合生物
+    const fx = (G.x - e.x) >= 0 ? 1 : -1, step = Math.sin(e.t * 10) * s * 0.06;
+    ctx.save(); ctx.translate(x, y); ctx.scale(fx, 1);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, s * 0.3, s * 0.4, s * 0.1, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
+    for (const [lx, ph] of [[-0.22, 1], [-0.1, -1], [0.14, -1], [0.26, 1]]) { ctx.beginPath(); ctx.moveTo(s * lx, s * 0.05); ctx.lineTo(s * lx + step * ph, s * 0.28); ctx.stroke(); }
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.34, s * 0.17, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.05); ctx.quadraticCurveTo(-s * 0.55, -s * 0.2, -s * 0.5, s * 0.05); ctx.lineWidth = s * 0.05; ctx.stroke();   // しっぽ
+    ctx.beginPath(); ctx.arc(s * 0.36, -s * 0.12, s * 0.15, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s * 0.3, -s * 0.24); ctx.lineTo(s * 0.34, -s * 0.38); ctx.lineTo(s * 0.4, -s * 0.25); ctx.fill();   // 耳
+    ctx.fillStyle = '#e8d040'; ctx.fillRect(s * 0.4, -s * 0.16, s * 0.05, s * 0.04);
+    ctx.fillStyle = '#c03040'; ctx.fillRect(s * 0.33, -s * 0.15, s * 0.04, s * 0.04);   // 色の違う目
+    ctx.restore();
+  } else if (shape === '菌') {   // 菌糸のかたまり。触手がうねる
+    const g = e.grow ?? 1, r = s * 0.32 * (0.4 + 0.6 * g);
+    ctx.save(); ctx.translate(x, y);
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, s * 0.04); ctx.globalAlpha = 0.8;
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2 + Math.sin(e.t * 1.3 + i) * 0.3, l = r * (1.6 + Math.sin(e.t * 2 + i * 1.7) * 0.3);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(Math.cos(a + 0.6) * l * 0.6, Math.sin(a + 0.6) * l * 0.6, Math.cos(a) * l, Math.sin(a) * l); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,180,.5)';
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(Math.cos(i * 1.9) * r * 0.5, Math.sin(i * 1.9) * r * 0.5, r * 0.15, 0, 7); ctx.fill(); }
+    ctx.restore();
+  } else if (shape === '鏡') {   // 主人公と同じ姿の、銀色の写し
+    const hero = roleChar('主人公') || {}, dx = G.x - e.x, dy = G.y - e.y;
+    const face = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy) || 1];
+    drawPerson(x, y, col, hero['髪'] || '#888', num(e.d['大きさ'], 1), face, 0.75);
+    if (e.st === 'learn') { ctx.strokeStyle = 'rgba(180,220,255,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, s * 0.5 + Math.sin(RT.t * 6) * 2, 0, 7); ctx.stroke(); }
+  } else if (shape === '目玉') {
+    const lx = (G.x - e.x), ly = (G.y - e.y), l = Math.hypot(lx, ly) || 1;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, s * 0.36, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#a03040'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = e.st === 'wake' ? '#d02030' : '#6a3040'; ctx.beginPath(); ctx.arc(x + lx / l * s * 0.14, y + ly / l * s * 0.14, s * 0.15, 0, 7); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x + lx / l * s * 0.17, y + ly / l * s * 0.17, s * 0.06, 0, 7); ctx.fill();
+  } else {
+    const jitter = e.st === 'freeze' ? 0 : Math.sin(e.t * 9) * 1.2;
+    drawPerson(x + jitter, y, col, '#3a2a30', num(e.d['大きさ'], 0.8), [0, 1], 1, true);
+    ctx.fillStyle = '#000'; ctx.fillRect(x - s * 0.1, y - s * 0.22, s * 0.05, s * 0.07); ctx.fillRect(x + s * 0.05, y - s * 0.22, s * 0.05, s * 0.07);
+    if (e.st === 'wind') { ctx.fillStyle = '#e03040'; ctx.font = `24px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.fillText('!', x, y - s * 0.55); }
+  }
+}
+function drawMarks(e, ox, oy) {
+  const x = ox + e.x * TS, y = oy + e.y * TS - TS * num(e.d['大きさ'], 1) * 0.7;
+  let ch = '', col = '#e03040';
+  if (RT.stun > 0) { ch = '…'; col = '#a0c0ff'; }
+  else if (e.mark > 0) ch = '!';
+  else if (e.st === 'lost') { ch = '?'; col = '#ffd060'; }
+  if (!ch) return;
+  ctx.fillStyle = col; ctx.font = `24px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ch, x, y);
+}
+function drawGuard(g, ox, oy) {
+  const x = ox + g.x * TS, y = oy + g.y * TS, s = TS * num(g.d['大きさ'], 1.6);
+  const c = charByName(g.d['名前']);   // 番人ごとの色（characters.md に同名がいればその服の色）
+  ctx.save(); ctx.globalAlpha = g.alpha;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.3, s * 0.32, s * 0.1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = (c && c['服']) || g.d['色'] || '#222';
+  ctx.beginPath(); ctx.moveTo(x - s * 0.3, y + s * 0.3); ctx.lineTo(x + s * 0.3, y + s * 0.3); ctx.lineTo(x + s * 0.12, y - s * 0.45); ctx.lineTo(x - s * 0.12, y - s * 0.45); ctx.fill();
+  ctx.strokeStyle = '#c8a860'; ctx.lineWidth = 2; const sw = Math.sin(RT.t * 3) * 0.6;
+  ctx.beginPath(); ctx.moveTo(x, y - s * 0.1); ctx.lineTo(x + Math.sin(sw) * s * 0.35, y - s * 0.1 + Math.cos(sw) * s * 0.35); ctx.stroke();
+  ctx.fillStyle = '#c8a860'; ctx.beginPath(); ctx.arc(x + Math.sin(sw) * s * 0.35, y - s * 0.1 + Math.cos(sw) * s * 0.35, s * 0.06, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f04050'; ctx.fillRect(x - s * 0.08, y - s * 0.36, s * 0.04, s * 0.03); ctx.fillRect(x + s * 0.04, y - s * 0.36, s * 0.04, s * 0.03);
+  ctx.restore();
+}
+/* ---- 壁と床の物（見た目） ---- */
+const el = (x, y, rx, ry, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, 7); ctx.fill(); };
+const lookTo = cx => Math.max(-1, Math.min(1, (PSX - cx) / (TS * 3)));   // 主人公の方を見る向き（-1〜1）
+// 額縁を描いて、内側の [x, y, w, h] を返す
+function frame(cx, cy, w, h, col = '#7a5a2a') {
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(cx - w / 2 + 3, cy - h / 2 + 4, w, h);
+  ctx.fillStyle = col; ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+  ctx.fillStyle = 'rgba(255,230,160,.22)'; ctx.fillRect(cx - w / 2, cy - h / 2, w, 2);
+  const b = Math.max(3, w * 0.09);
+  return [cx - w / 2 + b, cy - h / 2 + b, w - b * 2, h - b * 2];
+}
+// 見た目「絵」：肖像画。:目（目が主人公を追う）:泣く :笑う :無い（人物が抜け出た）
+function drawPortrait(cx, cy, st, bg) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.78, s * 1.0);
+  ctx.fillStyle = bg || '#3a2c2a'; ctx.fillRect(ix, iy, iw, ih);
+  const hx = cx, hy = iy + ih * 0.38, hr = iw * 0.2;
+  if (st === '無い') {
+    ctx.strokeStyle = 'rgba(230,220,210,.3)'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.moveTo(ix + iw * 0.1, iy + ih); ctx.quadraticCurveTo(hx, iy + ih * 0.52, ix + iw * 0.9, iy + ih); ctx.stroke(); ctx.setLineDash([]);
+    return;
+  }
+  ctx.fillStyle = '#1e1a22'; ctx.beginPath(); ctx.moveTo(ix + iw * 0.06, iy + ih); ctx.quadraticCurveTo(hx, iy + ih * 0.5, ix + iw * 0.94, iy + ih); ctx.fill();
+  el(hx, hy, hr * 1.25, hr * 1.35, '#1a1416');
+  el(hx, hy + hr * 0.12, hr * 0.88, hr * 1.02, '#d8c4b0');
+  ctx.fillStyle = '#1a1416'; ctx.beginPath(); ctx.ellipse(hx, hy - hr * 0.45, hr * 0.95, hr * 0.6, 0, Math.PI, 0); ctx.fill();
+  const ey = hy + hr * 0.1, gap = hr * 0.4, er = hr * 0.2;
+  if (st === '目' || st === '笑う') {
+    const lk = lookTo(cx);
+    for (const k of [-1, 1]) { el(hx + k * gap, ey, er, er * 0.75, '#f4ece4'); el(hx + k * gap + lk * er * 0.5, ey, er * 0.5, er * 0.55, '#3a0808'); }
+  } else {   // 伏せた目
+    ctx.strokeStyle = '#3a2420'; ctx.lineWidth = Math.max(1, s * 0.012);
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.arc(hx + k * gap, ey - er * 0.3, er * 0.8, 0.3, Math.PI - 0.3); ctx.stroke(); }
+  }
+  if (st === '泣く') { ctx.fillStyle = '#a01010'; for (const k of [-1, 1]) ctx.fillRect(hx + k * gap - 1, ey + er * 0.5, 2, ih * 0.45); }
+  if (st === '笑う') { ctx.fillStyle = '#5a0a0a'; ctx.beginPath(); ctx.moveTo(hx - hr * 0.6, hy + hr * 0.55); ctx.quadraticCurveTo(hx, hy + hr * 1.2, hx + hr * 0.6, hy + hr * 0.55); ctx.quadraticCurveTo(hx, hy + hr * 0.85, hx - hr * 0.6, hy + hr * 0.55); ctx.fill(); }
+  else { ctx.fillStyle = '#7a4040'; ctx.fillRect(hx - hr * 0.15, hy + hr * 0.62, hr * 0.3, Math.max(1, s * 0.012)); }
+}
+// 見た目「写真」：家族の集合写真（セピア）。:目（全員がこちらを見る）:欠け（まん中の一人がいない）:空き（右に一人分の空白）
+function drawPhoto(cx, cy, st) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.92, s * 0.72, '#4a3a2a');
+  const g = ctx.createLinearGradient(0, iy, 0, iy + ih); g.addColorStop(0, '#b89a70'); g.addColorStop(1, '#7a6040');
+  ctx.fillStyle = g; ctx.fillRect(ix, iy, iw, ih);
+  const slots = st === '空き' ? [-0.34, -0.12, 0.1, 0.32] : [-0.28, 0, 0.28], sizes = [1, 0.72, 1, 0.72];
+  const lk = lookTo(cx);
+  slots.forEach((p, i) => {
+    const fx = cx + p * iw, k = slots.length === 4 ? [1, 0.7, 0.6, 0.6][i] : sizes[i], hr = iw * 0.075 * k, fy2 = iy + ih * (0.42 + (1 - k) * 0.35);
+    const empty = (st === '欠け' && i === 1) || (st === '空き' && i === 3);
+    if (empty) {
+      ctx.strokeStyle = 'rgba(60,40,20,.55)'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(fx, fy2, hr, 0, 7); ctx.rect(fx - hr * 1.3, fy2 + hr * 1.1, hr * 2.6, iy + ih - fy2 - hr * 1.1); ctx.stroke(); ctx.setLineDash([]);
+      return;
+    }
+    ctx.fillStyle = '#3a2a1a'; ctx.fillRect(fx - hr * 1.3, fy2 + hr * 1.1, hr * 2.6, iy + ih - fy2 - hr * 1.1);
+    el(fx, fy2, hr, hr * 1.1, '#e0c8a0');
+    el(fx, fy2 - hr * 0.55, hr * 1.05, hr * 0.6, '#2a1e14');
+    const ex = st === '目' ? lk * hr * 0.35 : 0;
+    ctx.fillStyle = st === '目' ? '#000' : '#5a4030';
+    ctx.fillRect(fx - hr * 0.42 + ex, fy2 + hr * 0.05, Math.max(1, hr * 0.22), Math.max(1, hr * (st === '目' ? 0.3 : 0.12)));
+    ctx.fillRect(fx + hr * 0.2 + ex, fy2 + hr * 0.05, Math.max(1, hr * 0.22), Math.max(1, hr * (st === '目' ? 0.3 : 0.12)));
+  });
+}
+// 見た目「風景」：海辺の絵。:赤（海が赤い）
+function drawLandscape(cx, cy, st) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.95, s * 0.62);
+  const red = st === '赤', g = ctx.createLinearGradient(0, iy, 0, iy + ih);
+  g.addColorStop(0, red ? '#3a0a0a' : '#506878'); g.addColorStop(0.55, red ? '#6a1010' : '#8aa0a8'); g.addColorStop(0.56, red ? '#8a0808' : '#2a4a5a'); g.addColorStop(1, red ? '#400404' : '#1a3040');
+  ctx.fillStyle = g; ctx.fillRect(ix, iy, iw, ih);
+  el(ix + iw * 0.72, iy + ih * 0.25, iw * 0.06, iw * 0.06, red ? '#e0d0c0' : '#f0e8d0');
+}
+// 見た目「張り紙」：:白（何も書いていない）:血
+function drawPaper(cx, cy, st) {
+  const s = TS, w = s * 0.46, h = s * 0.6;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.04);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-w / 2 + 2, -h / 2 + 3, w, h);
+  ctx.fillStyle = '#d6cdb4'; ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = '#8a8070'; el(0, -h / 2 + 3, 2, 2, '#8a8070');
+  if (st !== '白' && st !== '血') { ctx.fillStyle = 'rgba(40,30,30,.55)'; for (let i = 0; i < 5; i++) ctx.fillRect(-w * 0.36, -h * 0.3 + i * h * 0.13, w * (i === 0 ? 0.72 : 0.6 - (i % 2) * 0.15), Math.max(1, s * 0.015)); }
+  if (st === '血') { ctx.fillStyle = 'rgba(150,10,10,.85)'; el(-w * 0.05, -h * 0.05, w * 0.32, h * 0.22, 'rgba(150,10,10,.8)'); for (const dx of [-0.2, 0.02, 0.18]) ctx.fillRect(w * dx, 0, 2, h * (0.25 + Math.abs(dx))); }
+  ctx.restore();
+}
+function drawSwitch(cx, cy, on) {
+  const s = TS;
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(cx - s * 0.08 + 2, cy - s * 0.13 + 2, s * 0.16, s * 0.26);
+  ctx.fillStyle = '#c4baa6'; ctx.fillRect(cx - s * 0.08, cy - s * 0.13, s * 0.16, s * 0.26);
+  ctx.fillStyle = '#6a6258'; ctx.fillRect(cx - s * 0.03, cy - s * 0.07, s * 0.06, s * 0.14);
+  ctx.fillStyle = '#e8e0d0'; ctx.fillRect(cx - s * 0.035, on ? cy - s * 0.08 : cy, s * 0.07, s * 0.08);
+  if (on) el(cx, cy - s * 0.18, s * 0.025, s * 0.025, '#ff3030');
+}
+// 見た目「覗き穴」：:目（向こうから目が覗いている）
+function drawPeep(cx, cy, st) {
+  const s = TS;
+  el(cx, cy, s * 0.11, s * 0.11, '#6a5028'); el(cx, cy, s * 0.085, s * 0.085, '#b08a40');
+  if (st === '目') {
+    el(cx, cy, s * 0.07, s * 0.06, '#f0e6e0');
+    el(cx + lookTo(cx) * s * 0.02, cy, s * 0.035, s * 0.04, '#8a1010'); el(cx + lookTo(cx) * s * 0.02, cy, s * 0.015, s * 0.02, '#000');
+  } else el(cx, cy, s * 0.045, s * 0.045, '#050305');
+}
+// 見た目「窓」：:手（手形）:顔 :白（外が白く光る）
+function drawWindow(cx, cy, st) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.82, s * 1.05, '#3a3028');
+  const g = ctx.createLinearGradient(0, iy, 0, iy + ih);
+  if (st === '白') { g.addColorStop(0, '#f0f0f4'); g.addColorStop(1, '#c8ccd8'); } else { g.addColorStop(0, '#060a16'); g.addColorStop(1, '#162238'); }
+  ctx.fillStyle = g; ctx.fillRect(ix, iy, iw, ih);
+  if (!st) el(ix + iw * 0.7, iy + ih * 0.22, iw * 0.07, iw * 0.07, '#c8ccd0');
+  if (st === '顔') { el(cx, cy, iw * 0.2, iw * 0.26, 'rgba(220,210,200,.7)'); el(cx - iw * 0.07, cy - iw * 0.03, iw * 0.03, iw * 0.04, '#000'); el(cx + iw * 0.07, cy - iw * 0.03, iw * 0.03, iw * 0.04, '#000'); }
+  ctx.fillStyle = '#3a3028'; ctx.fillRect(cx - 1.5, iy, 3, ih); ctx.fillRect(ix, cy - 1.5, iw, 3);
+  if (st === '手') {
+    for (const [px, py, a] of [[0.25, 0.3, -0.3], [0.7, 0.2, 0.2], [0.4, 0.65, 0.1], [0.78, 0.7, -0.2], [0.18, 0.82, 0.3]]) {
+      ctx.save(); ctx.translate(ix + iw * px, iy + ih * py); ctx.rotate(a); ctx.fillStyle = 'rgba(210,200,190,.55)';
+      el(0, 0, iw * 0.07, iw * 0.08, 'rgba(210,200,190,.55)');
+      for (let f = 0; f < 5; f++) ctx.fillRect(-iw * 0.07 + f * iw * 0.033, -iw * 0.19, iw * 0.022, iw * 0.11);
+      ctx.restore();
+    }
+  }
+}
+// 見た目「時計」：:逆（針が逆に回る）
+function drawClock(cx, cy, st) {
+  const s = TS, r = s * 0.28;
+  el(cx + 2, cy + 3, r, r, 'rgba(0,0,0,.4)'); el(cx, cy, r, r, '#5a3e24'); el(cx, cy, r * 0.8, r * 0.8, '#e6dcc4');
+  ctx.fillStyle = '#3a2a1a';
+  for (let i = 0; i < 12; i++) { const a = i / 6 * Math.PI; ctx.fillRect(cx + Math.sin(a) * r * 0.68 - 1, cy - Math.cos(a) * r * 0.68 - 1, 2, 2); }
+  const t = st === '逆' ? -RT.t * 2 : 0, hA = (7 + 12 / 60) / 6 * Math.PI + t / 12, mA = 12 / 30 * Math.PI + t;
+  ctx.strokeStyle = '#1a1010'; ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(1.5, s * 0.025); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(hA) * r * 0.42, cy - Math.cos(hA) * r * 0.42); ctx.stroke();
+  ctx.lineWidth = Math.max(1, s * 0.015); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(mA) * r * 0.62, cy - Math.cos(mA) * r * 0.62); ctx.stroke();
+}
+// 見た目「鏡」：近づくと自分が映る。:影（後ろに黒い人影）
+function drawMirror(cx, cy, st) {
+  const s = TS, rx = s * 0.3, ry = s * 0.5;
+  el(cx + 2, cy + 3, rx, ry, 'rgba(0,0,0,.45)'); el(cx, cy, rx, ry, '#8a6a30');
+  const g = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry); g.addColorStop(0, '#9aa4ac'); g.addColorStop(0.5, '#5a646c'); g.addColorStop(1, '#3a4248');
+  ctx.save(); ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.86, ry * 0.9, 0, 0, 7); ctx.fillStyle = g; ctx.fill(); ctx.clip();
+  if (st === '影') { el(cx + rx * 0.25, cy + ry * 0.2, rx * 0.45, ry * 0.8, 'rgba(5,0,5,.9)'); el(cx + rx * 0.25, cy - ry * 0.45, rx * 0.28, rx * 0.3, 'rgba(5,0,5,.95)'); ctx.fillStyle = '#e02020'; ctx.fillRect(cx + rx * 0.14, cy - ry * 0.47, 2, 2); ctx.fillRect(cx + rx * 0.32, cy - ry * 0.47, 2, 2); }
+  const d = PSX - cx;
+  if (Math.abs(d) < s * 1.3) {   // 自分が映る
+    const hero = roleChar('主人公') || {}, mx = cx - d * 0.3, a = 0.55 * (1 - Math.abs(d) / (s * 1.3));
+    ctx.globalAlpha = a; el(mx, cy + ry * 0.45, rx * 0.4, ry * 0.5, hero['服'] || '#334'); el(mx, cy - ry * 0.1, rx * 0.26, rx * 0.3, '#d8c4b0'); el(mx, cy - ry * 0.2, rx * 0.3, rx * 0.22, hero['髪'] || '#222');
+  }
+  ctx.restore();
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.ellipse(cx - rx * 0.35, cy - ry * 0.4, rx * 0.12, ry * 0.25, 0.4, 0, 7); ctx.fill();
+}
+// 見た目「ランプ」：壁の灯り。:赤 :消（消えている）
+function drawLamp(cx, cy, st) {
+  const s = TS;
+  ctx.fillStyle = '#4a3a2a'; ctx.fillRect(cx - s * 0.02, cy, s * 0.04, s * 0.16); ctx.fillRect(cx - s * 0.1, cy + s * 0.14, s * 0.2, s * 0.04);
+  const c = st === '消' ? '#3a3430' : st === '赤' ? '#ff3a30' : '#ffd890';
+  el(cx, cy, s * 0.08, s * 0.1, c);
+  if (st !== '消') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.5); g.addColorStop(0, st === '赤' ? 'rgba(255,40,30,.5)' : 'rgba(255,200,120,.45)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(cx - s * 0.5, cy - s * 0.5, s, s); ctx.restore(); }
+}
+function drawDoor(cx, fy, st, col, usable) {
+  const s = TS, w = s * 0.92, h = s * 2.15, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = '#120c0a'; ctx.fillRect(x - s * 0.07, y - s * 0.07, w + s * 0.14, h + s * 0.07);
+  ctx.fillStyle = col || (st === '鉄' ? '#4a4e54' : '#4a3020'); ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = Math.max(1, s * 0.02);
+  ctx.strokeRect(x + w * 0.15, y + h * 0.08, w * 0.7, h * 0.36); ctx.strokeRect(x + w * 0.15, y + h * 0.52, w * 0.7, h * 0.4);
+  ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(x, y, w, 2);
+  el(cx + w * 0.34, fy - h * 0.47, s * 0.05, s * 0.05, usable ? '#d8b060' : '#6a4a38');
+  if (!usable) { ctx.fillStyle = '#0a0606'; ctx.fillRect(cx + w * 0.34 - 1, fy - h * 0.42, 2, s * 0.06); }
+  if (st === '開') { ctx.fillStyle = '#030204'; ctx.fillRect(x + 2, y + 2, w - 4, h - 2); }
+}
+function drawStairs(cx, fy, down) {
+  const s = TS, w = s * 1.1, h = s * 2.3, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = '#120c0a'; ctx.fillRect(x - s * 0.06, y - s * 0.06, w + s * 0.12, h + s * 0.06);
+  ctx.fillStyle = '#050406'; ctx.fillRect(x, y, w, h);
+  const n = 6;
+  for (let i = 0; i < n; i++) {
+    const k = i / n, sh = Math.floor(40 + (down ? -k : k) * 30);
+    ctx.fillStyle = `rgb(${sh},${sh - 10},${sh - 16})`;
+    if (down) ctx.fillRect(x + w * k * 0.9, fy - s * 0.12 + k * s * 0.5 - s * 0.5 + s * 0.5, w * 0.16, s * 0.08);
+    else ctx.fillRect(x + w * k * 0.85, fy - s * 0.12 - k * h * 0.8, w * 0.22, s * 0.1);
+  }
+  ctx.strokeStyle = '#5a4030'; ctx.lineWidth = Math.max(1.5, s * 0.025);
+  ctx.beginPath();
+  if (down) { ctx.moveTo(x + w * 0.05, fy - s * 0.85); ctx.lineTo(x + w * 0.95, fy - s * 0.55); }
+  else { ctx.moveTo(x + w * 0.05, fy - s * 0.75); ctx.lineTo(x + w * 0.95, fy - h * 0.92); }
+  ctx.stroke();
+}
+function drawCounter(cx, fy, col) {
+  const s = TS, w = s * 1.7, h = s * 0.95;
+  ctx.fillStyle = col || '#4a3424'; ctx.fillRect(cx - w / 2, fy - h, w, h);
+  ctx.fillStyle = '#5e4630'; ctx.fillRect(cx - w / 2 - s * 0.05, fy - h - s * 0.06, w + s * 0.1, s * 0.08);
+  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) ctx.strokeRect(cx - w / 2 + s * 0.08 + i * w / 3, fy - h + s * 0.12, w / 3 - s * 0.16, h - s * 0.24);
+  ctx.fillStyle = '#c8a050'; el(cx + w * 0.3, fy - h - s * 0.1, s * 0.07, s * 0.04, '#b89040');
+}
+function drawDesk(cx, fy, col) {
+  const s = TS, w = s * 1.2; ctx.fillStyle = col || '#4a3424';
+  ctx.fillRect(cx - w / 2, fy - s * 0.72, w, s * 0.08); ctx.fillRect(cx - w / 2 + s * 0.05, fy - s * 0.64, s * 0.06, s * 0.64); ctx.fillRect(cx + w / 2 - s * 0.11, fy - s * 0.64, s * 0.06, s * 0.64);
+}
+function drawBench(cx, fy, col) {
+  const s = TS, w = s * 1.5; ctx.fillStyle = col || '#3a2a20';
+  ctx.fillRect(cx - w / 2, fy - s * 0.48, w, s * 0.1); ctx.fillRect(cx - w / 2, fy - s * 0.95, w, s * 0.08); ctx.fillRect(cx - w / 2, fy - s * 0.95, s * 0.06, s * 0.95); ctx.fillRect(cx + w / 2 - s * 0.06, fy - s * 0.95, s * 0.06, s * 0.95);
+  ctx.fillStyle = '#5a2a2a'; ctx.fillRect(cx - w / 2 + s * 0.06, fy - s * 0.56, w - s * 0.12, s * 0.08);
+}
+function drawChair(cx, fy, col) {
+  const s = TS; ctx.fillStyle = col || '#4a3020';
+  ctx.fillRect(cx - s * 0.22, fy - s * 0.45, s * 0.44, s * 0.07); ctx.fillRect(cx - s * 0.22, fy - s * 1.0, s * 0.06, s * 1.0); ctx.fillRect(cx + s * 0.16, fy - s * 0.45, s * 0.06, s * 0.45);
+}
+function drawShelf(cx, fy, col) {
+  const s = TS, w = s * 0.9, h = s * 1.9; ctx.fillStyle = col || '#3a2a20'; ctx.fillRect(cx - w / 2, fy - h, w, h);
+  ctx.fillStyle = '#120c0a'; for (let i = 0; i < 4; i++) ctx.fillRect(cx - w / 2 + s * 0.05, fy - h + s * 0.08 + i * h / 4, w - s * 0.1, h / 4 - s * 0.1);
+  const cs = ['#4a6a5a', '#6a4a3a', '#5a5a7a', '#7a6a3a'];
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { ctx.fillStyle = cs[(i + j) % 4]; ctx.fillRect(cx - w * 0.36 + j * w * 0.26, fy - h + (i + 1) * h / 4 - s * 0.26, s * 0.1, s * 0.22); }
+}
+function drawCurtain(cx, fy, col) {
+  const s = TS, w = s * 1.05, h = s * 2.45, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = '#3a3028'; ctx.fillRect(x - s * 0.08, y - s * 0.05, w + s * 0.16, s * 0.06);
+  const g = ctx.createLinearGradient(x, 0, x + w, 0), c = col || '#3a1420';
+  for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, i % 2 ? 'rgba(0,0,0,.55)' : c);
+  ctx.fillStyle = c; ctx.fillRect(x, y, w, h); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x, fy - s * 0.1, w, s * 0.1);
+}
+function drawCamera(cx, fy) {
+  const s = TS;
+  ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = Math.max(2, s * 0.04);
+  ctx.beginPath(); ctx.moveTo(cx, fy - s * 1.15); ctx.lineTo(cx - s * 0.35, fy); ctx.moveTo(cx, fy - s * 1.15); ctx.lineTo(cx + s * 0.35, fy); ctx.moveTo(cx, fy - s * 1.15); ctx.lineTo(cx, fy); ctx.stroke();
+  ctx.fillStyle = '#2a1e16'; ctx.fillRect(cx - s * 0.32, fy - s * 1.6, s * 0.4, s * 0.45);
+  ctx.fillStyle = '#1a1210'; ctx.beginPath(); ctx.moveTo(cx + s * 0.08, fy - s * 1.55); ctx.lineTo(cx + s * 0.36, fy - s * 1.48); ctx.lineTo(cx + s * 0.36, fy - s * 1.27); ctx.lineTo(cx + s * 0.08, fy - s * 1.2); ctx.fill();
+  el(cx + s * 0.4, fy - s * 1.375, s * 0.06, s * 0.1, '#0a0a10'); el(cx + s * 0.41, fy - s * 1.4, s * 0.02, s * 0.03, 'rgba(180,200,255,.6)');
+  ctx.fillStyle = '#0a0606'; ctx.fillRect(cx - s * 0.42, fy - s * 1.7, s * 0.2, s * 0.5);   // 黒い布
+}
+function drawTable(cx, fy, col) {
+  drawDesk(cx, fy, col);
+  const s = TS; ctx.fillStyle = '#6a6a70'; ctx.fillRect(cx - s * 0.42, fy - s * 0.8, s * 0.84, s * 0.08); ctx.fillStyle = 'rgba(160,140,60,.6)'; ctx.fillRect(cx - s * 0.38, fy - s * 0.78, s * 0.76, s * 0.04);
+}
+function drawFlowers(cx, fy) {
+  const s = TS; ctx.fillStyle = '#3a2a20'; ctx.fillRect(cx - s * 0.04, fy - s * 0.9, s * 0.08, s * 0.9); ctx.fillRect(cx - s * 0.2, fy - s * 0.92, s * 0.4, s * 0.05);
+  el(cx, fy - s * 1.08, s * 0.12, s * 0.17, '#5a6a7a');
+  ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = Math.max(1, s * 0.015);
+  for (const a of [-0.5, -0.15, 0.2, 0.5]) { ctx.beginPath(); ctx.moveTo(cx, fy - s * 1.2); ctx.quadraticCurveTo(cx + a * s * 0.3, fy - s * 1.5, cx + a * s * 0.55, fy - s * 1.45); ctx.stroke(); el(cx + a * s * 0.55, fy - s * 1.45, s * 0.04, s * 0.03, '#5a3a2a'); }
+}
+function drawBox(cx, fy, col) {
+  const s = TS; ctx.fillStyle = col || '#4a3a28'; ctx.fillRect(cx - s * 0.34, fy - s * 0.6, s * 0.68, s * 0.6);
+  ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.strokeRect(cx - s * 0.34, fy - s * 0.6, s * 0.68, s * 0.6); ctx.beginPath(); ctx.moveTo(cx - s * 0.34, fy - s * 0.3); ctx.lineTo(cx + s * 0.34, fy - s * 0.3); ctx.stroke();
+}
+const OBJ_TOP = { カーテン: 2.45, 暗幕: 2.45, 棚: 1.9, カメラ: 1.7, カウンター: 1.05, 机: 0.8, 長椅子: 1.0, 椅子: 1.0, 台: 0.9, 花台: 1.5, 箱: 0.6 };
+function objTop(ob) {   // 物のてっぺん（床から何マス上か）。調べられる印をここに出す
+  const L = lookOf(ob), base = L.split(/[:：]/)[0], k = ob.o['種類'];
+  if (/扉/.test(k) || base === '扉') return 2.25;
+  if (k === '階段' || base === '階段') return 2.4;
+  if (ob.layer === 'wall') return base === 'ランプ' ? 2.7 : base === '時計' ? 2.45 : base === 'スイッチ' ? 1.75 : 2.45;
+  return OBJ_TOP[base] ?? (k === '隠れる' ? 2.45 : 1.0);
+}
+function drawObj(ob, cx, fy) {
+  const k = ob.o['種類'], L = lookOf(ob), [base, st = ''] = L.split(/[:：]/), col = ob.o['色'], s = TS, wy = fy - s * 1.85;
+  if (/扉/.test(k) || base === '扉') return drawDoor(cx, fy, st, col, !/扉/.test(k) || cond(ob.o['条件']));
+  if (k === '階段' || base === '階段') return drawStairs(cx, fy, /下/.test(L));
+  switch (base) {
+    case '絵': return drawPortrait(cx, wy, st, col);
+    case '写真': return drawPhoto(cx, wy, st);
+    case '額縁': { const [ix, iy, iw, ih] = frame(cx, wy, s * 0.8, s * 0.95); ctx.fillStyle = col || '#141014'; ctx.fillRect(ix, iy, iw, ih); return; }
+    case '風景': return drawLandscape(cx, wy, st);
+    case '張り紙': return drawPaper(cx, wy + s * 0.1, st);
+    case 'スイッチ': return drawSwitch(cx, fy - s * 1.5, st === '入');
+    case '覗き穴': return drawPeep(cx, fy - s * 1.75, st);
+    case '窓': return drawWindow(cx, wy, st);
+    case '時計': return drawClock(cx, fy - s * 2.1, st);
+    case '鏡': return drawMirror(cx, wy, st);
+    case 'ランプ': return drawLamp(cx, fy - s * 2.45, st);
+    case 'カウンター': return drawCounter(cx, fy, col);
+    case '机': return drawDesk(cx, fy, col);
+    case '長椅子': return drawBench(cx, fy, col);
+    case '椅子': return drawChair(cx, fy, col);
+    case '棚': return drawShelf(cx, fy, col);
+    case 'カーテン': case '暗幕': return drawCurtain(cx, fy, col);
+    case 'カメラ': return drawCamera(cx, fy);
+    case '台': return drawTable(cx, fy, col);
+    case '花台': return drawFlowers(cx, fy);
+    case '箱': return drawBox(cx, fy, col);
+  }
+  if (ob.o['絵']) {
+    ctx.font = `${Math.floor(s * 0.7)}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ddd';
+    ctx.fillText(ob.o['絵'], cx, ob.layer === 'wall' ? wy : fy - s * 0.4);
+  } else if (k === '隠れる') drawCurtain(cx, fy, col);
+  else if (k === '障害') drawBox(cx, fy, col || '#3a3028');
+  else if (col) { if (ob.layer === 'wall') { ctx.fillStyle = col; ctx.fillRect(cx - s * 0.3, wy - s * 0.3, s * 0.6, s * 0.6); } else drawBox(cx, fy, col); }
+}
+// [落書き] の文字（壁に残る赤い字）
+function drawWriting(text, cx, y) {
+  ctx.save(); ctx.font = `${TS >= 80 ? 36 : 24}px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(170,16,16,.9)'; ctx.fillText(text, cx, y);
+  const w = ctx.measureText(text).width; ctx.fillStyle = 'rgba(150,10,10,.7)';
+  for (let i = 0; i < 4; i++) { const dx = -w / 2 + w * (i * 0.29 + 0.08); ctx.fillRect(cx + dx, y + 8, 2, 6 + (i * 7) % 13); }
+  ctx.restore();
+}
+// [手] 壁から伸びる白い腕
+function drawHands(h, x, y) {
+  const s = TS, t = h.t;
+  const reach = t < 0.9 ? t / 0.9 * 0.12 : t < 2.2 ? Math.min(1, 0.12 + (t - 0.9) * 3) : Math.max(0, 1 - (t - 2.2) / 0.6);
+  for (let i = 0; i < 6; i++) {
+    const side = i % 2 ? 1 : -1, row = (i >> 1) - 1, wob = Math.sin(RT.t * 6 + i * 2 + h.seed) * s * 0.05;
+    const sx = x + side * s * 0.08, sy = y + row * s * 0.32, ex = sx + side * s * (1.0 + (i % 3) * 0.15) * reach, ey = sy + (row * 0.2 + 0.25) * s * reach + wob;
+    ctx.strokeStyle = 'rgba(40,30,30,.8)'; ctx.lineWidth = s * 0.11; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo((sx + ex) / 2, sy - s * 0.15 * reach, ex, ey); ctx.stroke();
+    ctx.strokeStyle = '#d8d0c8'; ctx.lineWidth = s * 0.08; ctx.stroke();
+    if (reach > 0.05) {
+      el(ex, ey, s * 0.07, s * 0.06, '#e0d8d0');
+      ctx.strokeStyle = '#e0d8d0'; ctx.lineWidth = Math.max(1, s * 0.022);
+      for (let f = -2; f <= 2; f++) { ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + side * s * 0.12, ey + f * s * 0.035); ctx.stroke(); }
+    }
+  }
+}
+function drawMark(ch, col, x, y) { ctx.fillStyle = col; ctx.font = `36px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ch, x, y); }
+
+function draw() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, VH);
+  if (!G || !W.rooms[G.room] || S.mode === 'title') return;
+  const rm = room(), [ox, fy] = cam(), s = TS, top = fy - s * 3, ww = rm.w * s;
+  PSX = ox + G.x * s;
+  // 壁・腰板・床
+  ctx.fillStyle = rm.props['壁の色'] || '#2c2430'; ctx.fillRect(ox, top, ww, s * 3);
+  ctx.fillStyle = 'rgba(255,255,255,.03)'; for (let i = 0; i < rm.w * 2; i += 2) ctx.fillRect(ox + i * s / 2, top, s / 4, s * 2.2);
+  ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fillRect(ox, fy - s * 0.8, ww, s * 0.8);
+  ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(ox, fy - s * 0.8, ww, 2);
+  const cg = ctx.createLinearGradient(0, top, 0, top + s); cg.addColorStop(0, 'rgba(0,0,0,.7)'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = cg; ctx.fillRect(ox, top, ww, s);
+  ctx.fillStyle = rm.props['床の色'] || '#221a16'; ctx.fillRect(ox, fy, ww, s * 1.1);
+  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ox, fy, ww, 3);
+  ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1;
+  for (const k of [0.22, 0.5, 0.85]) { ctx.beginPath(); ctx.moveTo(ox, fy + s * k); ctx.lineTo(ox + ww, fy + s * k); ctx.stroke(); }
+  for (let x = 0; x < rm.w; x++) if (/[#|]/.test(colCh('wall', x) + colCh('floor', x))) { ctx.fillStyle = '#09070b'; ctx.fillRect(ox + x * s, top - s * 0.2, s, s * 4.4); }
+  // 物
+  const lights = [], tints = [];
+  let hideOb = null;
+  for (const ob of rm.objs) {
+    if (!shown(ob)) continue;
+    const k = ob.o['種類'], cx = ox + (ob.x + 0.5) * s, look = lookOf(ob);
+    if (k === '隠れる' && RT.hide && RT.hideAt === ob) hideOb = ob;
+    else if (k !== '敵' && k !== '番人位置' && cx > -s * 2 && cx < VW + s * 2) drawObj(ob, cx, fy);
+    const lr = num(ob.o['光'], 0);
+    if (lr > 0 && !/消/.test(look)) {
+      const ly = ob.layer === 'wall' ? fy - s * 2.0 : fy - s * 0.6;
+      lights.push([cx, ly, lr * s * (1 + Math.sin(RT.t * 9 + ob.x * 3) * 0.04 + Math.sin(RT.t * 23 + ob.x) * 0.02)]);
+      if (/赤/.test(look)) tints.push([cx, ly, lr * s * 1.8]);
+    }
+    const wr = G.writes[lookKey(G.room, ob.sym)];
+    if (wr) drawWriting(wr, cx, ob.layer === 'wall' ? fy - s * 2.62 : fy - s * 2.2);
+  }
+  for (const h of RT.hazards) drawHands(h, ox + h.x * s, fy - s * 1.75);
+  // 人物（e.x の位置を 0 にして、ACT 倍で描く。既存の人物・敵の絵をそのまま使う）
+  const actor = (x, sz, fn) => { ctx.save(); ctx.translate(ox + x * s, fy - s * 0.05); ctx.scale(ACT, ACT); fn(-x * s, -s * 0.32 * sz); ctx.restore(); };
+  RT.enemies.forEach(e => actor(e.x, num(e.d['大きさ'], 1), (a, b) => drawEnemy(e, a, b)));
+  // 番人は 1.25 倍（大きさ 2 で、ちょうど壁の 3 分の 2 ほど）
+  const guardAt = () => { const g = RT.guard; ctx.save(); ctx.translate(ox + g.x * s, fy - s * 0.05); ctx.scale(1.25, 1.25); drawGuard(g, -g.x * s, -s * 0.3 * num(g.d['大きさ'], 1.6)); ctx.restore(); };
+  if (RT.guard) guardAt();
+  if (RT.comp && G.companion) {
+    const c = charByName(G.companion) || roleChar('同行者');
+    if (c) actor(RT.comp.x, num(c['背'], 1), (a, b) => drawPerson(0, b, c['服'], c['髪'], num(c['背'], 1), RT.comp.face || [1, 0]));
+  }
+  const hero = roleChar('主人公') || { 服: '#aaa', 髪: '#333', 背: 1 };
+  const blink = RT.inv > 0 && Math.floor(RT.t * 12) % 2;
+  const bob = RT.walk ? -Math.abs(Math.sin(RT.walk * 9)) * s * 0.012 : 0;
+  actor(G.x, num(hero['背'], 1), (a, b) => drawPerson(0, b + bob, hero['服'], hero['髪'], num(hero['背'], 1), G.face, RT.hide || blink ? 0.35 : 1));
+  if (hideOb) drawObj(hideOb, ox + (hideOb.x + 0.5) * s, fy);   // 隠れている物は手前に描く
+  ctx.fillStyle = '#ffd0a0';
+  for (const sh of RT.shots) { ctx.beginPath(); ctx.arc(ox + sh.x * s, fy - s * 0.9, s * 0.1, 0, 7); ctx.fill(); }
+  // 闇と灯
+  dctx.globalCompositeOperation = 'source-over';
+  dctx.clearRect(0, 0, VW, VH);
+  const bright = Math.max(0, Math.min(1, num(rm.props['明るさ'], 0)));
+  dctx.fillStyle = `rgba(4,2,8,${(0.95 * (1 - bright)).toFixed(3)})`; dctx.fillRect(0, 0, VW, VH);
+  dctx.globalCompositeOperation = 'destination-out';
+  const flick = Math.sin(RT.t * 7) * 0.04 + Math.sin(RT.t * 13) * 0.03;
+  lights.push([PSX, fy - s * 0.95, s * (1.3 + effLight() * 0.5) * (1 + flick)]);
+  for (const [x, y, r] of lights) {
+    const gr = dctx.createRadialGradient(x, y, r * 0.15, x, y, r);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.6, 'rgba(0,0,0,.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    dctx.fillStyle = gr; dctx.beginPath(); dctx.arc(x, y, r, 0, 7); dctx.fill();
+  }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dark, 0, 0); ctx.restore();
+  for (const [x, y, r] of tints) {   // 赤い灯りは部屋を赤く染める
+    ctx.save(); ctx.globalCompositeOperation = 'multiply';
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(255,70,60,1)'); g.addColorStop(1, 'rgba(255,70,60,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); ctx.restore();
+  }
+  // 見回りの視線（向いている方を、うっすら赤く）
+  for (const e of RT.enemies) {
+    if (!/^見回り/.test(e.d['動き'] || '') || RT.stun > 0) continue;
+    const v1 = num(moveDef(e.d['動き'])['値1'], 0), x0 = ox + e.x * s, x1 = x0 + e.face * v1 * s;
+    const g = ctx.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, `rgba(255,40,40,${e.st === 'chase' ? 0.22 : 0.1})`); g.addColorStop(1, 'rgba(255,40,40,0)');
+    ctx.fillStyle = g; ctx.fillRect(Math.min(x0, x1), fy - s * 1.6, Math.abs(x1 - x0), s * 1.6);
+  }
+  for (const e of RT.enemies) {   // ! ? …
+    const x = ox + e.x * s, y = fy - s * ACT * num(e.d['大きさ'], 1) * 0.95;
+    if (RT.stun > 0) drawMark('…', '#a0c0ff', x, y);
+    else if (e.mark > 0) drawMark('!', '#e03040', x, y);
+    else if (e.st === 'lost') drawMark('?', '#ffd060', x, y);
+  }
+  // 番人の技の予告（赤い範囲）
+  for (const a of RT.warns) {
+    const k = 1 - a.t / a.total, L = num(a.sk['長さ'], 3) * s, x0 = ox + a.ox * s, y0 = fy - s * 2, hh = s * 2;
+    ctx.fillStyle = `rgba(220,40,60,${0.12 + k * 0.3})`; ctx.strokeStyle = 'rgba(255,80,90,.8)'; ctx.lineWidth = 1;
+    if (a.sk['種類'] === '前') { ctx.fillRect(a.dir > 0 ? x0 : x0 - L * k, y0, L * k, hh); ctx.strokeRect(a.dir > 0 ? x0 : x0 - L, y0, L, hh); }
+    else if (a.sk['種類'] === '円') { ctx.fillRect(x0 - L * k, y0, L * k * 2, hh); ctx.strokeRect(x0 - L, y0, L * 2, hh); }
+    else ctx.fillRect(a.dir > 0 ? x0 : x0 - s * 1.5 * k, fy - s * 0.95, s * 1.5 * k, s * 0.1);
+  }
+  if (RT.guard) { const a0 = RT.guard.alpha; RT.guard.alpha = a0 * 0.35; guardAt(); RT.guard.alpha = a0; }   // 闇の中でも少し見せる
+  // 浮かぶ文字（[文字]）
+  for (const f of RT.floats) {
+    const a = f.t < 0.4 ? f.t / 0.4 : f.t > f.dur - 0.6 ? Math.max(0, (f.dur - f.t) / 0.6) : 1, n = Math.min(f.text.length, Math.floor(f.t * 7) + 1);
+    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#e02828'; ctx.shadowColor = 'rgba(255,0,0,.7)'; ctx.shadowBlur = 14;
+    ctx.font = `${TS >= 80 ? 48 : 36}px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.text.slice(0, n), ox + f.x * s + Math.sin(RT.t * 40) * 1.5, fy - s * 2.3); ctx.restore();
+  }
+  // 調べられる物の印
+  if (S.mode === 'play' && (!RT.busy || RT.chase) && !RT.hide) {
+    const t = nearObj(!!RT.chase);
+    if (t) {
+      const hx = ox + (t.x + 0.5) * s, hy = fy - s * objTop(t) - 6 + Math.sin(RT.t * 5) * 3;
+      ctx.fillStyle = `rgba(232,184,96,${0.6 + Math.sin(RT.t * 5) * 0.3})`;
+      ctx.beginPath(); ctx.moveTo(hx - 7, hy - 9); ctx.lineTo(hx + 7, hy - 9); ctx.lineTo(hx, hy); ctx.fill();
+    }
+  }
+  if (RT.flash > 0) { ctx.fillStyle = `rgba(200,30,50,${RT.flash})`; ctx.fillRect(0, 0, VW, VH); }
+}
+
+/* ====================== ループ ====================== */
+let last = performance.now(), lastTalking = false;
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; RT.t += dt;
+  const paused = !!document.querySelector('dialog[open]');
+  if (S.mode === 'play' && G && !paused) {
+    if (G.buff > 0) { G.buff = Math.max(0, G.buff - dt); const b = $('#buff'), txt = G.buff > 0 ? `光+${G.buffLv} ${Math.floor(G.buff / 60)}:${String(Math.floor(G.buff % 60)).padStart(2, '0')}` : ''; if (b.textContent !== txt) b.textContent = txt; }
+    else if ($('#buff').textContent) $('#buff').textContent = '';
+    RT.stun = Math.max(0, RT.stun - dt);
+    if (!RT.busy || RT.chase) RT.grace = Math.max(0, (RT.grace || 0) - dt);
+    const free = !RT.busy || RT.chase;
+    if (free) { updatePlayer(dt); updateEnemies(dt); if (S.mode === 'play') updateHazards(dt); }
+    if (RT.chase && S.mode === 'play') updateChase(dt);
+    RT.floats.forEach(f => f.t += dt); RT.floats = RT.floats.filter(f => f.t < f.dur);
+    RT.inv = Math.max(0, RT.inv - dt); RT.flash = Math.max(0, RT.flash - dt);
+    if (RT.comp) {   // 同行者は少し後ろをついてくる
+      const d = G.x - G.face[0] * 0.9 - RT.comp.x;
+      if (Math.abs(d) > 0.1) { RT.comp.x += d * Math.min(1, dt * 4); RT.comp.face = [Math.sign(d), 0]; }
+      else RT.comp.face = [Math.sign(G.x - RT.comp.x) || 1, 0];
+      if (Math.abs(d) > 4) RT.comp.x = G.x - G.face[0] * 0.9;
+    }
+  }
+  const talking = S.mode === 'play' && RT.busy && !RT.chase;
+  if (talking !== lastTalking) { lastTalking = talking; document.body.classList.toggle('talking', talking); }
+  draw();
+  if (++miniTick % 6 === 0) drawMini();
+  requestAnimationFrame(loop);
+}
+
+
+/* ====================== Markdown 読み込み UI ====================== */
+function openMd() { $('#mdInfo').textContent = loadedInfo(); $('#mdDlg').showModal(); }
+function loadedInfo() {
+  const by = {};
+  Object.values(RAW).forEach(s => (by[s.src] = by[s.src] || []).push(s.head));
+  return Object.entries(by).map(([k, v]) => `${k}: ${v.length} 見出し`).join(' / ');
+}
+function applyUser(text, src) {
+  const heads = applyText(text, src);
+  if (!heads.length) { toast('## 見出しが見つかりませんでした'); return; }
+  rebuild();
+  toast(`${src}: ${heads.length} 見出しを反映`);
+}
+function rebuild() {
+  W = buildWorld(); MINI = null;
+  if (S.mode === 'title') { titleScreen(); return; }
+  if (G && W.rooms[G.room]) {
+    const rm = room();
+    if (G.x > rm.w || blocked(G.x)) enterRoom(G.room, null); else enterRoom(G.room, null, true);
+  } else if (G) { enterRoom(setting('開始部屋', Object.keys(W.rooms)[0])); }
+  updateHud();
+}
+$('#btnMd').onclick = openMd;
+$('#mdClose').onclick = () => $('#mdDlg').close();
+$('#mdApply').onclick = () => { const t = $('#mdText').value; if (t.trim()) { applyUser(t, '貼り付け'); $('#mdText').value = ''; $('#mdInfo').textContent = loadedInfo(); } };
+$('#mdReset').onclick = () => { RAW = { ...DEFAULT_RAW }; rebuild(); toast('最初の定義に戻しました'); $('#mdInfo').textContent = loadedInfo(); };
+$('#mdRestart').onclick = () => { $('#mdDlg').close(); newGame(); };
+$('#mdFile').onchange = async e => { for (const f of e.target.files) applyUser(await f.text(), f.name); e.target.value = ''; $('#mdInfo').textContent = loadedInfo(); };
+$('#btnInv').onclick = openInv;
+$('#invClose').onclick = () => $('#invDlg').close();
+addEventListener('dragover', e => { e.preventDefault(); $('#drop').style.display = 'flex'; });
+addEventListener('dragleave', e => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
+addEventListener('drop', async e => {
+  e.preventDefault(); $('#drop').style.display = 'none';
+  for (const f of e.dataTransfer.files) if (/\.(md|markdown|txt)$/i.test(f.name)) applyUser(await f.text(), f.name);
+});
+
+/* ====================== 起動 ====================== */
+async function boot() {
+  for (const f of FILES) {
+    let text = null;
+    try { const r = await fetch(f, { cache: 'no-cache' }); if (r.ok) text = await r.text(); } catch (e) {}
+    if (text == null) { const el = document.querySelector(`script[type="text/markdown"][data-file="${f}"]`); if (el) text = el.textContent; }
+    if (text != null) applyText(text, f, DEFAULT_RAW);
+  }
+  RAW = { ...DEFAULT_RAW };
+  W = buildWorld();
+  resize();
+  titleScreen();
+  requestAnimationFrame(loop);
+}
+boot();
+</script>
+</body>
+</html>

@@ -188,7 +188,7 @@ md-forge Horror エンジン横スクロール版（sidescroll/）の確認用�
 > - 閉めると背後から何か来る：扉の「通ったら」にイベントを書く。そのイベントで `[手 扉の記号]`（閉めた扉から手）や `[追跡 番人 秒数]`（番人位置が無い部屋では、入ってきた扉＝背後から出る）。
 > - 隠し扉：扉の「出る」に条件を書くと、それまで壁のまま。
 >
-> **操作**：←→ で歩く。扉・階段の前で ↑ か「調べる」。物の前で「調べる」（近い物の上に ▼ が出る）。同じ列に壁の物と床の物があるときは、「調べる」は床の物、↑ は壁の物。暗幕などの「隠れる」の前で調べると隠れ、左右に動くと出る。
+> **操作**：←→ で歩く。扉・階段の前で ↑ か「調べる」。物の前で「調べる」（近い物の上に ▼ が出る）。同じ列に壁の物と床の物があるときは、「調べる」は床の物、↑ は壁の物。暗幕・ロッカーなどの「隠れる」の前で調べると隠れ、左右に動くと出る。ロッカーは中から扉のすき間ごしに外を見る（敵が近いと画面が赤く脈打つ）。
 
 ## イベント 満杯
 
@@ -310,7 +310,7 @@ md-forge Horror エンジン横スクロール版（sidescroll/）の確認用�
 廊下の空気が、さっきより冷たい。
 床の上を、黒い影がゆっくり行き来している。
 {主人公}「……見つかったら、まずい気がする」
-【ヒント】影は、向いている方しか見ていない（うっすら赤い帯）。暗幕の前で「調べる」と隠れられる。影が通り過ぎたら、左右に動いて出よう。
+【ヒント】影は、向いている方しか見ていない（うっすら赤い帯）。暗幕やロッカーの前で「調べる」と隠れられる。影が通り過ぎたら、左右に動いて出よう。
 
 ## イベント portrait_lady
 
@@ -461,6 +461,18 @@ md-forge Horror エンジン横スクロール版（sidescroll/）の確認用�
 階段の前に、鎖が渡してある。札が下がっている。
 撮影室は二階。引換券をお持ちの方のみ。
 
+## イベント hall_locker
+
+> ロッカーに隠れたときに動く（map.md の「対象」）。1 回目だけ話す。
+[済 → hall_locker2]
+鉄のロッカーに体を押し込んで、扉を閉めた。
+通気口のすき間から、廊下が細く見える。
+……自分の息の音が、やけに大きい。
+
+## イベント hall_locker2
+
+> 2 回目以降は何もしない。
+
 ## イベント hall_flower
 
 花瓶の花は茶色く枯れて、形だけが残っている。
@@ -590,7 +602,7 @@ md-forge Horror エンジン横スクロール版（sidescroll/）の確認用�
 | 列 | 意味 |
 | --- | --- |
 | 記号 | コードブロックの中の 1 文字 |
-| 種類 | `調べる`（前で調べるとイベント）・`置物`（調べるとイベント。対象が空なら飾り）・`扉`・`階段`（前で ↑ か「調べる」で移動）・`隠れる`（前で調べると隠れる。左右に動くと出る）・`障害`（条件が合うまで通れない。ぶつかると「だめなとき」）・`床`（その位置まで歩くとイベント）・`敵`・`番人位置`（追跡のとき番人が出る所） |
+| 種類 | `調べる`（前で調べるとイベント）・`置物`（調べるとイベント。対象が空なら飾り）・`扉`・`階段`（前で ↑ か「調べる」で移動）・`隠れる`（前で調べると隠れる。左右に動くと出る。対象にイベントを書くと、隠れたときに動く）・`障害`（条件が合うまで通れない。ぶつかると「だめなとき」）・`床`（その位置まで歩くとイベント）・`敵`・`番人位置`（追跡のとき番人が出る所） |
 | 対象 | 扉・階段は `部屋ID:記号`（着く場所）。調べる・置物・床はイベント名。敵は enemies.md の敵の名前 |
 | 条件 | 扉は開く条件、敵は出てくる条件、ほかはイベントが動く条件（書き方は scenario.md と同じ） |
 | だめなとき | 条件が合わないときに動くイベント（鍵のかかった扉など） |
@@ -605,7 +617,7 @@ md-forge Horror エンジン横スクロール版（sidescroll/）の確認用�
 
 - 壁：`絵`（肖像。`絵:目` 目が主人公を追う・`絵:泣く`・`絵:笑う`・`絵:無い` 人物が抜け出た）・`写真`（家族写真。`写真:目`・`写真:欠け` まん中が消えた・`写真:空き` 一人分の空白）・`額縁`（空の額）・`風景`（`風景:赤`）・`張り紙`（`張り紙:白`・`張り紙:血`）・`スイッチ`（`スイッチ:入`）・`覗き穴`（`覗き穴:目`）・`窓`（`窓:手` 手形・`窓:顔`・`窓:白`）・`時計`（`時計:逆` 針が逆に回る）・`鏡`（近づくと自分が映る。`鏡:影`）・`ランプ`（`ランプ:赤`・`ランプ:消`）
 - 扉・階段：`扉`（`扉:鉄`・`扉:開`）・`階段:上`・`階段:下`。種類が `調べる` でも見た目を `扉` にすると扉の絵になる（玄関など、イベントで扱いたい扉）
-- 床：`カウンター`・`机`・`長椅子`・`椅子`・`棚`・`カーテン`／`暗幕`・`カメラ`・`台`・`花台`・`箱`
+- 床：`カウンター`・`机`・`長椅子`・`椅子`・`棚`・`カーテン`／`暗幕`・`ロッカー`（隠れると、中から扉のすき間ごしに外を見る画面になる。`ロッカー:開` 半開き）・`カメラ`・`台`・`花台`・`箱`
 
 ## 部屋 lobby 待合室
 
@@ -637,7 +649,7 @@ md-forge Horror エンジン横スクロール版（sidescroll/）の確認用�
 
 ```
 |.L...p....q....s...h.K.....m....U..|
-|.........t.............a..e........|
+|.........t.............a..e..l.....|
 ```
 
 | 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 色 | 光 | 通ったら |
@@ -652,6 +664,7 @@ md-forge Horror エンジン横スクロール版（sidescroll/）の確認用�
 | U | 階段 | studio:S | 持つ:引換券 | stairs_locked | | 階段:上 | | | |
 | t | 置物 | hall_flower | | | | 花台 | | | |
 | a | 隠れる | | | | | 暗幕 | #3a1420 | | |
+| l | 隠れる | hall_locker | | | | ロッカー | | | |
 | e | 敵 | 焼き付き | 持つ:引換券 & !フラグ:写真を受け取った | | | | | | |
 
 ## 部屋 darkroom 暗室
@@ -1410,7 +1423,8 @@ function interact(ob) {
   if (k === '隠れる') {
     if (!cond(o['条件'])) { if (o['だめなとき']) runEvent(o['だめなとき']); return; }
     RT.hide = true; RT.hideAt = ob; G.x = ob.x + 0.5; keys.clear(); joy = null;
-    toast('隠れた（左右に動くと出る）');
+    toast(isLocker(ob) ? 'ロッカーに隠れた（左右に動くと出る）' : '隠れた（左右に動くと出る）');
+    if (o['対象'] && W.events[o['対象']]) runEvent(o['対象']);   // 隠れたときに動くイベント（中に何かいる、など）
     return;
   }
   if (cond(o['条件'])) { if (o['対象']) runEvent(o['対象']); }
@@ -2126,7 +2140,28 @@ function drawBox(cx, fy, col) {
   const s = TS; ctx.fillStyle = col || '#4a3a28'; ctx.fillRect(cx - s * 0.34, fy - s * 0.6, s * 0.68, s * 0.6);
   ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.strokeRect(cx - s * 0.34, fy - s * 0.6, s * 0.68, s * 0.6); ctx.beginPath(); ctx.moveTo(cx - s * 0.34, fy - s * 0.3); ctx.lineTo(cx + s * 0.34, fy - s * 0.3); ctx.stroke();
 }
-const OBJ_TOP = { カーテン: 2.45, 暗幕: 2.45, 棚: 1.9, カメラ: 1.7, カウンター: 1.05, 机: 0.8, 長椅子: 1.0, 椅子: 1.0, 台: 0.9, 花台: 1.5, 箱: 0.6 };
+// 見た目「ロッカー」：鉄のロッカー。:開（扉が半開き）。隠れると中から扉のすき間ごしに外を見る
+const isLocker = ob => /^ロッカー/.test(lookOf(ob));
+function drawLocker(cx, fy, col, st, inside) {
+  const s = TS, w = s * 0.8, h = s * 2.35, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(x + 4, y + 4, w, h);
+  ctx.fillStyle = col || '#4a5458'; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y, 2, h);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + w - 3, y, 3, h);
+  if (st === '開') {   // 半開きの扉と、真っ暗な中
+    ctx.fillStyle = '#050406'; ctx.fillRect(x + w * 0.08, y + h * 0.04, w * 0.84, h * 0.92);
+    ctx.fillStyle = col || '#4a5458'; ctx.beginPath(); ctx.moveTo(x + w, y + h * 0.03); ctx.lineTo(x + w * 1.35, y + h * 0.08); ctx.lineTo(x + w * 1.35, y + h * 0.92); ctx.lineTo(x + w, y + h * 0.97); ctx.fill();
+    return;
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = Math.max(1, s * 0.015); ctx.strokeRect(x + w * 0.08, y + h * 0.04, w * 0.84, h * 0.92);
+  ctx.fillStyle = '#0c0a0c';   // 通気口のすき間
+  for (let i = 0; i < 5; i++) ctx.fillRect(x + w * 0.22, y + h * 0.1 + i * s * 0.07, w * 0.56, Math.max(2, s * 0.03));
+  if (inside) {   // 中にいる：すき間からこちらの目がのぞく
+    for (const k of [-0.12, 0.12]) { el(cx + k * w, y + h * 0.1 + s * 0.085, s * 0.03, s * 0.014, '#e8e0d8'); }
+  }
+  ctx.fillStyle = '#9a9a90'; ctx.fillRect(x + w * 0.78, y + h * 0.48, s * 0.04, s * 0.18);
+}
+const OBJ_TOP = { ロッカー: 2.45, カーテン: 2.45, 暗幕: 2.45, 棚: 1.9, カメラ: 1.7, カウンター: 1.05, 机: 0.8, 長椅子: 1.0, 椅子: 1.0, 台: 0.9, 花台: 1.5, 箱: 0.6 };
 function objTop(ob) {   // 物のてっぺん（床から何マス上か）。調べられる印をここに出す
   const L = lookOf(ob), base = L.split(/[:：]/)[0], k = ob.o['種類'];
   if (/扉/.test(k) || base === '扉') return 2.25;
@@ -2160,6 +2195,7 @@ function drawObj(ob, cx, fy) {
     case '台': return drawTable(cx, fy, col);
     case '花台': return drawFlowers(cx, fy);
     case '箱': return drawBox(cx, fy, col);
+    case 'ロッカー': return drawLocker(cx, fy, col, st, RT.hide && RT.hideAt === ob);
   }
   if (ob.o['絵']) {
     ctx.font = `${Math.floor(s * 0.7)}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ddd';
@@ -2243,8 +2279,9 @@ function draw() {
   const hero = roleChar('主人公') || { 服: '#aaa', 髪: '#333', 背: 1 };
   const blink = RT.inv > 0 && Math.floor(RT.t * 12) % 2;
   const bob = RT.walk ? -Math.abs(Math.sin(RT.walk * 9)) * s * 0.012 : 0;
-  actor(G.x, num(hero['背'], 1), (a, b) => drawPerson(0, b + bob, hero['服'], hero['髪'], num(hero['背'], 1), G.face, RT.hide || blink ? 0.35 : 1));
-  if (hideOb) drawObj(hideOb, ox + (hideOb.x + 0.5) * s, fy);   // 隠れている物は手前に描く
+  const inLocker = RT.hide && RT.hideAt && isLocker(RT.hideAt);
+  if (!inLocker) actor(G.x, num(hero['背'], 1), (a, b) => drawPerson(0, b + bob, hero['服'], hero['髪'], num(hero['背'], 1), G.face, RT.hide || blink ? 0.35 : 1));
+  if (hideOb && !inLocker) drawObj(hideOb, ox + (hideOb.x + 0.5) * s, fy);   // 隠れている物は手前に描く（ロッカーは中から見るので描かない）
   ctx.fillStyle = '#ffd0a0';
   for (const sh of RT.shots) { ctx.beginPath(); ctx.arc(ox + sh.x * s, fy - s * 0.9, s * 0.1, 0, 7); ctx.fill(); }
   // 闇と灯
@@ -2304,7 +2341,28 @@ function draw() {
       ctx.beginPath(); ctx.moveTo(hx - 7, hy - 9); ctx.lineTo(hx + 7, hy - 9); ctx.lineTo(hx, hy); ctx.fill();
     }
   }
+  if (inLocker) drawLockerView(fy);
   if (RT.flash > 0) { ctx.fillStyle = `rgba(200,30,50,${RT.flash})`; ctx.fillRect(0, 0, VW, VH); }
+}
+
+// ロッカーの中から見た画面：横に細いすき間だけが見える。敵が近いほど、心臓の音に合わせて赤く脈打つ
+function drawLockerView(fy) {
+  const s = TS, n = 5, sh = Math.max(8, s * 0.22), gap = Math.max(4, s * 0.1), top = fy - s * 2.0;
+  const near = RT.enemies.reduce((m, e) => Math.min(m, Math.abs(e.x - G.x)), RT.guard ? Math.abs(RT.guard.x - G.x) : 99);
+  const fear = Math.max(0, 1 - near / 4), beat = fear ? Math.pow(Math.max(0, Math.sin(RT.t * (5 + fear * 6))), 6) : 0;
+  const jx = fear * Math.sin(RT.t * 37) * 1.5;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, VW, VH);
+  for (let i = 0; i < n; i++) ctx.rect(VW * 0.1 + jx, top + i * (sh + gap), VW * 0.8, sh);
+  ctx.fillStyle = 'rgba(6,5,7,.96)'; ctx.fill('evenodd');
+  ctx.strokeStyle = 'rgba(90,96,100,.5)'; ctx.lineWidth = 1;   // すき間のふち（鉄板）
+  for (let i = 0; i < n; i++) ctx.strokeRect(VW * 0.1 + jx, top + i * (sh + gap), VW * 0.8, sh);
+  const g = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.2, VW / 2, VH / 2, VH * 0.8);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(140,0,12,${(beat * 0.5 * fear).toFixed(3)})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  ctx.fillStyle = 'rgba(200,190,180,.55)'; ctx.font = '12px DenkiChip, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('左右に動くと出る', VW / 2, top + n * (sh + gap) + 28);
+  ctx.restore();
 }
 
 /* ====================== ループ ====================== */

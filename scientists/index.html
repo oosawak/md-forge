@@ -1,0 +1,1791 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SCIENTISTS</title>
+<style>
+:root { --bg:#0b090d; --panel:#17131b; --line:#3a3040; --text:#e8e2ec; --dim:#9a90a4; --accent:#e8b860; --danger:#e05060; }
+* { box-sizing:border-box; }
+/* でんきチップ（x8y12pxDenkiChip, hicc, SIL OFL 1.1）。12px の倍数で使うとドットがきれいに出る */
+@font-face { font-family:"DenkiChip"; src:url("fonts/x8y12pxDenkiChip.woff2") format("woff2"); font-display:swap; }
+html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:"DenkiChip","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; font-size:12px; font-weight:normal; -webkit-font-smoothing:none; font-smooth:never; text-rendering:optimizeSpeed; overscroll-behavior:none; }
+b, strong, h1, h2, h3 { font-weight:normal; }
+body { display:flex; flex-direction:column; height:100dvh; }
+header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+header h1 { font-size:12px; margin:0; letter-spacing:.05em; }
+#roomName { color:var(--dim); font-size:12px; }
+#lights { margin-left:auto; white-space:nowrap; padding-top:10px; }
+/* 灯の HUD：ろうそくと揺れる炎 */
+.cdl { display:inline-block; position:relative; width:7px; height:14px; margin:0 5px; border-radius:2px; vertical-align:middle; background:linear-gradient(90deg,#d8ccb0,#f6efdc 45%,#c8bb9c); }
+.cdl::before { content:""; position:absolute; left:50%; top:-3px; width:1px; height:3px; background:#3a2a20; }
+.cdl i { position:absolute; left:50%; bottom:calc(100% + 1px); width:8px; height:13px; margin-left:-4px; border-radius:50% 50% 45% 45% / 65% 65% 35% 35%;
+  background:radial-gradient(ellipse at 50% 78%, #fffbe0 0 22%, #ffd060 38%, #ff8a20 60%, rgba(255,60,10,0) 78%);
+  transform-origin:50% 100%; animation:flick .8s ease-in-out infinite alternate; filter:drop-shadow(0 0 5px rgba(255,150,50,.9)); }
+.cdl.off { opacity:.35; }
+.cdl.off i { display:none; }
+.cdl.out i { display:block; animation:snuff .6s forwards; }
+@keyframes flick { 0%{transform:scale(1,1) skewX(0)} 30%{transform:scale(.9,1.1) skewX(5deg)} 55%{transform:scale(1.06,.94) skewX(-4deg)} 80%{transform:scale(.94,1.12) skewX(3deg)} 100%{transform:scale(1,.96) skewX(-2deg)} }
+@keyframes snuff { to { transform:scale(.2,.4) translateY(-6px); opacity:0; } }
+button { font:inherit; color:var(--text); background:#241e2a; border:1px solid var(--line); border-radius:6px; padding:6px 10px; cursor:pointer; }
+button:hover { border-color:var(--accent); }
+button.primary { background:#4a3420; border-color:var(--accent); }
+main { position:relative; flex:1; overflow:hidden; touch-action:none; user-select:none; -webkit-user-select:none; }
+canvas { display:block; width:100%; height:100%; }
+.shake { animation:shake .35s; }
+@keyframes shake { 20%{transform:translate(-6px,3px)} 40%{transform:translate(5px,-4px)} 60%{transform:translate(-4px,-2px)} 80%{transform:translate(3px,4px)} }
+#fade { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .5s; }
+#dlg { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); width:min(680px, calc(100% - 24px)); background:rgba(14,11,17,.94); border:1px solid var(--line); border-radius:10px; padding:12px 14px 14px; min-height:92px; }
+#dlg .name { font-size:12px; margin-bottom:6px; }
+#dlg .text { font-size:24px; line-height:36px; white-space:pre-wrap; }
+#dlg .next { position:absolute; right:12px; bottom:6px; color:var(--dim); animation:blink 1s infinite; }
+@keyframes blink { 50%{opacity:0} }
+#dlg .choices { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+#dlg .choices button { text-align:left; font-size:24px; line-height:30px; }
+#dlg .choices button.sel { border-color:var(--accent); background:#3a2a20; }
+#dlg .ask { display:flex; gap:8px; flex-wrap:wrap; }
+#dlg .ask input { flex:1; min-width:140px; font:inherit; font-size:24px; color:var(--text); background:#0f0c12; border:1px solid var(--accent); border-radius:6px; padding:4px 8px; }
+#buff { font-size:12px; color:#ffd890; margin-left:6px; }
+#invHead { color:var(--dim); margin:0 0 8px; }
+#chase { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:min(360px, 70%); height:8px; border-radius:4px; background:#2a1a20; border:1px solid #5a2a30; }
+#chase div { height:100%; background:var(--danger); border-radius:4px; }
+#chase span { position:absolute; top:12px; width:100%; text-align:center; font-size:12px; color:#f0a0a8; }
+#screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:rgba(5,4,7,.9); text-align:center; padding:24px; }
+#screen h2 { margin:0; font-size:36px; letter-spacing:.1em; }
+#screen p { margin:0; color:var(--dim); max-width:520px; line-height:1.7; }
+#screen .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+/* スマホ用の操作（スティックとボタン）。タッチ端末か、一度でも触ったら出す */
+.touchui { display:none; }
+body.touch .touchui { display:block; }
+#stick { position:absolute; left:calc(18px + env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom)); width:124px; height:124px; border-radius:50%; background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.18); touch-action:none; }
+#stick .knob { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%; background:rgba(232,184,96,.35); border:2px solid rgba(232,184,96,.7); pointer-events:none; }
+#btns { position:absolute; right:calc(16px + env(safe-area-inset-right)); bottom:calc(18px + env(safe-area-inset-bottom)); width:150px; height:130px; }
+#btns button { position:absolute; border-radius:50%; touch-action:none; -webkit-tap-highlight-color:transparent; }
+#btns button:active, #btns button.on { filter:brightness(1.5); }
+#act { right:0; bottom:0; width:78px; height:78px; font-size:12px; background:rgba(74,52,32,.85); border:2px solid var(--accent); }
+#bInv { left:0; top:0; width:56px; height:56px; font-size:12px; background:rgba(36,30,42,.85); }
+body.touch #dlg { bottom:calc(150px + env(safe-area-inset-bottom)); }
+body.touch.talking #stick { opacity:.25; }
+#toast { position:absolute; top:28px; left:50%; transform:translateX(-50%); background:rgba(30,24,34,.95); border:1px solid var(--line); padding:6px 12px; border-radius:6px; font-size:12px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:90%; overflow:hidden; text-overflow:ellipsis; }
+dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; width:min(560px, calc(100% - 24px)); padding:16px; }
+dialog::backdrop { background:rgba(0,0,0,.6); }
+dialog h3 { margin:0 0 10px; font-size:24px; }
+dialog textarea { width:100%; height:160px; background:#0f0c12; color:var(--text); border:1px solid var(--line); border-radius:6px; font-family:ui-monospace,monospace; font-size:12px; padding:8px; }
+dialog .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
+.inv { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
+.inv li { display:flex; gap:10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:6px; }
+.inv .ic { font-size:22px; width:28px; text-align:center; }
+.inv .tx { flex:1; font-size:12px; }
+.inv .tx b { display:block; font-size:24px; line-height:30px; }
+#drop { position:fixed; inset:0; background:rgba(232,184,96,.12); border:3px dashed var(--accent); display:none; align-items:center; justify-content:center; font-size:24px; z-index:9; pointer-events:none; }
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">SCIENTISTS</h1><span id="roomName"></span>
+  <span id="lights"></span><span id="buff"></span>
+  <button id="btnInv">持ち物</button>
+  <button id="btnMd">Markdown</button>
+</header>
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <div id="fade"></div>
+  <div id="chase" hidden><div></div><span>逃げろ</span></div>
+  <div id="dlg" hidden><div class="name"></div><div class="text"></div><div class="choices"></div><div class="next">▼</div></div>
+  <div id="stick" class="touchui"><div class="knob"></div></div>
+  <div id="btns" class="touchui"><button id="bInv">持ち物</button><button id="act">調べる</button></div>
+  <div id="toast"></div>
+  <div id="screen"></div>
+</main>
+<div id="drop">.md をドロップすると定義が変わります</div>
+
+<dialog id="mdDlg">
+  <h3>Markdown を読み込む</h3>
+  <p class="note">同じ <code>## 見出し</code> の定義が置き換わります（<code>## 部屋 ID</code> と <code>## イベント ID</code> は ID で判定）。画面に .md をドロップしても読み込めます。</p>
+  <div class="row"><input type="file" id="mdFile" accept=".md,.markdown,.txt,text/markdown" multiple></div>
+  <textarea id="mdText" placeholder="ここに Markdown を貼り付けて「反映」"></textarea>
+  <div class="row">
+    <button class="primary" id="mdApply">反映</button>
+    <button id="mdReset">最初の定義に戻す</button>
+    <button id="mdRestart">最初から始める</button>
+    <span style="flex:1"></span><button id="mdClose">閉じる</button>
+  </div>
+  <p class="note" id="mdInfo"></p>
+</dialog>
+
+<dialog id="invDlg">
+  <h3>持ち物</h3>
+  <p id="invHead"></p>
+  <ul class="inv" id="invList"></ul>
+  <div class="row"><span style="flex:1"></span><button id="invClose">閉じる</button></div>
+</dialog>
+
+<!--EMBED-START-->
+<script type="text/markdown" data-file="scenario.md">
+# scenario.md — SCIENTISTS 設定とイベント
+
+md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1段：潜入〜研究棟A クリアまで。
+
+## 設定
+
+| 項目 | 値 |
+| --- | --- |
+| タイトル | SCIENTISTS |
+| 説明 | エデン生命科学研究所に潜入する。生命の価値を決めるのは、誰なのか。（第1段：潜入〜研究棟A） |
+| 開始部屋 | entrance |
+| 開始イベント | opening |
+| 最初の灯 | 3 |
+| 灯の最大 | 5 |
+| 持ち物の上限 | 4 |
+
+## 書き方（scientists/ 版で増えた命令）
+
+> - `[数値 名前 +1]` `[数値 名前 -1]` `[数値 名前 =0]`：カウンタ。条件は `数値:名前>=3`。セリフの中で `{数値:名前}` と書くと値が入る。
+> - `[解放 名前]`：エリアを解放する。条件は `解放:名前`。
+> - `[入力 答え → イベント]`：文字を入力させる。答えは `|` で区切って複数書ける。ひらがな・カタカナ・全角半角・大文字小文字の違いは区別しない。外れたら次の行へ進む。
+> - `[取得 物]`：消耗品（items.md の「使う」がある物）は「持ち物の上限」まで。いっぱいのときは `## イベント 満杯` へ移る。
+> - カウンタ：資料（回収した研究資料）・真相（ノワとリヒトの真相に関わる資料）・救った・安楽死・見送った
+
+## イベント 満杯
+
+これ以上は持てない。何かを使ってから、もう一度調べよう。
+
+## イベント opening
+
+[暗転]
+深夜。廃校のはずの旧校舎に、非常灯だけが灯っている。
+{主人公}「……エデン生命科学研究所。外から見れば、ただの廃墟」
+{主人公}「組織の壊滅に必要な証拠を集めて、外へ持ち出す。それが今回の任務」
+ふいに、頭の奥が痛んだ。この廊下を、知っている気がする。
+{主人公}「……気のせい。行こう」
+> 操作の案内
+移動は矢印キーかドラッグ。調べるのはスペースかタップ。持ち物は I キー。
+
+## イベント shoebox
+
+[済 → shoebox_after]
+古い下駄箱。ひとつだけ、新しい南京錠がかかっていない棚がある。
+[取得 懐中電灯]
+{主人公}「誰かが置いていった……？　まるで、わたしが来るのを知っていたみたい」
+
+## イベント shoebox_after
+
+上履きが並んでいる。名札はどれも削り取られている。
+
+## イベント shoebox2
+
+ほこりをかぶった上履き。小さなサイズだ。
+
+## イベント board
+
+掲示板に、古い時間割が貼られたままになっている。
+その上に、新しい紙が一枚。
+「研究棟A（生命延長）は、旧理科室棟。合言葉は主任のみ管理」
+
+## イベント reception
+
+[済 → reception_after]
+受付の窓口。引き出しの奥に、薬の小瓶がある。
+[取得 薬]
+
+## イベント reception_after
+
+受付の窓口。来客名簿は白紙だ。
+
+## イベント exit_locked
+
+正面の扉。外から板が打ちつけられていて、内側からは開かない。
+{主人公}「出口は、別に探すしかない」
+
+## イベント 入室:central
+
+[分岐 フラグ:研究棟A_クリア & !済:phase1_end → phase1_end]
+[済 → central_after]
+旧校舎の一階廊下。教室の札はそのままに、扉だけが電子錠に替えられている。
+{主人公}「西が職員室、東の渡り廊下が研究棟A……」
+
+## イベント central_after
+
+> 2 回目以降は何もしない。
+
+## イベント labB_locked
+
+「研究棟B　遺伝子改良」の札。電子錠は赤く光っている。
+[分岐 フラグ:研究棟A_クリア → labB_locked_after]
+{主人公}「先に、研究棟Aを調べないと」
+
+## イベント labB_locked_after
+
+カードキーを当てても反応しない。別の鍵が必要らしい。
+（第1段はここまで）
+
+## イベント labC_locked
+
+「研究棟C　キメラ・軍事転用」の札。扉の向こうから、何かが這う音がする。
+{主人公}「……今は、近づかない方がいい」
+
+## イベント diary
+
+[済 → diary_after]
+研究員の日誌だ。
+「生命延長計画は、最初の被験者から始まった。彼女は『トワ』と呼ばれた。永遠に生きるはずの子だった」
+「主任は、あの子の名前を研究棟Aの合言葉にした。悪趣味だと思う」
+「資料の原本は、本棚の奥の旧資料室に移した。あそこは誰も使わない」
+[数値 資料 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント diary_after
+
+「トワ」「本棚の奥の旧資料室」——日誌の言葉を思い出す。
+
+## イベント shelf
+
+[分岐 フラグ:本棚を押した → shelf_after]
+[分岐 !済:diary → shelf_plain]
+日誌の言葉を思い出して、本棚の奥を押してみる。
+ガコン、と重い音がして、壁の一部がずれた。
+[フラグ 本棚を押した]
+[揺れ]
+{主人公}「隠し通路……」
+
+## イベント shelf_plain
+
+古い教育書が並んでいる。一冊だけ、奥に押し込まれたままの本がある。
+
+## イベント shelf_after
+
+本棚の横に、細い通路が口を開けている。
+
+## イベント blackboard
+
+黒板に、消し残しの文字がある。
+「延命は救済か？　——生命の価値を決めるのは、誰なのか」
+
+## イベント desk
+
+机の上に、吸い殻が山になった灰皿がある。最近まで誰かがいたらしい。
+
+## イベント sink
+
+[済 → sink_after]
+流しに、空き瓶が転がっている。投げれば音で気をそらせそうだ。
+[取得 空き瓶]
+
+## イベント sink_after
+
+流しの蛇口から、水が一滴ずつ落ちている。
+
+## イベント 入室:archive
+
+[済 → archive_after]
+ほこりの匂い。誰にも忘れられた部屋だ。
+
+## イベント archive_after
+
+> 2 回目以降は何もしない。
+
+## イベント archive_files
+
+[済 → archive_files_after]
+棚の奥に、一冊だけ新しいファイルがある。
+「被験体 N-0　経過観察記録（外部環境適応試験）」
+「解放後、警察に保護。記憶処理は成功。本人は自身の出自を認識していない」
+写真の部分は、切り取られている。
+{主人公}「N-0……？」
+[数値 資料 +1]
+[数値 真相 +1]
+[フラグ 真相_N0]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント archive_files_after
+
+N-0 の記録。読み返すと、なぜか胸がざわつく。
+
+## イベント archive_desk
+
+[済 → archive_desk_after]
+机の引き出しに、医療キットが残っていた。
+[取得 医療キット]
+
+## イベント archive_desk_after
+
+空の引き出し。
+
+## イベント gate_locked
+
+電子錠がかかっている。横のパネルに、合言葉を入れるらしい。
+
+## イベント gate_panel
+
+[分岐 解放:研究棟A → gate_panel_open]
+パネルに「合言葉を入力してください」と表示されている。
+[入力 トワ|TOWA|永遠 → gate_ok]
+ブザーが鳴った。違うらしい。
+[分岐 !済:diary → gate_hint]
+
+## イベント gate_hint
+
+{主人公}「合言葉……職員室に、何か手がかりがあるかもしれない」
+
+## イベント gate_ok
+
+ピッ、と短い音。錠の赤いランプが緑に変わった。
+[解放 研究棟A]
+{主人公}「……トワ。永遠に生きるはずだった子」
+
+## イベント gate_panel_open
+
+パネルには「解錠中」と表示されている。
+
+## イベント gate_locker
+
+[済 → gate_locker_after]
+[分岐 !持つ:懐中電灯 → gate_locker_dark]
+懐中電灯で奥を照らすと、発煙筒が一本残っていた。
+[取得 発煙筒]
+
+## イベント gate_locker_dark
+
+ロッカーの奥は真っ暗で、何があるか分からない。明かりがあれば……
+
+## イベント gate_locker_after
+
+空のロッカー。
+
+## イベント 入室:labA_ward
+
+[済 → ward_after]
+消毒液と、何かが腐った匂い。
+病床の間を、何かがゆっくり歩いている。
+{主人公}「見つからないように……。音を立てれば、あっちへ気を引けるかも」
+> 見回りの実験体は、近づくと「!」で気づいて追ってくる。物陰に入って見失わせるか、空き瓶や発煙筒で気をそらす。
+
+## イベント ward_after
+
+> 2 回目以降は何もしない。
+
+## イベント ward_shelf
+
+[済 → ward_shelf_after]
+薬品棚。割れていない瓶がいくつか残っている。
+[取得 電池]
+[取得 薬]
+
+## イベント ward_shelf_after
+
+薬品棚は空っぽだ。
+
+## イベント bed
+
+古い病床。シーツに、人の形の染みが残っている。
+
+## イベント 入室:labA_room
+
+[済 → labA_room_after]
+部屋の奥に、液体で満たされた円筒の槽がある。
+その中に、人がいた。
+{主人公}「……生きてる」
+
+## イベント labA_room_after
+
+> 2 回目以降は何もしない。
+
+## イベント monitor
+
+モニターに心拍の波形が流れている。日付の欄は、四十年以上前から数え続けていた。
+
+## イベント tank
+
+[分岐 フラグ:トワ_済 → tank_after]
+槽の中の少女が、目を開けた。年は十歳くらいに見える。
+スピーカーから、かすれた声がした。
+トワ「……だれ？　新しい、けんきゅういんさん？」
+{主人公}「ちがう。わたしは、ここを止めに来た」
+トワ「とめる……。じゃあ、わたしも、おわれるの？」
+トワ「わたし、ずっと、ここにいるの。ねむっても、また、おこされるの」
+[選択 生命維持装置を止める → towa_stop / 装置はそのままにして記録だけ持ち出す → towa_leave / トワの望みを聞く → towa_ask]
+
+## イベント towa_stop
+
+{主人公}「……ごめんね。もう、起こされないように」
+装置のスイッチを切った。波形が、ゆっくりと平らになっていく。
+トワ「……ありがとう。おやすみ、なさい」
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ トワ_済]
+[フラグ トワ_眠った]
+
+## イベント towa_leave
+
+{主人公}「……わたしには、決められない」
+トワ「そう……。じゃあ、また、ひとりだね」
+槽の記録だけを抜き取って、背を向けた。
+[数値 見送った +1]
+[数値 資料 +1]
+[フラグ トワ_済]
+[フラグ トワ_置いてきた]
+
+## イベント towa_ask
+
+{主人公}「あなたは、どうしたい？」
+トワ「……そと。そとの、そらが、みたい」
+トワ「でも、ここからでたら、わたし、たぶん、すぐしんじゃう」
+[選択 「いつか外へ連れ出す」と約束する → towa_promise / 「わたしには約束できない」と答える → towa_leave]
+
+## イベント towa_promise
+
+{主人公}「約束する。ここを止めたら、必ず迎えに来る。外の空を見せる」
+トワ「……やくそく。まってる」
+少女は、もう一度目を閉じた。波形が、少しだけ穏やかになった気がした。
+[数値 救った +1]
+[フラグ トワと約束]
+[フラグ トワ_済]
+
+## イベント tank_after
+
+[分岐 フラグ:トワ_眠った → tank_sleep]
+[分岐 フラグ:トワと約束 → tank_promise]
+トワは、目を閉じたまま動かない。
+
+## イベント tank_sleep
+
+槽の中の少女は、静かに眠っている。もう誰にも起こされない。
+
+## イベント tank_promise
+
+トワ「……やくそく、わすれないでね」
+
+## イベント chief_desk
+
+[済 → chief_desk_after]
+主任の机。引き出しに、研究棟Aのカードキーと報告書がある。
+「生命延長計画 最終報告：被験者T-01は死ねない。成功と呼ぶべきか、私にはもう分からない」
+[取得 カードキーA]
+[数値 資料 +1]
+[揺れ]
+けたたましい警報が鳴り響いた。
+放送「研究棟A、侵入者。看守を起こします」
+{主人公}「しまった……！」
+[追跡 不死の看守 20]
+……足音が遠ざかっていく。警報が止んだ。
+{主人公}「逃げ切った……」
+[フラグ 研究棟A_クリア]
+研究棟Aの調査を終えた。（回収した資料 {数値:資料}）
+{主人公}「中央棟へ戻ろう」
+
+## イベント chief_desk_after
+
+主任の机。もう何も残っていない。
+
+## イベント phase1_end
+
+中央棟に戻ると、天井のスピーカーが小さく鳴った。
+放送「……おかえり、ノワ」
+{主人公}「！」
+放送「研究棟A、見せてもらったよ。相変わらず、きみは優しいね」
+声は、それきり途切れた。
+{主人公}「今の声……どうして、わたしの名前を」
+（ここまでの記録：資料 {数値:資料}、真相 {数値:真相}、救った {数値:救った}、安楽死 {数値:安楽死}、見送った {数値:見送った}）
+（第1段はここまで）
+</script>
+<script type="text/markdown" data-file="map.md">
+# map.md — エデン生命科学研究所（第1段：エントランス・中央棟・研究棟A）
+
+書き方は horror/map.md と同じです。scientists/ 版では種類 `隠し扉` が増えました（条件が合うまでは壁に見え、合うと扉として通れる）。
+
+## 部屋 entrance エントランス（旧校舎の玄関ホール）
+
+```
+######N######
+#kk.......kj#
+#...........#
+#.....@.....#
+#b.........i#
+#...........#
+#...........#
+#e....X....e#
+#############
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| N | 扉 | central:S | | | | #3a3a44 | |
+| k | 置物 | shoebox2 | | | 👟 | #2a2420 | |
+| j | 調べる | shoebox | | | 🗄 | #2a2420 | |
+| b | 調べる | board | | | 📋 | #2a2a20 | |
+| i | 調べる | reception | | | 🪟 | #20262a | |
+| X | 調べる | exit_locked | | | 🚪 | #3a2a20 | |
+| e | 置物 | | | | 🟩 | #182018 | 1.6 |
+
+## 部屋 central 中央棟・一階廊下
+
+```
+####K#####B######
+#...............#
+#...............#
+W...............E
+#...............#
+#n.............n#
+########S########
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | entrance:N | | | | #3a3a44 | |
+| W | 扉 | staffroom:R | | | | #4a3020 | |
+| E | 扉 | labA_gate:L | | | | #3a4a44 | |
+| B | 扉 | labB:S | フラグ:研究棟B_解放 | labB_locked | | #3a3a50 | |
+| K | 扉 | labC:S | フラグ:研究棟C_解放 | labC_locked | | #4a2a2a | |
+| n | 置物 | | | | 🟩 | #182018 | 1.6 |
+
+## 部屋 staffroom 職員室
+
+```
+####H########
+#hhh....ggg.#
+#...........#
+#.dd..jd....R
+#...........#
+#.dd..dd..s.#
+#############
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| R | 扉 | central:W | | | | #4a3020 | |
+| H | 隠し扉 | archive:D | フラグ:本棚を押した | | | #2a2018 | |
+| h | 調べる | shelf | | | 📚 | #2a2018 | |
+| g | 調べる | blackboard | | | | #1e3024 | |
+| d | 調べる | desk | | | | #3a2e22 | |
+| j | 調べる | diary | | | 📔 | #3a2e22 | 1.2 |
+| s | 調べる | sink | | | 🚰 | #2a2a30 | |
+
+## 部屋 archive 旧資料室（隠し部屋）
+
+```
+#######
+#fff..#
+#.....#
+#..t..#
+#.....#
+###D###
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| D | 扉 | staffroom:H | | | | #2a2018 | |
+| f | 調べる | archive_files | | | 🗂 | #2a2420 | |
+| t | 調べる | archive_desk | | | | #3a2e22 | |
+
+## 部屋 labA_gate 研究棟A・前室
+
+```
+#####G#####
+#l.......l#
+#.........#
+L.........#
+#.........#
+#p.......q#
+###########
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| L | 扉 | central:E | | | | #3a4a44 | |
+| G | 扉 | labA_ward:S | 解放:研究棟A | gate_locked | | #3a4a44 | |
+| p | 調べる | gate_panel | | | 🔢 | #1e2a2a | 1.2 |
+| l | 調べる | gate_locker | | | 🗄 | #2a3030 | |
+| q | 置物 | | | | 🧪 | #1e2a2a | |
+
+## 部屋 labA_ward 研究棟A・病棟廊下
+
+```
+#########N#########
+#bb.....#.....bb..#
+#.....r.#.........#
+#.......#.........#
+#.................#
+#..............x..#
+#bb...............#
+#.......v.........#
+#########S#########
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labA_gate:G | | | | #3a4a44 | |
+| N | 扉 | labA_room:S | | | | #3a4a44 | |
+| b | 置物 | bed | | | 🛏 | #2a2a30 | |
+| v | 調べる | ward_shelf | | | 💊 | #1e2a2a | |
+| r | 敵 | ロスト | | | | | |
+| x | 敵 | キメラ | | | | | |
+
+## 部屋 labA_room 研究棟A・延命実験室
+
+```
+######T######
+#...........#
+#.m.......m.#
+#...........#
+#.....B.....#
+#...........#
+#.........k.#
+#...........#
+######S######
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labA_ward:N | | | | #3a4a44 | |
+| T | 調べる | tank | | | 🫙 | #1a3a40 | 2.2 |
+| m | 調べる | monitor | | | 🖥 | #1e2a2a | 1 |
+| k | 調べる | chief_desk | | | 🗃 | #3a2e22 | |
+| B | 番人位置 | | | | | | |
+</script>
+<script type="text/markdown" data-file="characters.md">
+# characters.md — SCIENTISTS 登場人物
+
+## キャラ
+
+| 名前 | 役 | 服 | 髪 | 背 | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| ノワ | 主人公 | #2a3040 | #1a1418 | 1 | 20 歳。組織の壊滅のために潜入したスパイ。記憶の一部が欠けている |
+| リヒト | その他 | #e8e8f0 | #b8c0c8 | 1.05 | 22 歳。研究所の研究員。柔和な笑顔の合理主義者。ヘビースモーカー |
+| 放送 | その他 | #000000 | #9ad0c0 | 1 | 校内放送のスピーカー |
+| トワ | その他 | #d0e8f0 | #e8d8a0 | 0.8 | 生命延長計画の最初の被験者 |
+| 不死の看守 | 番人 | #303a40 | #000000 | 1.9 | 研究棟A のエリアボス。何度倒れても起き上がる |
+</script>
+<script type="text/markdown" data-file="items.md">
+# items.md — SCIENTISTS 持ち物
+
+「使う」がある物は消耗品で、scenario.md の「持ち物の上限」まで持てます。空欄は大事な物（上限に数えない・1 つだけ）。
+使う欄の効果：`灯+1`（灯を回復）・`光+1`（5 分間、見える範囲を 1 段広げる）・`気をそらす`（その部屋の実験体と番人を 3 秒止める）。`、` で複数書けます。
+
+## アイテム
+
+| 名前 | 分類 | 絵 | 使う | 説明 |
+| --- | --- | --- | --- | --- |
+| 空き瓶 | 回避 | 🍶 | 気をそらす | 投げると音が鳴る。実験体の注意をそらす |
+| 発煙筒 | 回避 | 🧨 | 気をそらす | 煙で視界をふさぎ、実験体と番人の足を止める |
+| 電池 | 探索 | 🔋 | 光+1 | 懐中電灯の予備の電池。しばらく明るく照らせる |
+| 医療キット | 回復 | 🩹 | 灯+2 | 傷の手当てができる |
+| 薬 | 回復 | 💊 | 灯+1 | 痛み止め。少し落ち着く |
+| 懐中電灯 | 探索 | 🔦 | | 暗い場所の奥を照らせる |
+| カードキーA | 謎解き | 💳 | | 研究棟A の主任のカードキー |
+</script>
+<script type="text/markdown" data-file="enemies.md">
+# enemies.md — SCIENTISTS 実験体・動き・番人・技
+
+触れられると灯が 1 つ消え、0 でゲームオーバーです。ノワは実験体を倒せません。逃げる・隠れる・気をそらすで切り抜けます。
+
+## 敵
+
+- 形：人形・影・目玉・獣
+- 動きは「## 動き」の名前。`見回り` は scientists/ 版で追加した動き。
+
+| 名前 | 形 | 色 | 大きさ | 速さ | 動き | 説明 |
+| --- | --- | --- | --- | --- | --- | --- |
+| ロスト | 影 | #000000 | 1.1 | 1.1 | 見回り | 実験に失敗し、形を保てなくなった生命体。目が弱く、近くまで来ないと気づかない |
+| キメラ | 獣 | #7a5a3a | 1 | 1.4 | 見回りキメラ | 複数の動物の特徴を持つ。耳と鼻が利き、遠くから気づく |
+
+## 動き
+
+| 動き | 値1 | 値2 | 説明 |
+| --- | --- | --- | --- |
+| 近づく | 0 | 0 | まっすぐ近づく |
+| ふらふら | 0.8 | 3 | 左右に揺れながら近づく |
+| 回り込む | 1.2 | 0.35 | まわりを回りながら近づく |
+| 突進 | 0.8 | 4 | 構えてから突っ込む |
+| 撃つ | 4 | 2.2 | 距離を保って弾を撃つ |
+| 見張り | 3 | 0 | 近づくまで動かない |
+| うしろ | 0 | 0 | 背中を向けている間だけ近づく |
+| 見回り | 3 | 1.4 | 部屋をゆっくり歩き回る。値1 マス以内で見つかると「!」で追ってくる（速さの値2 倍）。壁で見えなくなると「?」で探し、3 秒で持ち場へ戻る |
+| 見回りキメラ | 5 | 1.6 | 見回りと同じ（「見回り」で始まる名前は見回りとして動く）。察知が 5 マスと遠い |
+
+## 番人
+
+| 名前 | 形 | 色 | 大きさ | 速さ | 技 |
+| --- | --- | --- | --- | --- | --- |
+| 不死の看守 | 番人 | #303a40 | 1.9 | 1.2 | 延命の鎖・心拍・点滴の針 |
+
+## 技
+
+| 技 | 種類 | 長さ | 幅 | 構え | 間隔 |
+| --- | --- | --- | --- | --- | --- |
+| 延命の鎖 | 前 | 8 | 1.4 | 1.0 | 1.5 |
+| 心拍 | 円 | 3 | 0 | 1.2 | 1.8 |
+| 点滴の針 | 弾 | 5 | 70 | 0.8 | 1.4 |
+</script>
+<!--EMBED-END-->
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const FILES = ['scenario.md', 'map.md', 'characters.md', 'items.md', 'enemies.md'];
+
+/* ====================== Markdown → 定義 ====================== */
+// 見出しごとに区切る。部屋とイベントは ID をキーにする（表示名が違っても置き換わる）。
+function secKey(head) {
+  const m = /^(部屋|イベント)\s+(\S+)/.exec(head);
+  return m ? m[1] + ' ' + m[2] : head;
+}
+function parseMd(text, src) {
+  const secs = {}; let cur = null, inCode = false;
+  for (const ln of text.replace(/\r/g, '').split('\n')) {
+    if (/^\s*```/.test(ln)) inCode = !inCode;
+    const m = !inCode && /^##\s+(.+?)\s*$/.exec(ln);
+    if (m) { cur = { head: m[1], lines: [], src }; secs[secKey(m[1])] = cur; continue; }
+    if (cur) cur.lines.push(ln);
+  }
+  return secs;
+}
+function splitRow(l) { let s = l.trim(); if (s.startsWith('|')) s = s.slice(1); if (s.endsWith('|')) s = s.slice(0, -1); return s.split('|').map(x => x.trim()); }
+function secTable(sec) {
+  const L = sec.lines;
+  const i = L.findIndex((l, k) => /^\s*\|/.test(l) && L[k + 1] && /^\s*\|[\s:|-]+\|?\s*$/.test(L[k + 1]));
+  if (i < 0) return [];
+  const hdr = splitRow(L[i]), rows = [];
+  for (let k = i + 2; k < L.length && /^\s*\|/.test(L[k]); k++) {
+    const c = splitRow(L[k]), o = {};
+    hdr.forEach((h, j) => o[h] = (c[j] ?? '').trim());
+    rows.push(o);
+  }
+  return rows;
+}
+function secCode(sec) {
+  const out = []; let inCode = false, done = false;
+  for (const l of sec.lines) {
+    if (/^\s*```/.test(l)) { if (inCode) { done = true; break; } inCode = true; continue; }
+    if (inCode) out.push(l.replace(/\s+$/, ''));
+  }
+  return done || inCode ? out : [];
+}
+function secScript(sec) {
+  const out = []; let inCode = false;
+  for (let l of sec.lines) {
+    if (/^\s*```/.test(l)) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    l = l.trim();
+    if (!l || l.startsWith('>') || l.startsWith('<!--')) continue;
+    l = l.replace(/^[-*]\s+/, '');
+    if (l) out.push(l);
+  }
+  return out;
+}
+const num = (v, d) => { const n = parseFloat(v); return isFinite(n) ? n : d; };
+
+let RAW = {}, DEFAULT_RAW = {}, W = null;
+function applyText(text, src, target = RAW) {
+  const s = parseMd(text, src);
+  Object.assign(target, s);
+  return Object.values(s).map(x => x.head);
+}
+function buildWorld() {
+  const w = { settings: {}, chars: [], items: {}, enemies: {}, moves: {}, guards: {}, skills: {}, rooms: {}, events: {} };
+  for (const [key, sec] of Object.entries(RAW)) {
+    let m;
+    if (key === '設定') secTable(sec).forEach(r => w.settings[r['項目']] = r['値']);
+    else if (key === 'キャラ') w.chars = secTable(sec);
+    else if (key === 'アイテム') secTable(sec).forEach(r => w.items[r['名前']] = r);
+    else if (key === '敵') secTable(sec).forEach(r => w.enemies[r['名前']] = r);
+    else if (key === '動き') secTable(sec).forEach(r => w.moves[r['動き']] = r);
+    else if (key === '番人') secTable(sec).forEach(r => w.guards[r['名前']] = r);
+    else if (key === '技') secTable(sec).forEach(r => w.skills[r['技']] = r);
+    else if ((m = /^部屋\s+(\S+)\s*(.*)$/.exec(sec.head))) w.rooms[m[1]] = buildRoom(m[1], m[2] || m[1], sec);
+    else if ((m = /^イベント\s+(\S+)/.exec(sec.head))) w.events[m[1]] = secScript(sec);
+  }
+  return w;
+}
+function buildRoom(id, name, sec) {
+  const grid = secCode(sec);
+  const legend = {};
+  secTable(sec).forEach(r => { if (r['記号']) legend[r['記号']] = r; });
+  const h = grid.length, wd = Math.max(1, ...grid.map(r => r.length));
+  return { id, name, grid, legend, w: wd, h };
+}
+
+/* ====================== 状態 ====================== */
+const S = { mode: 'title' };       // title | play | end
+let G = null;                       // 保存する状態
+let checkpoint = null;
+const RT = { enemies: [], shots: [], warns: [], guard: null, chase: null, inv: 0, busy: false, lastTile: '', t: 0, comp: null, flash: 0, stun: 0 };
+const roleChar = role => W.chars.find(c => c['役'] === role);
+const charByName = n => W.chars.find(c => c['名前'] === n);
+const room = () => W.rooms[G.room];
+const setting = (k, d) => (W.settings[k] ?? '') !== '' ? W.settings[k] : d;
+const saveKey = () => 'akari-yakata:' + setting('タイトル', 'untitled');
+
+function sub(s) {
+  return s.replace(/\{(主人公|同行者|番人)\}/g, (_, r) => { const c = roleChar(r); return c ? c['名前'] : r; })
+          .replace(/\{数値[:：]([^}]+)\}/g, (_, n) => String(G ? (G.vars[n.trim()] || 0) : 0));
+}
+// 古いセーブにも新しい項目を足す
+function normalizeState(st) {
+  st.vars = st.vars || {}; st.areas = st.areas || []; st.buff = st.buff || 0; st.buffLv = st.buffLv || 0;
+  st.items = st.items || []; st.flags = st.flags || {}; st.done = st.done || {};
+  return st;
+}
+// 自動セーブ（部屋の移動時とイベント終了時）。追跡中・ゲームオーバー中は保存しない
+function saveGame() {
+  if (!G || S.mode !== 'play' || RT.chase) return;
+  try { localStorage.setItem(saveKey(), JSON.stringify(G)); } catch (e) {}
+}
+function loadSaved() { try { const v = JSON.parse(localStorage.getItem(saveKey()) || 'null'); return v ? normalizeState(v) : null; } catch (e) { return null; } }
+
+/* ====================== 部屋 ====================== */
+function tileAt(x, y) { const r = room(); if (x < 0 || y < 0 || y >= r.h || x >= r.w) return '#'; return r.grid[y][x] || ' '; }
+function legendAt(x, y) { return room().legend[tileAt(x, y)] || null; }
+function isSolid(x, y) {
+  const ch = tileAt(x, y);
+  if (ch === '#' || ch === ' ') return true;
+  const o = room().legend[ch];
+  if (o && o['種類'] === '隠し扉') return !cond(o['条件']);   // 条件が合うまでは壁
+  return !!(o && (o['種類'] === '調べる' || o['種類'] === '置物'));
+}
+function findSym(sym) {
+  const r = room();
+  for (let y = 0; y < r.h; y++) { const x = r.grid[y].indexOf(sym); if (x >= 0) return [x, y]; }
+  return null;
+}
+function floorTiles() {
+  const r = room(), out = [];
+  for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) if (!isSolid(x, y) && !(legendAt(x, y) || {})['種類']?.match(/扉|床/)) out.push([x, y]);
+  return out;
+}
+function enterRoom(id, sym, keepPos, noSave) {
+  if (!W.rooms[id]) { toast(`部屋「${id}」がありません`); return false; }
+  G.room = id;
+  if (!keepPos) {
+    const p = (sym && findSym(sym)) || findSym('@') || floorTiles()[0] || [1, 1];
+    G.x = p[0] + 0.5; G.y = p[1] + 0.5;
+  }
+  RT.lastTile = Math.floor(G.x) + ',' + Math.floor(G.y);
+  if (RT.chase) endChase('escaped');
+  RT.shots = []; RT.warns = []; RT.guard = null;
+  spawnEnemies();
+  if (RT.comp) { RT.comp.x = G.x - G.face[0] * 0.6; RT.comp.y = G.y - G.face[1] * 0.6; }
+  $('#roomName').textContent = room().name;
+  checkpoint = JSON.parse(JSON.stringify(G));
+  if (!noSave) saveGame();
+  resize();
+  return true;
+}
+function spawnEnemies() { RT.enemies = []; refreshEnemies(); }
+// 条件が合った敵を出し、合わなくなった敵を消す（イベントの後にも呼ぶ）
+function refreshEnemies() {
+  const r = room(), keep = [];
+  for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) {
+    const o = r.legend[r.grid[y][x]];
+    if (!o || o['種類'] !== '敵' || !cond(o['条件'])) continue;
+    const d = W.enemies[o['対象']];
+    if (!d) continue;
+    const key = x + ',' + y;
+    keep.push(RT.enemies.find(e => e.key === key) || { key, d, x: x + 0.5, y: y + 0.5, hx: x + 0.5, hy: y + 0.5, t: Math.random() * 6, st: 'idle', timer: 0, vx: 0, vy: 0, cd: 1, mark: 0 });
+  }
+  RT.enemies = keep;
+}
+
+/* ====================== 条件 ====================== */
+function cmp(a, op, b) { return op === '>=' ? a >= b : op === '<=' ? a <= b : op === '>' ? a > b : op === '<' ? a < b : a === b; }
+function cond(s) {
+  s = sub((s || '').trim());
+  if (!s) return true;
+  return s.split(/\s*[&＆]\s*/).every(c => {
+    let neg = false, v, m;
+    c = c.trim();
+    if (/^[!！]/.test(c)) { neg = true; c = c.slice(1).trim(); }
+    if ((m = /^持つ[:：](.+)$/.exec(c))) v = G.items.includes(m[1].trim());
+    else if ((m = /^フラグ[:：](.+)$/.exec(c))) v = !!G.flags[m[1].trim()];
+    else if ((m = /^済[:：](.+)$/.exec(c))) v = !!G.done[m[1].trim()];
+    else if ((m = /^(好感|灯)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(m[1] === '好感' ? G.aff : G.light, m[2], +m[3]);
+    else if ((m = /^数値[:：](.+?)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(G.vars[m[1].trim()] || 0, m[2], +m[3]);
+    else if ((m = /^解放[:：](.+)$/.exec(c))) v = G.areas.includes(m[1].trim());
+    else v = !!G.flags[c];
+    return neg ? !v : v;
+  });
+}
+
+/* ====================== 会話 ====================== */
+let dlgNext = null;
+function nameColor(n) { const c = charByName(n); return c ? (c['髪'] && c['髪'] !== '#000000' ? c['髪'] : c['服']) : '#e8b860'; }
+function say(name, text) {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false;
+    d.querySelector('.choices').innerHTML = '';
+    const nm = d.querySelector('.name'); nm.textContent = name || ''; nm.style.color = name ? nameColor(name) : '';
+    const tx = d.querySelector('.text'); tx.textContent = name ? '「' + text + '」' : text;
+    const full = tx.textContent; let i = 0; tx.textContent = '';
+    d.querySelector('.next').hidden = true;
+    const iv = setInterval(() => { i += 2; tx.textContent = full.slice(0, i); if (i >= full.length) stop(); }, 28);
+    function stop() { clearInterval(iv); tx.textContent = full; d.querySelector('.next').hidden = false; typing = false; }
+    let typing = true;
+    dlgNext = () => { if (typing) stop(); else { dlgNext = null; res(); } };
+  });
+}
+function choose(opts) {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false; d.querySelector('.next').hidden = true;
+    const box = d.querySelector('.choices'); box.innerHTML = '';
+    let sel = 0;
+    const btns = opts.map((o, i) => {
+      const b = document.createElement('button'); b.textContent = (i + 1) + '. ' + o.label;
+      b.onclick = e => { e.stopPropagation(); done(i); };
+      box.appendChild(b); return b;
+    });
+    const mark = () => btns.forEach((b, i) => b.classList.toggle('sel', i === sel));
+    mark();
+    function done(i) { dlgNext = null; choiceKey = null; box.innerHTML = ''; res(opts[i]); }
+    choiceKey = k => {
+      if (k === 'up') { sel = (sel + opts.length - 1) % opts.length; mark(); }
+      else if (k === 'down') { sel = (sel + 1) % opts.length; mark(); }
+      else if (k === 'ok') done(sel);
+      else if (/^[1-9]$/.test(k) && +k <= opts.length) done(+k - 1);
+    };
+    dlgNext = null;
+  });
+}
+let choiceKey = null;
+function hideDlg() { $('#dlg').hidden = true; }
+// 暗号入力：テキスト欄を出して、入力を返す
+function askText() {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false; d.querySelector('.next').hidden = true;
+    const box = d.querySelector('.choices');
+    box.innerHTML = '<div class="ask"><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="答えを入力"><button class="primary">決定</button><button>やめる</button></div>';
+    const inp = box.querySelector('input'), [ok, cancel] = box.querySelectorAll('button');
+    const done = v => { dlgNext = null; box.innerHTML = ''; res(v); };
+    ok.onclick = e => { e.stopPropagation(); done(inp.value); };
+    cancel.onclick = e => { e.stopPropagation(); done(null); };
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.isComposing) done(inp.value); });
+    dlgNext = null;
+    setTimeout(() => inp.focus(), 50);
+  });
+}
+// 全角半角・大文字小文字・ひらがなカタカナの違いは同じとみなす
+function normAnswer(s) {
+  return (s || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, '').replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+}
+
+/* ====================== イベント ====================== */
+async function runEvent(id) {
+  if (RT.busy || !id) return;
+  RT.busy = true; keys.clear(); joy = null;
+  try { await exec(id); }
+  catch (e) { console.error(e); toast('イベントでエラー: ' + e.message); }
+  finally { RT.busy = false; hideDlg(); updateHud(); if (S.mode === 'play') { refreshEnemies(); saveGame(); } }
+}
+async function exec(id, depth = 0) {
+  if (depth > 50) throw new Error('イベントの移動が多すぎます: ' + id);
+  const lines = W.events[id];
+  if (!lines) { await say(null, `（イベント「${id}」がありません）`); return; }
+  const first = !G.done[id];
+  G.done[id] = (G.done[id] || 0) + 1;
+  for (const raw of lines) {
+    if (S.mode !== 'play') return 'stop';
+    const ln = sub(raw);
+    const m = /^\[(\S+)\s*([\s\S]*?)\]$/.exec(ln);
+    if (m) {
+      const r = await command(m[1], m[2].trim(), first);
+      if (r === 'stop') return 'stop';
+      if (r && r.goto) return exec(r.goto, depth + 1);
+      continue;
+    }
+    const d = /^(.+?)「([\s\S]*)」$/.exec(ln);
+    if (d) await say(d[1].trim(), d[2]); else await say(null, ln);
+  }
+}
+const arrow = s => s.split(/\s*(?:→|->)\s*/);
+async function command(name, arg, first) {
+  switch (name) {
+    case '取得': {
+      const cons = isConsumable(arg);
+      if (!cons && G.items.includes(arg)) break;            // 大事な物は 1 つだけ
+      if (cons && consumableCount() >= itemLimit()) {      // 持ち物の上限（消耗品だけ数える）
+        if (W.events['満杯']) return { goto: '満杯' };
+        await say(null, `${arg} を見つけたが、これ以上は持てない。`); break;
+      }
+      G.items.push(arg); updateHud(); await say(null, `${itemIcon(arg)} ${arg} を手に入れた。`); break;
+    }
+    case '失う': { const i = G.items.indexOf(arg); if (i >= 0) G.items.splice(i, 1); updateHud(); break; }
+    case '数値': {   // [数値 名前 +1] / [数値 名前 -1] / [数値 名前 =0]
+      const m = /^(.+?)\s*([+\-=＋－＝])\s*(-?\d+)$/.exec(arg);
+      if (!m) { await say(null, `（[数値 ${arg}] の書き方が違います）`); break; }
+      const k = m[1].trim(), v = +m[3], op = m[2].normalize('NFKC');
+      G.vars[k] = op === '=' ? v : (G.vars[k] || 0) + (op === '+' ? v : -v);
+      break;
+    }
+    case '解放': if (!G.areas.includes(arg)) G.areas.push(arg); break;
+    case '入力': {   // [入力 答え → イベント]。答えは | で複数書ける
+      const [ans, to] = arrow(arg);
+      const v = await askText();
+      if (v != null && ans.split(/[|｜]/).some(a => normAnswer(a) === normAnswer(v))) return { goto: to };
+      break;
+    }
+    case 'フラグ': G.flags[arg] = true; break;
+    case '消す': delete G.flags[arg]; break;
+    case '灯': {
+      const v = parseInt(arg, 10) || 0;
+      if (v < 0) { for (let i = 0; i < -v; i++) hurt(true); if (S.mode !== 'play') return 'stop'; }
+      else { G.light = Math.min(maxLight(), G.light + v); updateHud(); }
+      break;
+    }
+    case '好感': G.aff += parseInt(arg, 10) || 0; break;
+    case '分岐': { const [c, to] = arrow(arg); if (cond(c)) return { goto: to }; break; }
+    case '済': { const [, to] = arrow(arg); if (!first) return { goto: to || arg }; break; }
+    case '選択': {
+      const opts = arg.split(/\s*[/／]\s*/).map(o => { const [label, to] = arrow(o); return { label, to }; });
+      const o = await choose(opts);
+      if (o.to) return { goto: o.to };
+      break;
+    }
+    case '移動': {
+      const [rid, sym] = arg.split(/[:：]/);
+      await fade(true); enterRoom(rid.trim(), sym && sym.trim()); await fade(false);
+      if (W.events['入室:' + rid.trim()]) await exec('入室:' + rid.trim());
+      break;
+    }
+    case '追跡': {
+      const [gn, secs] = arg.split(/\s+/);
+      hideDlg();
+      const r = await chase(gn, num(secs, 15));
+      if (r === 'dead' || S.mode !== 'play') return 'stop';
+      break;
+    }
+    case '同行': G.companion = arg; RT.comp = { x: G.x, y: G.y }; break;
+    case '離脱': G.companion = null; RT.comp = null; break;
+    case '揺れ': shake(); await wait(0.35); break;
+    case '暗転': await fade(true); await wait(0.4); await fade(false); break;
+    case '待つ': hideDlg(); await wait(num(arg, 1)); break;
+    case '止める': return 'stop';
+    case '終わり': hideDlg(); ending(arg); return 'stop';
+    case 'ゲームオーバー': hideDlg(); gameOver(arg); return 'stop';
+    default: await say(null, `（命令「${name}」は知りません）`);
+  }
+}
+const wait = s => new Promise(r => setTimeout(r, s * 1000));
+function fade(on) { $('#fade').style.opacity = on ? 1 : 0; return wait(0.5); }
+function shake() { const m = $('#stage'); m.classList.remove('shake'); void m.offsetWidth; m.classList.add('shake'); }
+
+/* ====================== 持ち物・灯 ====================== */
+const maxLight = () => num(setting('灯の最大', 5), 5);
+const itemIcon = n => (W.items[n] && W.items[n]['絵']) || '◆';
+function updateHud() {
+  if (!G) { $('#lights').innerHTML = ''; return; }
+  const prev = updateHud.shown ?? G.light;
+  let h = '';
+  for (let i = 0; i < maxLight(); i++) {
+    const cls = i < G.light ? 'on' : (i < prev ? 'off out' : 'off');   // 今消えた灯は、しぼむように消す
+    h += `<span class="cdl ${cls}"><i style="animation-delay:${(-i * 0.37).toFixed(2)}s"></i></span>`;
+  }
+  $('#lights').innerHTML = h;
+  updateHud.shown = G.light;
+}
+const isConsumable = n => !!((W.items[n] || {})['使う'] || '').trim();
+const consumableCount = () => G.items.filter(isConsumable).length;
+const itemLimit = () => num(setting('持ち物の上限', ''), Infinity);
+const effLight = () => G.light + (G.buff > 0 ? G.buffLv : 0);
+// 「使う」欄の効果。読点・カンマで複数書ける：灯+1 / 光+1 / 気をそらす
+function applyEffect(spec) {
+  const done = [];
+  for (const part of spec.split(/[、,，]/).map(s => s.trim()).filter(Boolean)) {
+    let m;
+    if ((m = /^灯\s*([+-]?\d+)$/.exec(part))) { G.light = Math.min(maxLight(), G.light + +m[1]); done.push('灯'); }
+    else if ((m = /^光\s*([+-]?\d+)$/.exec(part))) { G.buffLv = Math.max(G.buffLv || 0, +m[1]); G.buff = 300; done.push('光'); }
+    else if (part === '気をそらす') { RT.stun = 3; done.push('気をそらす'); }
+  }
+  return done.length > 0;
+}
+function useItem(n) {
+  const it = W.items[n] || {};
+  if (!applyEffect(it['使う'] || '')) return;
+  const i = G.items.indexOf(n); if (i >= 0) G.items.splice(i, 1);
+  updateHud(); saveGame(); openInv(); toast(`${n} を使った。`);
+}
+function hurt(scripted) {
+  if (!scripted && RT.inv > 0) return;
+  G.light -= 1; RT.inv = 1.4; RT.flash = 0.4; shake(); updateHud();
+  if (G.light <= 0) gameOver('灯が、すべて消えた。');
+}
+function openInv() {
+  if (!G) return;
+  const ul = $('#invList'); ul.innerHTML = '';
+  if (!G.items.length) ul.innerHTML = '<li><span class="tx">何も持っていない。</span></li>';
+  const lim = itemLimit();
+  $('#invHead').textContent = isFinite(lim) ? `消耗品 ${consumableCount()} / ${lim}` : '';
+  [...new Set(G.items)].forEach(n => {
+    const it = W.items[n] || {}, cnt = G.items.filter(x => x === n).length;
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="ic">${itemIcon(n)}</span><span class="tx"><b></b><span></span></span>`;
+    li.querySelector('b').textContent = n + (cnt > 1 ? ` ×${cnt}` : '') + (it['分類'] ? `（${it['分類']}）` : '');
+    li.querySelector('.tx span').textContent = it['説明'] || '';
+    if (isConsumable(n)) {
+      const b = document.createElement('button'); b.textContent = '使う';
+      b.onclick = () => useItem(n);
+      li.appendChild(b);
+    }
+    ul.appendChild(li);
+  });
+  if (!$('#invDlg').open) $('#invDlg').showModal();
+}
+
+/* ====================== 入力 ====================== */
+const keys = new Set();
+let joy = null;   // {sx, sy, dx, dy, moved, t}
+const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+addEventListener('keydown', e => {
+  if (document.querySelector('dialog[open]') || /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const k = KEYMAP[e.code];
+  if (choiceKey) {
+    if (k === 'u') choiceKey('up'); else if (k === 'd') choiceKey('down');
+    else if (/^(Space|Enter|KeyZ)$/.test(e.code)) choiceKey('ok');
+    else if (/^Digit[1-9]$/.test(e.code)) choiceKey(e.code.slice(5));
+    e.preventDefault(); return;
+  }
+  if (/^(Space|Enter|KeyZ)$/.test(e.code)) { e.preventDefault(); if (!e.repeat) action(); return; }
+  if (e.code === 'KeyI') { openInv(); return; }
+  if (k) { keys.add(k); e.preventDefault(); }
+});
+addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+addEventListener('blur', () => keys.clear());
+const cv = $('#cv');
+// タッチ：押した所からのドラッグ方向へ進む（仮想スティック）。マウス：押している間、カーソルの方へ進む。
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); joy = { sx: e.clientX, sy: e.clientY, cx: e.clientX, cy: e.clientY, dx: 0, dy: 0, moved: false, t: performance.now(), mouse: e.pointerType === 'mouse' }; });
+cv.addEventListener('pointermove', e => {
+  if (!joy) return;
+  joy.cx = e.clientX; joy.cy = e.clientY;
+  joy.dx = e.clientX - joy.sx; joy.dy = e.clientY - joy.sy;
+  if (Math.hypot(joy.dx, joy.dy) > 14) joy.moved = true;
+});
+cv.addEventListener('pointerup', () => { if (joy && !joy.moved && performance.now() - joy.t < 300) action(); joy = null; });
+cv.addEventListener('pointercancel', () => joy = null);
+$('#dlg').addEventListener('click', () => { if (dlgNext) dlgNext(); });
+// ---- スマホ用スティックとボタン ----
+const stick = { id: null, x: 0, y: 0 };
+if (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
+addEventListener('touchstart', () => document.body.classList.add('touch'), { once: true, passive: true });
+(() => {
+  const base = $('#stick'), knob = base.querySelector('.knob');
+  const set = e => {
+    const r = base.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+    const l = Math.hypot(dx, dy), max = R - 14;
+    if (l > max) { dx *= max / l; dy *= max / l; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const k = Math.hypot(dx, dy) / max;
+    if (k < 0.22) { stick.x = stick.y = 0; } else { stick.x = dx / max; stick.y = dy / max; }
+  };
+  const end = e => { if (e.pointerId !== stick.id) return; stick.id = null; stick.x = stick.y = 0; knob.style.transform = ''; };
+  base.addEventListener('pointerdown', e => { e.preventDefault(); try { base.setPointerCapture(e.pointerId); } catch (_) {} stick.id = e.pointerId; set(e); });
+  base.addEventListener('pointermove', e => { if (e.pointerId === stick.id) set(e); });
+  base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
+  // ボタンは押した瞬間に反応させる（click を待たない）
+  const press = (el, fn) => {
+    el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('on'); fn(); });
+    const off = () => el.classList.remove('on');
+    el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
+    el.addEventListener('click', e => e.stopPropagation());
+  };
+  press($('#act'), () => { if (choiceKey) choiceKey('ok'); else action(); });
+  press($('#bInv'), () => { if (S.mode === 'play' && (!RT.busy || RT.chase)) openInv(); });
+})();
+
+function action() {
+  if (dlgNext) { dlgNext(); return; }
+  if (S.mode !== 'play' || RT.busy) return;
+  examine();
+}
+function examine() {
+  const tx = Math.floor(G.x + G.face[0] * 0.75), ty = Math.floor(G.y + G.face[1] * 0.75);
+  for (const [x, y] of [[tx, ty], [Math.floor(G.x), Math.floor(G.y)]]) {
+    const o = legendAt(x, y);
+    if (o && /調べる|置物/.test(o['種類'])) {
+      if (cond(o['条件'])) { if (o['対象']) runEvent(o['対象']); }
+      else if (o['だめなとき']) runEvent(o['だめなとき']);
+      return;
+    }
+  }
+  if (RT.comp && Math.hypot(RT.comp.x - G.x, RT.comp.y - G.y) < 1.4 && W.events['同行者と話す']) runEvent('同行者と話す');
+}
+function inputVec() {
+  let x = 0, y = 0;
+  if (keys.has('l')) x -= 1; if (keys.has('r')) x += 1; if (keys.has('u')) y -= 1; if (keys.has('d')) y += 1;
+  if (stick.x || stick.y) { x = stick.x; y = stick.y; }
+  else if (joy && joy.mouse && G && (joy.moved || performance.now() - joy.t > 180)) {
+    const r = cv.getBoundingClientRect(), [ox, oy] = cam();
+    const dx = joy.cx - r.left - (ox + G.x * TS), dy = joy.cy - r.top - (oy + G.y * TS);
+    joy.moved = true;
+    if (Math.hypot(dx, dy) > TS * 0.3) { x = dx; y = dy; }
+  } else if (joy && joy.moved) { const l = Math.hypot(joy.dx, joy.dy); x = joy.dx / l; y = joy.dy / l; }
+  const l = Math.hypot(x, y);
+  return l ? [x / l, y / l] : [0, 0];
+}
+
+/* ====================== 移動・当たり ====================== */
+const PR = 0.28;
+function blocked(x, y, r = PR) {
+  for (const [dx, dy] of [[-r, -r], [r, -r], [-r, r], [r, r]]) if (isSolid(Math.floor(x + dx), Math.floor(y + dy))) return true;
+  return false;
+}
+function moveBy(e, dx, dy, r) {
+  let hit = false;
+  if (!blocked(e.x + dx, e.y, r)) e.x += dx; else hit = true;
+  if (!blocked(e.x, e.y + dy, r)) e.y += dy; else hit = true;
+  return hit;
+}
+// 角に引っかかったとき、進みたい先が空いていれば、マスの中心へ自動で寄せる（扉や細い通路に入りやすくする）
+function slideAssist(vx, vy, step) {
+  const tx = Math.floor(G.x), ty = Math.floor(G.y);
+  const nudge = (cur, center) => { const d = center - cur; return Math.abs(d) <= step ? center : cur + Math.sign(d) * step; };
+  if (Math.abs(vx) > Math.abs(vy) && blocked(G.x + Math.sign(vx) * 0.05, G.y)) {
+    const nx = tx + Math.sign(vx);
+    for (const ry of [ty, ty + (G.y - ty < 0.5 ? -1 : 1)]) {
+      if (!isSolid(nx, ry) && !isSolid(tx, ry)) { const y = nudge(G.y, ry + 0.5); if (!blocked(G.x, y)) G.y = y; break; }
+    }
+  } else if (Math.abs(vy) > Math.abs(vx) && blocked(G.x, G.y + Math.sign(vy) * 0.05)) {
+    const ny = ty + Math.sign(vy);
+    for (const rx of [tx, tx + (G.x - tx < 0.5 ? -1 : 1)]) {
+      if (!isSolid(rx, ny) && !isSolid(rx, ty)) { const x = nudge(G.x, rx + 0.5); if (!blocked(x, G.y)) G.x = x; break; }
+    }
+  }
+}
+function updatePlayer(dt) {
+  const [vx, vy] = inputVec();
+  if (!vx && !vy) return;
+  if (Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3) G.face = Math.abs(vx) > Math.abs(vy) ? [Math.sign(vx), 0] : [0, Math.sign(vy)];
+  const sp = 4, px = G.x, py = G.y;
+  moveBy(G, vx * sp * dt, vy * sp * dt);
+  slideAssist(vx, vy, sp * dt);
+  const tx = Math.floor(G.x), ty = Math.floor(G.y), key = tx + ',' + ty;
+  if (key === RT.lastTile) return;
+  const o = legendAt(tx, ty);
+  if (o && (o['種類'] === '扉' || o['種類'] === '隠し扉')) {
+    if (!cond(o['条件'])) { G.x = px; G.y = py; keys.clear(); joy = null; if (o['だめなとき']) runEvent(o['だめなとき']); else toast('開かない。'); return; }
+    RT.lastTile = key;
+    goDoor(o['対象']);
+    return;
+  }
+  RT.lastTile = key;
+  if (o && o['種類'] === '床' && !RT.chase) {
+    if (cond(o['条件'])) runEvent(o['対象']); else if (o['だめなとき']) runEvent(o['だめなとき']);
+  }
+}
+async function goDoor(target) {
+  const [rid, sym] = (target || '').split(/[:：]/);
+  if (!W.rooms[rid]) { toast(`扉の行き先「${target}」がありません`); return; }
+  const prev = RT.busy;
+  RT.busy = true;
+  if (RT.chase) endChase('escaped');
+  await fade(true); enterRoom(rid, sym); await fade(false);
+  RT.busy = prev;
+  if (prev) return;   // 追跡中に扉から逃げた場合は、元のイベントが続きを進める
+  toast(room().name);
+  if (W.events['入室:' + rid]) runEvent('入室:' + rid);
+}
+
+/* ====================== 敵（md-forge の動きを流用） ====================== */
+function moveDef(name) { return W.moves[name] || { 値1: 0, 値2: 0 }; }
+// 壁にさえぎられずに見えるか
+function canSee(ax, ay, bx, by) {
+  const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d / 0.25);
+  for (let i = 1; i < n; i++) { const t = i / n; if (isSolid(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t))) return false; }
+  return true;
+}
+// 点 (tx, ty) へ向かう速度
+function toward(e, tx, ty, sp) { const dx = tx - e.x, dy = ty - e.y, l = Math.hypot(dx, dy); return l < 0.05 ? [0, 0, l] : [dx / l * sp, dy / l * sp, l]; }
+// 見回り：徘徊 → 察知（!）→ 追跡 → 見失う（?）→ 持ち場へ戻る
+function patrolStep(e, dt, sp, v1, v2, dist, ux, uy) {
+  const see = dist < v1 && canSee(e.x, e.y, G.x, G.y);
+  let r = [0, 0];
+  if (see && e.st !== 'chase') { e.st = 'chase'; e.mark = 0.9; }
+  if (e.st === 'chase') {
+    if (see || dist < 1.2) { e.lx = G.x; e.ly = G.y; r = [ux * sp * v2, uy * sp * v2]; }
+    else { e.st = 'lost'; e.timer = 3; }
+  } else if (e.st === 'lost') {
+    const [vx, vy, l] = toward(e, e.lx, e.ly, sp);
+    r = l > 0.3 ? [vx, vy] : [0, 0];
+    e.timer -= dt; if (e.timer <= 0) e.st = 'return';
+  } else if (e.st === 'return') {
+    const [vx, vy, l] = toward(e, e.hx, e.hy, sp * 0.6);
+    r = [vx, vy]; if (l < 0.3) e.st = 'patrol';
+  } else {
+    e.st = 'patrol'; e.timer -= dt;
+    if (!e.wp || e.timer <= 0 || Math.hypot(e.wp[0] - e.x, e.wp[1] - e.y) < 0.3) {
+      const near = floorTiles().filter(([x, y]) => Math.hypot(x + 0.5 - e.hx, y + 0.5 - e.hy) < 4);
+      const t = near[Math.floor(Math.random() * near.length)] || [e.hx - 0.5, e.hy - 0.5];
+      e.wp = [t[0] + 0.5, t[1] + 0.5]; e.timer = 2 + Math.random() * 3;
+    }
+    const [vx, vy] = toward(e, e.wp[0], e.wp[1], sp * 0.45); r = [vx, vy];
+  }
+  return r;
+}
+function updateEnemies(dt) {
+  if (RT.stun > 0) { RT.shots = RT.shots.filter(s => (s.life -= dt) > 0); return; }   // 気をそらしている間は止まる
+  for (const e of RT.enemies) {
+    e.t += dt; e.mark = Math.max(0, (e.mark || 0) - dt);
+    const dx = G.x - e.x, dy = G.y - e.y, dist = Math.hypot(dx, dy) || 0.001, ux = dx / dist, uy = dy / dist;
+    const sp = num(e.d['速さ'], 1.2), mv = e.d['動き'], md = moveDef(mv), v1 = num(md['値1'], 0), v2 = num(md['値2'], 0);
+    let vx = 0, vy = 0;
+    switch (/^見回り/.test(mv) ? '見回り' : mv) {   // 「見回り」で始まる名前の動きは、値だけ違う見回りとして扱う
+      case 'ふらふら': { const s = Math.sin(e.t * v2) * v1 * 2; vx = (ux - uy * s) * sp; vy = (uy + ux * s) * sp; break; }
+      case '回り込む': vx = (-uy * v1 + ux * v2) * sp; vy = (ux * v1 + uy * v2) * sp; break;
+      case '突進':
+        if (e.st === 'idle') { vx = ux * sp * 0.5; vy = uy * sp * 0.5; if (dist < 4.5) { e.st = 'wind'; e.timer = v1; } }
+        else if (e.st === 'wind') { e.timer -= dt; if (e.timer <= 0) { e.st = 'dash'; e.timer = 0.7; e.vx = ux; e.vy = uy; } }
+        else { vx = e.vx * sp * v2; vy = e.vy * sp * v2; e.timer -= dt; if (e.timer <= 0) e.st = 'idle'; }
+        break;
+      case '撃つ': {
+        const k = dist > v1 + 0.5 ? 1 : dist < v1 - 0.5 ? -1 : 0; vx = ux * sp * k; vy = uy * sp * k;
+        e.cd -= dt; if (e.cd <= 0) { e.cd = v2 || 2; RT.shots.push({ x: e.x, y: e.y, vx: ux * 4, vy: uy * 4, life: 4 }); }
+        break;
+      }
+      case '見張り': if (e.st === 'wake' || dist < v1) { e.st = 'wake'; vx = ux * sp; vy = uy * sp; } break;
+      case 'うしろ': { const look = G.face[0] * -ux + G.face[1] * -uy; e.st = look > 0.2 ? 'freeze' : 'move'; if (e.st === 'move') { vx = ux * sp; vy = uy * sp; } break; }
+      case '見回り': [vx, vy] = patrolStep(e, dt, sp, v1, v2 || 1, dist, ux, uy); break;
+      default: vx = ux * sp; vy = uy * sp;
+    }
+    if (moveBy(e, vx * dt, vy * dt, 0.25) && e.st === 'patrol') e.wp = null;
+    if (dist < 0.55 + num(e.d['大きさ'], 1) * 0.2) { hurt(); e.x -= ux * 1.2; e.y -= uy * 1.2; if (blocked(e.x, e.y, 0.25)) { e.x += ux * 1.2; e.y += uy * 1.2; } if (e.st === 'dash') e.st = 'idle'; }
+  }
+  for (const s of RT.shots) {
+    s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
+    if (isSolid(Math.floor(s.x), Math.floor(s.y))) s.life = 0;
+    if (Math.hypot(s.x - G.x, s.y - G.y) < 0.4) { hurt(); s.life = 0; }
+  }
+  RT.shots = RT.shots.filter(s => s.life > 0);
+}
+
+/* ====================== 追跡（md-forge のボス技を流用） ====================== */
+function chase(name, secs) {
+  return new Promise(res => {
+    const gd = W.guards[name] || Object.values(W.guards)[0];
+    if (!gd) { res('none'); return; }
+    let p = findSym((Object.entries(room().legend).find(([, o]) => o['種類'] === '番人位置') || [])[0] || '\u0000');
+    if (!p) { const f = floorTiles(); f.sort((a, b) => Math.hypot(b[0] - G.x, b[1] - G.y) - Math.hypot(a[0] - G.x, a[1] - G.y)); p = f[0] || [1, 1]; }
+    RT.guard = { d: gd, x: p[0] + 0.5, y: p[1] + 0.5, alpha: 0, cd: 1.2, act: null };
+    RT.chase = { t: secs, total: secs, res };
+    $('#chase').hidden = false;
+    keys.clear();
+  });
+}
+function endChase(result) {
+  if (!RT.chase) return;
+  const r = RT.chase.res; RT.chase = null; RT.guard = null; RT.warns = [];
+  RT.shots = []; $('#chase').hidden = true;
+  r(result);
+}
+function updateChase(dt) {
+  const c = RT.chase, g = RT.guard;
+  c.t -= dt;
+  $('#chase div').style.width = Math.max(0, c.t / c.total * 100) + '%';
+  if (c.t <= 0) { endChase('survived'); return; }
+  g.alpha = Math.min(1, g.alpha + dt * 1.5);
+  if (RT.stun > 0) return;
+  const dx = G.x - g.x, dy = G.y - g.y, dist = Math.hypot(dx, dy) || 0.001, ux = dx / dist, uy = dy / dist;
+  const size = num(g.d['大きさ'], 1.6);
+  if (!g.act) {
+    moveBy(g, ux * num(g.d['速さ'], 1) * dt, uy * num(g.d['速さ'], 1) * dt, Math.min(0.45, size * 0.2));
+    g.cd -= dt;
+    if (g.cd <= 0) {
+      const list = (g.d['技'] || '').split(/[・,、]/).map(s => s.trim()).filter(s => W.skills[s]);
+      if (list.length) {
+        const sk = W.skills[list[Math.floor(Math.random() * list.length)]];
+        g.act = { sk, t: num(sk['構え'], 1), total: num(sk['構え'], 1), ang: Math.atan2(dy, dx), ox: g.x, oy: g.y };
+        RT.warns = [g.act];
+      } else g.cd = 2;
+    }
+  } else {
+    const a = g.act; a.t -= dt;
+    if (a.t <= 0) {
+      const kind = a.sk['種類'], L = num(a.sk['長さ'], 5), Wd = num(a.sk['幅'], 1.5);
+      if (kind === '前') {
+        const px = G.x - a.ox, py = G.y - a.oy, along = px * Math.cos(a.ang) + py * Math.sin(a.ang), across = -px * Math.sin(a.ang) + py * Math.cos(a.ang);
+        if (along > -0.3 && along < L && Math.abs(across) < Wd / 2 + 0.2) hurt();
+      } else if (kind === '円') {
+        if (Math.hypot(G.x - a.ox, G.y - a.oy) < L + 0.2) hurt();
+      } else if (kind === '弾') {
+        const n = Math.max(1, Math.round(L)), spread = Wd * Math.PI / 180;
+        for (let i = 0; i < n; i++) { const an = a.ang + (n === 1 ? 0 : -spread / 2 + spread * i / (n - 1)); RT.shots.push({ x: a.ox, y: a.oy, vx: Math.cos(an) * 4.5, vy: Math.sin(an) * 4.5, life: 4 }); }
+      }
+      RT.flash = Math.max(RT.flash, kind === '弾' ? 0 : 0.15);
+      g.cd = num(a.sk['間隔'], 1.6); g.act = null; RT.warns = [];
+    }
+  }
+  if (dist < 0.4 + size * 0.25) hurt();
+}
+
+/* ====================== 画面遷移 ====================== */
+function newGame() {
+  G = { room: setting('開始部屋', Object.keys(W.rooms)[0]), x: 1.5, y: 1.5, face: [0, 1], light: num(setting('最初の灯', 3), 3), items: [], flags: {}, aff: 0, done: {}, companion: null, vars: {}, areas: [], buff: 0, buffLv: 0 };
+  RT.comp = null;
+  startPlay();
+  enterRoom(G.room);
+  updateHud();
+  const ev = setting('開始イベント', '');
+  if (ev) runEvent(ev);
+}
+function startPlay() {
+  S.mode = 'play'; $('#screen').hidden = true; hideDlg();
+  RT.busy = false; RT.chase = null; RT.guard = null; RT.inv = 0; RT.stun = 0; $('#chase').hidden = true;
+}
+function loadState(st, noSave) {
+  G = normalizeState(JSON.parse(JSON.stringify(st)));
+  startPlay();
+  RT.comp = G.companion ? { x: G.x, y: G.y } : null;
+  enterRoom(G.room, null, true, noSave);
+  updateHud();
+}
+function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; }
+function titleScreen() {
+  S.mode = 'title'; hideDlg(); $('#chase').hidden = true;
+  const t = setting('タイトル', '灯の館（仮）');
+  $('#title').textContent = t; document.title = t; $('#roomName').textContent = '';
+  const saved = loadSaved();
+  showScreen(`<h2></h2><p></p><div class="row"><button class="primary" id="sNew">はじめから</button><button id="sCont" ${saved ? '' : 'disabled'}>つづきから</button><button id="sMd">Markdown を読み込む</button></div>
+    <p style="font-size:12px">移動：矢印キー / WASD / ドラッグ　調べる・進む：スペース / タップ　持ち物：I</p>`);
+  $('#screen h2').textContent = t; $('#screen p').textContent = setting('説明', '');
+  $('#sNew').onclick = newGame;
+  if (saved) $('#sCont').onclick = () => { if (W.rooms[saved.room]) loadState(saved); else newGame(); };
+  $('#sMd').onclick = openMd;
+}
+function ending(name) {
+  S.mode = 'end';
+  try { localStorage.removeItem(saveKey()); } catch (e) {}
+  showScreen(`<p>END</p><h2></h2><div class="row"><button class="primary" id="sTitle">タイトルへ</button></div>`);
+  $('#screen h2').textContent = name || 'おわり';
+  $('#sTitle').onclick = titleScreen;
+}
+function gameOver(msg) {
+  if (S.mode !== 'play') return;
+  S.mode = 'end';
+  if (RT.chase) endChase('dead');
+  showScreen(`<h2 style="color:var(--danger)">GAME OVER</h2><p></p><div class="row"><button class="primary" id="sRetry">部屋の入口からやり直す</button><button id="sTitle">タイトルへ</button></div>`);
+  $('#screen p').textContent = msg || '';
+  $('#sRetry').onclick = () => loadState(checkpoint, true);   // セーブは上書きしない
+  $('#sTitle').onclick = titleScreen;
+}
+let toastT = 0;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = 0, 2200); }
+
+/* ====================== 描画 ====================== */
+const ctx = cv.getContext('2d');
+const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
+let VW = 0, VH = 0, TS = 32, DPR = 1;
+function resize() {
+  const r = $('#stage').getBoundingClientRect();
+  DPR = Math.min(2, devicePixelRatio || 1); VW = r.width; VH = r.height;
+  cv.width = dark.width = VW * DPR; cv.height = dark.height = VH * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (G && W.rooms[G.room]) { const rm = room(); TS = Math.max(22, Math.min(56, Math.floor(Math.min(VW / rm.w, (VH - 20) / rm.h)))); }
+}
+addEventListener('resize', resize);
+function cam() {
+  const rm = room(), ww = rm.w * TS, hh = rm.h * TS;
+  const cx = ww <= VW ? (VW - ww) / 2 : Math.min(0, Math.max(VW - ww, VW / 2 - G.x * TS));
+  const cy = hh <= VH ? (VH - hh) / 2 : Math.min(0, Math.max(VH - hh, VH / 2 - G.y * TS));
+  return [cx, cy];
+}
+function drawPerson(x, y, cloth, hair, scale, face, alpha = 1, plain = false) {
+  const s = TS * scale;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, s * 0.32, s * 0.28, s * 0.1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = cloth; ctx.beginPath(); ctx.moveTo(-s * 0.24, s * 0.3); ctx.lineTo(s * 0.24, s * 0.3); ctx.lineTo(s * 0.14, -s * 0.12); ctx.lineTo(-s * 0.14, -s * 0.12); ctx.fill();
+  // 頭（少し大きめにして顔を見やすくする）
+  const hy = -s * 0.27, hr = s * 0.2;
+  if (face[1] < 0) {   // 後ろ姿：髪だけ
+    ctx.fillStyle = '#efd9c8'; ctx.beginPath(); ctx.arc(0, hy, hr, 0, 7); ctx.fill();
+    ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(0, hy, hr * 1.06, 0, 7); ctx.fill();
+    ctx.restore(); return;
+  }
+  const fx = face[0] * hr * 0.35;   // 横を向くと顔が寄る
+  // 後ろ髪
+  ctx.fillStyle = hair; ctx.beginPath(); ctx.ellipse(-fx * 0.3, hy + hr * 0.15, hr * 1.08, hr * 1.05, 0, 0, 7); ctx.fill();
+  // 顔
+  ctx.fillStyle = '#efd9c8'; ctx.beginPath(); ctx.ellipse(fx * 0.4, hy + hr * 0.12, hr * 0.86, hr * 0.84, 0, 0, 7); ctx.fill();
+  // 前髪
+  ctx.fillStyle = hair; ctx.beginPath();
+  ctx.moveTo(-hr * 1.05, hy + hr * 0.1);
+  ctx.quadraticCurveTo(-hr * 0.9, hy - hr * 1.15, 0, hy - hr * 1.05);
+  ctx.quadraticCurveTo(hr * 0.9, hy - hr * 1.15, hr * 1.05, hy + hr * 0.1);
+  ctx.lineTo(hr * 0.6 + fx, hy - hr * 0.15); ctx.lineTo(hr * 0.25 + fx, hy - hr * 0.3); ctx.lineTo(fx, hy - hr * 0.12);
+  ctx.lineTo(-hr * 0.3 + fx, hy - hr * 0.32); ctx.lineTo(-hr * 0.65 + fx, hy - hr * 0.12);
+  ctx.closePath(); ctx.fill();
+  // 目（瞬きあり）
+  const blinkNow = Math.sin(RT.t * 0.9 + x * 0.37) > 0.985;
+  const eh = blinkNow ? hr * 0.05 : hr * 0.24, ew = hr * 0.16, ey = hy + hr * 0.2;
+  const ea = fx * 1.2, eyes = face[0] === 0 ? [-hr * 0.35, hr * 0.35] : [ea - hr * 0.28, ea + hr * 0.28];
+  if (plain) { ctx.restore(); return; }   // 人形は顔を描かない（うつろな目は drawEnemy で描く）
+  for (const exx of eyes) {
+    ctx.fillStyle = '#2a1e2a'; ctx.beginPath(); ctx.ellipse(exx, ey, ew, eh, 0, 0, 7); ctx.fill();
+    if (!blinkNow) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(exx + ew * 0.3, ey - eh * 0.35, ew * 0.38, 0, 7); ctx.fill(); }
+  }
+  // 頬と口
+  ctx.fillStyle = 'rgba(230,120,130,.35)';
+  for (const exx of eyes) { ctx.beginPath(); ctx.ellipse(exx + (exx < fx ? -1 : 1) * hr * 0.08, ey + hr * 0.32, ew * 0.9, ew * 0.45, 0, 0, 7); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(120,60,60,.7)'; ctx.lineWidth = Math.max(1, s * 0.012);
+  ctx.beginPath(); ctx.moveTo(fx * 1.1 - hr * 0.08, hy + hr * 0.6); ctx.lineTo(fx * 1.1 + hr * 0.08, hy + hr * 0.6); ctx.stroke();
+  ctx.restore();
+}
+// 燭台（真鍮の台とろうそく）
+function drawCandleStand(cx, cy) {
+  const s = TS;
+  ctx.fillStyle = '#7a5a2a'; ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.32, s * 0.26, s * 0.08, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#a07a38'; ctx.fillRect(cx - s * 0.04, cy - s * 0.02, s * 0.08, s * 0.34);
+  ctx.fillStyle = '#b8904a'; ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.02, s * 0.16, s * 0.05, 0, 0, 7); ctx.fill();
+  const g = ctx.createLinearGradient(cx - s * 0.07, 0, cx + s * 0.07, 0);
+  g.addColorStop(0, '#cbbf9f'); g.addColorStop(0.45, '#f6efdc'); g.addColorStop(1, '#b8aa88');
+  ctx.fillStyle = g; ctx.fillRect(cx - s * 0.07, cy - s * 0.24, s * 0.14, s * 0.23);
+  ctx.fillStyle = '#efe6cc'; ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.24, s * 0.07, s * 0.025, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, s * 0.015); ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.24); ctx.lineTo(cx, cy - s * 0.29); ctx.stroke();
+}
+// ゆらめく炎：外の光・炎の本体・芯の近くの青・舞い上がる火の粉
+function drawFlame(x, y, size, seed) {
+  const t = RT.t + seed;
+  const h = size * (1.25 + Math.sin(t * 11) * 0.12 + Math.sin(t * 23.7) * 0.08 + Math.sin(t * 5.3) * 0.06);
+  const sway = (Math.sin(t * 4.1) * 0.5 + Math.sin(t * 9.7) * 0.3) * size * 0.18;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(x, y - h * 0.3, 0, x, y - h * 0.3, size * 3.2);
+  glow.addColorStop(0, 'rgba(255,170,70,.35)'); glow.addColorStop(0.4, 'rgba(255,120,40,.12)'); glow.addColorStop(1, 'rgba(255,90,20,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y - h * 0.3, size * 3.2, 0, 7); ctx.fill();
+  const w = size * 0.42;
+  const flame = (k, c0, c1) => {
+    const hh = h * k, ww = w * k, tx = x + sway * k;
+    const g = ctx.createLinearGradient(x, y, x, y - hh);
+    g.addColorStop(0, c0); g.addColorStop(1, c1);
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.moveTo(x, y + ww * 0.5);
+    ctx.bezierCurveTo(x - ww * 1.2, y + ww * 0.3, x - ww * 0.8, y - hh * 0.55, tx, y - hh);
+    ctx.bezierCurveTo(x + ww * 0.8, y - hh * 0.55, x + ww * 1.2, y + ww * 0.3, x, y + ww * 0.5);
+    ctx.fill();
+  };
+  flame(1, 'rgba(255,110,30,.9)', 'rgba(255,60,10,0)');
+  flame(0.72, 'rgba(255,200,80,.95)', 'rgba(255,150,40,.1)');
+  flame(0.42, 'rgba(255,250,220,1)', 'rgba(255,230,150,.3)');
+  ctx.fillStyle = 'rgba(90,140,255,.45)'; ctx.beginPath(); ctx.ellipse(x, y + w * 0.15, w * 0.35, w * 0.3, 0, 0, 7); ctx.fill();
+  for (let i = 0; i < 3; i++) {   // 火の粉
+    const ph = ((RT.t * 0.6 + i / 3 + seed * 0.13) % 1 + 1) % 1;
+    const ex = x + sway + Math.sin(ph * 7 + i * 2 + seed) * size * 0.5, ey = y - h - ph * size * 2.6;
+    ctx.fillStyle = `rgba(255,${160 + i * 30},80,${(1 - ph) * 0.8})`;
+    ctx.beginPath(); ctx.arc(ex, ey, Math.max(0.8, size * 0.07 * (1 - ph)), 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawEnemy(e, ox, oy) {
+  const x = ox + e.x * TS, y = oy + e.y * TS, s = TS * num(e.d['大きさ'], 1), col = e.d['色'] || '#ddd';
+  const shape = e.d['形'];
+  if (shape === '影') {
+    ctx.save(); ctx.globalAlpha = 0.85;
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, s * 0.5); gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#e03040'; ctx.fillRect(x - s * 0.12, y - s * 0.08, s * 0.06, s * 0.04); ctx.fillRect(x + s * 0.06, y - s * 0.08, s * 0.06, s * 0.04);
+    ctx.restore();
+  } else if (shape === '獣') {   // 四つ足の融合生物
+    const fx = (G.x - e.x) >= 0 ? 1 : -1, step = Math.sin(e.t * 10) * s * 0.06;
+    ctx.save(); ctx.translate(x, y); ctx.scale(fx, 1);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, s * 0.3, s * 0.4, s * 0.1, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
+    for (const [lx, ph] of [[-0.22, 1], [-0.1, -1], [0.14, -1], [0.26, 1]]) { ctx.beginPath(); ctx.moveTo(s * lx, s * 0.05); ctx.lineTo(s * lx + step * ph, s * 0.28); ctx.stroke(); }
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.34, s * 0.17, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.05); ctx.quadraticCurveTo(-s * 0.55, -s * 0.2, -s * 0.5, s * 0.05); ctx.lineWidth = s * 0.05; ctx.stroke();   // しっぽ
+    ctx.beginPath(); ctx.arc(s * 0.36, -s * 0.12, s * 0.15, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s * 0.3, -s * 0.24); ctx.lineTo(s * 0.34, -s * 0.38); ctx.lineTo(s * 0.4, -s * 0.25); ctx.fill();   // 耳
+    ctx.fillStyle = '#e8d040'; ctx.fillRect(s * 0.4, -s * 0.16, s * 0.05, s * 0.04);
+    ctx.fillStyle = '#c03040'; ctx.fillRect(s * 0.33, -s * 0.15, s * 0.04, s * 0.04);   // 色の違う目
+    ctx.restore();
+  } else if (shape === '目玉') {
+    const lx = (G.x - e.x), ly = (G.y - e.y), l = Math.hypot(lx, ly) || 1;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, s * 0.36, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#a03040'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = e.st === 'wake' ? '#d02030' : '#6a3040'; ctx.beginPath(); ctx.arc(x + lx / l * s * 0.14, y + ly / l * s * 0.14, s * 0.15, 0, 7); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x + lx / l * s * 0.17, y + ly / l * s * 0.17, s * 0.06, 0, 7); ctx.fill();
+  } else {
+    const jitter = e.st === 'freeze' ? 0 : Math.sin(e.t * 9) * 1.2;
+    drawPerson(x + jitter, y, col, '#3a2a30', num(e.d['大きさ'], 0.8), [0, 1], 1, true);
+    ctx.fillStyle = '#000'; ctx.fillRect(x - s * 0.1, y - s * 0.22, s * 0.05, s * 0.07); ctx.fillRect(x + s * 0.05, y - s * 0.22, s * 0.05, s * 0.07);
+    if (e.st === 'wind') { ctx.fillStyle = '#e03040'; ctx.font = `24px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.fillText('!', x, y - s * 0.55); }
+  }
+}
+function drawMarks(e, ox, oy) {
+  const x = ox + e.x * TS, y = oy + e.y * TS - TS * num(e.d['大きさ'], 1) * 0.7;
+  let ch = '', col = '#e03040';
+  if (RT.stun > 0) { ch = '…'; col = '#a0c0ff'; }
+  else if (e.mark > 0) ch = '!';
+  else if (e.st === 'lost') { ch = '?'; col = '#ffd060'; }
+  if (!ch) return;
+  ctx.fillStyle = col; ctx.font = `24px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ch, x, y);
+}
+function drawGuard(g, ox, oy) {
+  const x = ox + g.x * TS, y = oy + g.y * TS, s = TS * num(g.d['大きさ'], 1.6);
+  const c = roleChar('番人');
+  ctx.save(); ctx.globalAlpha = g.alpha;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.3, s * 0.32, s * 0.1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = (c && c['服']) || g.d['色'] || '#222';
+  ctx.beginPath(); ctx.moveTo(x - s * 0.3, y + s * 0.3); ctx.lineTo(x + s * 0.3, y + s * 0.3); ctx.lineTo(x + s * 0.12, y - s * 0.45); ctx.lineTo(x - s * 0.12, y - s * 0.45); ctx.fill();
+  ctx.strokeStyle = '#c8a860'; ctx.lineWidth = 2; const sw = Math.sin(RT.t * 3) * 0.6;
+  ctx.beginPath(); ctx.moveTo(x, y - s * 0.1); ctx.lineTo(x + Math.sin(sw) * s * 0.35, y - s * 0.1 + Math.cos(sw) * s * 0.35); ctx.stroke();
+  ctx.fillStyle = '#c8a860'; ctx.beginPath(); ctx.arc(x + Math.sin(sw) * s * 0.35, y - s * 0.1 + Math.cos(sw) * s * 0.35, s * 0.06, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f04050'; ctx.fillRect(x - s * 0.08, y - s * 0.36, s * 0.04, s * 0.03); ctx.fillRect(x + s * 0.04, y - s * 0.36, s * 0.04, s * 0.03);
+  ctx.restore();
+}
+function draw() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, VH);
+  if (!G || !W.rooms[G.room] || S.mode === 'title') return;
+  const rm = room(), [ox, oy] = cam();
+  const lights = [], flames = [];
+  for (let y = 0; y < rm.h; y++) for (let x = 0; x < rm.w; x++) {
+    const ch = rm.grid[y][x] || ' ', px = ox + x * TS, py = oy + y * TS;
+    if (ch === ' ') continue;
+    const hid = rm.legend[ch] && rm.legend[ch]['種類'] === '隠し扉' && !cond(rm.legend[ch]['条件']);
+    if (ch === '#' || hid) {
+      ctx.fillStyle = '#1a1520'; ctx.fillRect(px, py, TS, TS);
+      if (!isSolid(x, y + 1)) { ctx.fillStyle = '#2a2230'; ctx.fillRect(px, py + TS * 0.55, TS, TS * 0.45); ctx.fillStyle = '#3a2f40'; ctx.fillRect(px, py + TS * 0.55, TS, 2); }
+      continue;
+    }
+    ctx.fillStyle = (x + y) % 2 ? '#2b2228' : '#30262d'; ctx.fillRect(px, py, TS, TS);
+    const o = rm.legend[ch];
+    if (!o) continue;
+    const kind = o['種類'];
+    if (kind === '扉' || kind === '隠し扉') {
+      ctx.fillStyle = o['色'] || '#4a3020'; ctx.fillRect(px + 2, py + 2, TS - 4, TS - 4);
+      ctx.fillStyle = cond(o['条件']) ? '#d8b060' : '#705040'; ctx.beginPath(); ctx.arc(px + TS * 0.7, py + TS * 0.5, TS * 0.07, 0, 7); ctx.fill();
+    } else if (kind === '調べる' || kind === '置物') {
+      ctx.fillStyle = o['色'] || '#2a2228'; ctx.fillRect(px + 1, py + 1, TS - 2, TS - 2);
+      if (o['絵'] === '🕯') { drawCandleStand(px + TS / 2, py + TS / 2); flames.push([px + TS / 2, py + TS * 0.2, TS * 0.22, x * 7 + y * 13]); }
+      else if (o['絵']) { ctx.font = `${TS * 0.68}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ddd'; ctx.fillText(o['絵'], px + TS / 2, py + TS / 2 + 1); }
+    } else if (kind === '床' && o['絵']) {
+      ctx.globalAlpha = 0.6; ctx.font = `${TS * 0.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(o['絵'], px + TS / 2, py + TS / 2); ctx.globalAlpha = 1;
+    }
+    if (num(o['光'], 0) > 0) lights.push([px + TS / 2, py + TS / 2, num(o['光'], 0) * TS * (1 + Math.sin(RT.t * 9 + x * 3 + y) * 0.05 + Math.sin(RT.t * 23 + x) * 0.03)]);
+  }
+  // 赤い範囲（ボス技の予告）
+  for (const a of RT.warns) {
+    const k = 1 - a.t / a.total, L = num(a.sk['長さ'], 5) * TS, Wd = num(a.sk['幅'], 1.5) * TS;
+    ctx.save(); ctx.fillStyle = `rgba(220,40,60,${0.15 + k * 0.35})`; ctx.strokeStyle = 'rgba(255,80,90,.8)';
+    ctx.translate(ox + a.ox * TS, oy + a.oy * TS);
+    if (a.sk['種類'] === '前') { ctx.rotate(a.ang); ctx.fillRect(0, -Wd / 2, L * k, Wd); ctx.strokeRect(0, -Wd / 2, L, Wd); }
+    else if (a.sk['種類'] === '円') { ctx.beginPath(); ctx.arc(0, 0, L * k, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(0, 0, L, 0, 7); ctx.stroke(); }
+    else { ctx.rotate(a.ang); const sp = num(a.sk['幅'], 60) * Math.PI / 360; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, TS * 3, -sp, sp); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+  }
+  // 人物は y 順に描く
+  const actors = [];
+  RT.enemies.forEach(e => actors.push([e.y, () => drawEnemy(e, ox, oy)]));
+  if (RT.guard) actors.push([RT.guard.y, () => drawGuard(RT.guard, ox, oy)]);
+  if (RT.comp && G.companion) {
+    const c = charByName(G.companion) || roleChar('同行者');
+    if (c) actors.push([RT.comp.y, () => drawPerson(ox + RT.comp.x * TS, oy + RT.comp.y * TS, c['服'], c['髪'], num(c['背'], 1), RT.comp.face || [0, 1])]);
+  }
+  const hero = roleChar('主人公') || { 服: '#aaa', 髪: '#333', 背: 1 };
+  const blink = RT.inv > 0 && Math.floor(RT.t * 12) % 2;
+  actors.push([G.y, () => drawPerson(ox + G.x * TS, oy + G.y * TS, hero['服'], hero['髪'], num(hero['背'], 1), G.face, blink ? 0.35 : 1)]);
+  actors.sort((a, b) => a[0] - b[0]).forEach(a => a[1]());
+  ctx.fillStyle = '#ffb060';
+  for (const s of RT.shots) { ctx.beginPath(); ctx.arc(ox + s.x * TS, oy + s.y * TS, TS * 0.12, 0, 7); ctx.fill(); }
+  // 闇と灯
+  dctx.globalCompositeOperation = 'source-over';
+  dctx.clearRect(0, 0, VW, VH);
+  dctx.fillStyle = 'rgba(4,2,8,0.94)'; dctx.fillRect(0, 0, VW, VH);
+  dctx.globalCompositeOperation = 'destination-out';
+  const flick = Math.sin(RT.t * 7) * 0.04 + Math.sin(RT.t * 13) * 0.03;
+  const pr = TS * (1.4 + effLight() * 0.65) * (1 + flick);
+  lights.push([ox + G.x * TS, oy + G.y * TS, pr]);
+  for (const [x, y, r] of lights) {
+    const gr = dctx.createRadialGradient(x, y, r * 0.15, x, y, r);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.6, 'rgba(0,0,0,.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    dctx.fillStyle = gr; dctx.beginPath(); dctx.arc(x, y, r, 0, 7); dctx.fill();
+  }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dark, 0, 0); ctx.restore();
+  for (const f of flames) drawFlame(...f);   // 炎は闇の上に光らせる
+  for (const e of RT.enemies) drawMarks(e, ox, oy);
+  // 警告と番人は闇の上にも少し見せる
+  if (RT.guard) { ctx.save(); ctx.globalAlpha = 0.35; drawGuard(RT.guard, ox, oy); ctx.restore(); }
+  if (RT.flash > 0) { ctx.fillStyle = `rgba(200,30,50,${RT.flash})`; ctx.fillRect(0, 0, VW, VH); }
+}
+
+/* ====================== ループ ====================== */
+let last = performance.now(), lastTalking = false;
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; RT.t += dt;
+  const paused = !!document.querySelector('dialog[open]');
+  if (S.mode === 'play' && G && !paused) {
+    if (G.buff > 0) { G.buff = Math.max(0, G.buff - dt); const b = $('#buff'), txt = G.buff > 0 ? `光+${G.buffLv} ${Math.floor(G.buff / 60)}:${String(Math.floor(G.buff % 60)).padStart(2, '0')}` : ''; if (b.textContent !== txt) b.textContent = txt; }
+    else if ($('#buff').textContent) $('#buff').textContent = '';
+    RT.stun = Math.max(0, RT.stun - dt);
+    const free = !RT.busy || RT.chase;
+    if (free) { updatePlayer(dt); updateEnemies(dt); }
+    if (RT.chase && S.mode === 'play') updateChase(dt);
+    RT.inv = Math.max(0, RT.inv - dt); RT.flash = Math.max(0, RT.flash - dt);
+    if (RT.comp) {   // 同行者は少し後ろをついてくる
+      const tx = G.x - G.face[0] * 0.75, ty = G.y - G.face[1] * 0.75, dx = tx - RT.comp.x, dy = ty - RT.comp.y, d = Math.hypot(dx, dy);
+      if (d > 0.15) { const k = Math.min(1, dt * 4); RT.comp.x += dx * k; RT.comp.y += dy * k; RT.comp.face = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]; RT.comp.idle = 0; }
+      else if ((RT.comp.idle = (RT.comp.idle || 0) + dt) > 0.5) {   // 止まったら主人公の方を向く（顔が見える）
+        const px = G.x - RT.comp.x, py = G.y - RT.comp.y;
+        RT.comp.face = Math.abs(px) > Math.abs(py) * 1.5 ? [Math.sign(px), 0] : [0, 1];
+      }
+      if (d > 4) { RT.comp.x = tx; RT.comp.y = ty; }
+    }
+  }
+  const talking = S.mode === 'play' && RT.busy && !RT.chase;
+  if (talking !== lastTalking) { lastTalking = talking; document.body.classList.toggle('talking', talking); }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* ====================== Markdown 読み込み UI ====================== */
+function openMd() { $('#mdInfo').textContent = loadedInfo(); $('#mdDlg').showModal(); }
+function loadedInfo() {
+  const by = {};
+  Object.values(RAW).forEach(s => (by[s.src] = by[s.src] || []).push(s.head));
+  return Object.entries(by).map(([k, v]) => `${k}: ${v.length} 見出し`).join(' / ');
+}
+function applyUser(text, src) {
+  const heads = applyText(text, src);
+  if (!heads.length) { toast('## 見出しが見つかりませんでした'); return; }
+  rebuild();
+  toast(`${src}: ${heads.length} 見出しを反映`);
+}
+function rebuild() {
+  W = buildWorld();
+  if (S.mode === 'title') { titleScreen(); return; }
+  if (G && W.rooms[G.room]) {
+    const rm = room();
+    if (G.x > rm.w || G.y > rm.h || blocked(G.x, G.y)) enterRoom(G.room, null); else enterRoom(G.room, null, true);
+  } else if (G) { enterRoom(setting('開始部屋', Object.keys(W.rooms)[0])); }
+  updateHud();
+}
+$('#btnMd').onclick = openMd;
+$('#mdClose').onclick = () => $('#mdDlg').close();
+$('#mdApply').onclick = () => { const t = $('#mdText').value; if (t.trim()) { applyUser(t, '貼り付け'); $('#mdText').value = ''; $('#mdInfo').textContent = loadedInfo(); } };
+$('#mdReset').onclick = () => { RAW = { ...DEFAULT_RAW }; rebuild(); toast('最初の定義に戻しました'); $('#mdInfo').textContent = loadedInfo(); };
+$('#mdRestart').onclick = () => { $('#mdDlg').close(); newGame(); };
+$('#mdFile').onchange = async e => { for (const f of e.target.files) applyUser(await f.text(), f.name); e.target.value = ''; $('#mdInfo').textContent = loadedInfo(); };
+$('#btnInv').onclick = openInv;
+$('#invClose').onclick = () => $('#invDlg').close();
+addEventListener('dragover', e => { e.preventDefault(); $('#drop').style.display = 'flex'; });
+addEventListener('dragleave', e => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
+addEventListener('drop', async e => {
+  e.preventDefault(); $('#drop').style.display = 'none';
+  for (const f of e.dataTransfer.files) if (/\.(md|markdown|txt)$/i.test(f.name)) applyUser(await f.text(), f.name);
+});
+
+/* ====================== 起動 ====================== */
+async function boot() {
+  for (const f of FILES) {
+    let text = null;
+    try { const r = await fetch(f, { cache: 'no-cache' }); if (r.ok) text = await r.text(); } catch (e) {}
+    if (text == null) { const el = document.querySelector(`script[type="text/markdown"][data-file="${f}"]`); if (el) text = el.textContent; }
+    if (text != null) applyText(text, f, DEFAULT_RAW);
+  }
+  RAW = { ...DEFAULT_RAW };
+  W = buildWorld();
+  resize();
+  titleScreen();
+  requestAnimationFrame(loop);
+}
+boot();
+</script>
+</body>
+</html>

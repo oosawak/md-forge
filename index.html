@@ -393,9 +393,10 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
         <span class="muted">主人公（VRM）</span>
         <input type="file" id="vrmFile" accept=".vrm">
         <button class="small" id="btnVrmSample">サンプルの VRM</button>
+        <button class="small" id="btnVrmMuse">ミューズさん</button>
         <button class="small" id="btnVrmReset">簡易モデルに戻す</button>
       </div>
-      <div class="muted" id="vrmNote">バトルを開くと、サンプルの VRM を素体として読み込みます（約 10MB）。自分の VRM ファイルは端末の中だけで使い、保存はしません。</div>
+      <div class="muted" id="vrmNote">バトルを開くと、サンプルの VRM を素体として読み込みます（約 10MB）。「ミューズさん」ボタンで、冬毛のミューズさん（約 6MB）にも切り替えられます。自分の VRM ファイルは端末の中だけで使い、保存はしません。</div>
     </div>
     <div class="panel">
       <h2>記録</h2>
@@ -429,6 +430,7 @@ table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:4px 6px;
         <li><b>フォント「でんきチップ」</b>（x8y12pxDenkiChip v1.100）<br>作者：hicc ／ <a href="https://github.com/hicchicc/x8y12pxDenkiChip" target="_blank" rel="noopener">github.com/hicchicc/x8y12pxDenkiChip</a><br>
           ライセンス：SIL Open Font License 1.1（<a href="fonts/OFL.txt" target="_blank" rel="noopener">全文</a>）</li>
         <li><b>主人公のサンプル VRM</b>「VRM1_Constraint_Twist_Sample」<br>(c) 2022 pixiv Inc. ／ ライセンス：<a href="https://vrm.dev/licenses/1.0/" target="_blank" rel="noopener">VRM Public License 1.0</a>（<a href="models/README.md" target="_blank" rel="noopener">利用条件</a>）</li>
+        <li><b>主人公の VRM「ミューズさん」</b>（冬毛）<br>作者本人のウサギの VRM に冬毛フードとしっぽを足してミューズ化した、作者自身のモデルです。</li>
         <li><b>three.js</b>（0.160.0）<br>© three.js authors ／ ライセンス：MIT（<a href="https://github.com/mrdoob/three.js/blob/r160/LICENSE" target="_blank" rel="noopener">全文</a>）</li>
         <li><b>@pixiv/three-vrm</b>（2.1.0）<br>© pixiv Inc. ／ ライセンス：MIT（<a href="https://github.com/pixiv/three-vrm/blob/v2.1.0/LICENSE" target="_blank" rel="noopener">全文</a>）</li>
       </ul>
@@ -3458,6 +3460,11 @@ async function make3DRenderer(container) {
     if (!v) throw new Error('VRM として読めませんでした');
     VRMLib.VRMUtils.removeUnnecessaryVertices(gltf.scene);
     VRMLib.VRMUtils.rotateVRM0(v);
+    // 主人公の高さをサンプル並み（約 1.55）にそろえる。小さいモデルでも画面で小さく見えすぎないように
+    v.scene.updateMatrixWorld(true);
+    const heroBox = new THREE.Box3().setFromObject(v.scene);
+    const heroH = heroBox.max.y - heroBox.min.y;
+    if (heroH > 0.01) v.scene.scale.setScalar(1.55 / heroH);
     v.scene.traverse(o => { o.frustumCulled = false; if (o.isMesh) o.castShadow = true; });
     const names = ['rightUpperArm', 'rightLowerArm', 'rightHand', 'leftUpperArm', 'leftLowerArm', 'leftHand', 'spine', 'head', 'hips', 'rightUpperLeg', 'leftUpperLeg', 'rightLowerLeg', 'leftLowerLeg'];
     const bones = {};
@@ -3680,9 +3687,24 @@ async function loadSampleVRM(force) {
   finally { setBattleLoading(false); }
 }
 $('#btnVrmSample').onclick = () => { try { store.set('mdforge.hero', 'sample'); } catch (e) {} $('#vrmFile').value = ''; loadSampleVRM(true); };
+/* ミューズさん（冬毛）。models/ に置いた muse.vrm（作者のウサギ VRM をミューズ化したもの、VRM 0.x） */
+const MUSE_VRM = 'models/muse.vrm';
+let museTried = false;
+async function loadMuseVRM(force) {
+  if (!renderer || renderer.kind !== '3d') return;
+  if (!force && (museTried || renderer.hasVRM)) return;
+  museTried = true;
+  $('#vrmNote').textContent = 'ミューズさんを読み込み中…（約 6MB）';
+  setBattleLoading(true, '主人公（ミューズさん）を呼んでいます…');
+  try { await renderer.loadVRM(MUSE_VRM); $('#vrmNote').textContent = 'ミューズさん（冬毛）を表示中。自分の VRM ファイルを選ぶと入れ替わります。'; }
+  catch (err) { $('#vrmNote').textContent = `ミューズさんを読み込めませんでした（${err.message}）。簡易モデルで表示しています。`; }
+  finally { setBattleLoading(false); }
+}
+$('#btnVrmMuse').onclick = () => { try { store.set('mdforge.hero', 'muse'); } catch (e) {} $('#vrmFile').value = ''; loadMuseVRM(true); };
 function maybeLoadSample() {
   let pref = null; try { pref = store.get('mdforge.hero'); } catch (e) {}
-  if (pref !== 'primitive') loadSampleVRM(false);
+  if (pref === 'primitive') return;
+  if (pref === 'muse') loadMuseVRM(false); else loadSampleVRM(false);
 }
 
 /* =========================================================

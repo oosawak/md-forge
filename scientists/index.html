@@ -45,6 +45,10 @@ canvas { display:block; width:100%; height:100%; }
 #dlg .choices button.sel { border-color:var(--accent); background:#3a2a20; }
 #dlg .ask { display:flex; gap:8px; flex-wrap:wrap; }
 #dlg .ask input { flex:1; min-width:140px; font:inherit; font-size:24px; color:var(--text); background:#0f0c12; border:1px solid var(--accent); border-radius:6px; padding:4px 8px; }
+#goal { padding:4px 12px; font-size:12px; color:#d8e8e0; background:#11161a; border-bottom:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#goal::before { content:"目的："; color:var(--accent); }
+#goal.new { animation:goalnew 1.6s; }
+@keyframes goalnew { 0%,40% { background:#3a3020; } 100% { background:#11161a; } }
 #buff { font-size:12px; color:#ffd890; margin-left:6px; }
 #invHead { color:var(--dim); margin:0 0 8px; }
 #chase { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:min(360px, 70%); height:8px; border-radius:4px; background:#2a1a20; border:1px solid #5a2a30; }
@@ -52,6 +56,9 @@ canvas { display:block; width:100%; height:100%; }
 #chase span { position:absolute; top:12px; width:100%; text-align:center; font-size:12px; color:#f0a0a8; }
 #screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:rgba(5,4,7,.9); text-align:center; padding:24px; }
 #screen h2 { margin:0; font-size:36px; letter-spacing:.1em; }
+#screen h2.big { font-size:48px; letter-spacing:.2em; color:#e8f0f0; text-shadow:0 0 18px rgba(120,220,200,.35); }
+#screen .catch { color:#a8c8c0; }
+#screen .press { margin-top:28px; color:var(--text); animation:blink 1.4s infinite; cursor:pointer; }
 #screen p { margin:0; color:var(--dim); max-width:520px; line-height:1.7; }
 #screen .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 /* スマホ用の操作（スティックとボタン）。タッチ端末か、一度でも触ったら出す */
@@ -89,6 +96,7 @@ dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
   <button id="btnInv">持ち物</button>
   <button id="btnMd">Markdown</button>
 </header>
+<div id="goal" hidden></div>
 <main id="stage">
   <canvas id="cv"></canvas>
   <div id="fade"></div>
@@ -139,6 +147,9 @@ md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1
 | 最初の灯 | 3 |
 | 灯の最大 | 5 |
 | 持ち物の上限 | 4 |
+| キャッチ | 生命の価値を決めるのは、誰なのか。 |
+| 入室の猶予 | 2 |
+| 最初の目的 | 研究所の証拠（研究資料）を集める |
 
 ## 書き方（scientists/ 版で増えた命令）
 
@@ -146,6 +157,9 @@ md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1
 > - `[解放 名前]`：エリアを解放する。条件は `解放:名前`。
 > - `[入力 答え → イベント]`：文字を入力させる。答えは `|` で区切って複数書ける。ひらがな・カタカナ・全角半角・大文字小文字の違いは区別しない。外れたら次の行へ進む。
 > - `[取得 物]`：消耗品（items.md の「使う」がある物）は「持ち物の上限」まで。いっぱいのときは `## イベント 満杯` へ移る。
+> - `[目的 文]`：画面上部の「目的：」を書き換える（`{数値:名前}` も使える）。最初の目的は設定「最初の目的」。
+> - `[暗く]` `[明るく]`：画面を黒くしたまま文を出す／元に戻す（導入や場面転換用）。
+> - 設定「キャッチ」はタイトルの下の一文、「入室の猶予」は部屋に入ってから実験体に見つからない秒数。
 > - カウンタ：資料（回収した研究資料）・真相（ノワとリヒトの真相に関わる資料）・救った・安楽死・見送った
 
 ## イベント 満杯
@@ -154,14 +168,27 @@ md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1
 
 ## イベント opening
 
-[暗転]
-深夜。廃校のはずの旧校舎に、非常灯だけが灯っている。
-{主人公}「……エデン生命科学研究所。外から見れば、ただの廃墟」
-{主人公}「組織の壊滅に必要な証拠を集めて、外へ持ち出す。それが今回の任務」
-ふいに、頭の奥が痛んだ。この廊下を、知っている気がする。
-{主人公}「……気のせい。行こう」
-> 操作の案内
-移動は矢印キーかドラッグ。調べるのはスペースかタップ。持ち物は I キー。
+[暗く]
+郊外の丘の上に、二十年前に廃校になった中学校がある。
+窓は割れ、校庭は草に埋もれ、近所の子どもたちは「出る」と噂する。
+だが、その地下と旧校舎には、今も明かりが灯っている。
+——エデン生命科学研究所。
+「生命は、科学によって自由に設計し、作り変えられるものである」
+そう信じる者たちが、ここで命を作り、延ばし、混ぜ合わせている。
+[待つ 0.6]
+{主人公}「わたしはノワ。組織の壊滅のために送り込まれたスパイ」
+{主人公}「任務は二つ。研究所の中で行われていることの証拠——研究資料を集めること。そして、研究を止めること」
+{主人公}「戦う力はない。実験体に見つかったら、隠れるか、逃げるだけ」
+> 操作の案内（黒い画面のまま出す）
+【操作】移動：矢印キー・WASD・ドラッグ（スマホは左下のスティック）
+【操作】調べる・会話を進める：スペース・クリック・タップ（スマホは「調べる」）
+【操作】持ち物：I キー・「持ち物」ボタン。右上のろうそくが体力。実験体に触れると消える。
+[明るく]
+深夜。非常灯だけが、旧校舎の玄関ホールを照らしている。
+{主人公}「……潜入、成功」
+ふいに、頭の奥が痛んだ。この玄関を、知っている気がする。
+{主人公}「……気のせい。まずは、このあたりを調べよう」
+[目的 玄関ホールを調べてから、北の扉の先（中央棟）へ進む]
 
 ## イベント shoebox
 
@@ -205,6 +232,8 @@ md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1
 [済 → central_after]
 旧校舎の一階廊下。教室の札はそのままに、扉だけが電子錠に替えられている。
 {主人公}「西が職員室、東の渡り廊下が研究棟A……」
+{主人公}「研究棟Aの扉は、電子錠で閉じているはず。職員室に手がかりがあるかもしれない」
+[目的 職員室（西）で、研究棟Aに入る手がかりを探す]
 
 ## イベント central_after
 
@@ -235,6 +264,7 @@ md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1
 「資料の原本は、本棚の奥の旧資料室に移した。あそこは誰も使わない」
 [数値 資料 +1]
 資料を手に入れた。（回収した資料 {数値:資料}）
+[目的 研究棟A前室（中央棟の東）の電子錠に、合言葉を入れる]
 
 ## イベント diary_after
 
@@ -334,6 +364,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 ピッ、と短い音。錠の赤いランプが緑に変わった。
 [解放 研究棟A]
 {主人公}「……トワ。永遠に生きるはずだった子」
+[目的 研究棟Aの奥を調べる（実験体に見つからないように）]
 
 ## イベント gate_panel_open
 
@@ -360,7 +391,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 消毒液と、何かが腐った匂い。
 病床の間を、何かがゆっくり歩いている。
 {主人公}「見つからないように……。音を立てれば、あっちへ気を引けるかも」
-> 見回りの実験体は、近づくと「!」で気づいて追ってくる。物陰に入って見失わせるか、空き瓶や発煙筒で気をそらす。
+【ヒント】実験体は、見つけると頭の上に「!」が出て追ってくる。壁の陰に入れば見失う（「?」）。持ち物の空き瓶や発煙筒を使うと、しばらく足が止まる。
 
 ## イベント ward_after
 
@@ -474,6 +505,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 [フラグ 研究棟A_クリア]
 研究棟Aの調査を終えた。（回収した資料 {数値:資料}）
 {主人公}「中央棟へ戻ろう」
+[目的 カードキーAを持って、中央棟へ戻る]
 
 ## イベント chief_desk_after
 
@@ -488,6 +520,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 声は、それきり途切れた。
 {主人公}「今の声……どうして、わたしの名前を」
 （ここまでの記録：資料 {数値:資料}、真相 {数値:真相}、救った {数値:救った}、安楽死 {数値:安楽死}、見送った {数値:見送った}）
+[目的 （第1段はここまで）声の主を探す]
 （第1段はここまで）
 </script>
 <script type="text/markdown" data-file="map.md">
@@ -862,6 +895,7 @@ function enterRoom(id, sym, keepPos, noSave) {
     G.x = p[0] + 0.5; G.y = p[1] + 0.5;
   }
   RT.lastTile = Math.floor(G.x) + ',' + Math.floor(G.y);
+  RT.grace = num(setting('入室の猶予', 2), 2);   // 部屋に入ってすぐは実験体に見つからない（秒）
   if (RT.chase) endChase('escaped');
   RT.shots = []; RT.warns = []; RT.guard = null;
   spawnEnemies();
@@ -1058,6 +1092,9 @@ async function command(name, arg, first) {
     case '離脱': G.companion = null; RT.comp = null; break;
     case '揺れ': shake(); await wait(0.35); break;
     case '暗転': await fade(true); await wait(0.4); await fade(false); break;
+    case '目的': G.goal = arg; updateGoal(true); break;   // 画面上部の「目的」を書き換える。{数値:名前} も使える
+    case '暗く': hideDlg(); await fade(true); break;     // 黒い画面のまま、次の文を出す（導入・場面転換用）
+    case '明るく': hideDlg(); await fade(false); break;
     case '待つ': hideDlg(); await wait(num(arg, 1)); break;
     case '止める': return 'stop';
     case '終わり': hideDlg(); ending(arg); return 'stop';
@@ -1082,6 +1119,7 @@ function updateHud() {
   }
   $('#lights').innerHTML = h;
   updateHud.shown = G.light;
+  updateGoal();
 }
 const isConsumable = n => !!((W.items[n] || {})['使う'] || '').trim();
 const consumableCount = () => G.items.filter(isConsumable).length;
@@ -1103,6 +1141,12 @@ function useItem(n) {
   if (!applyEffect(it['使う'] || '')) return;
   const i = G.items.indexOf(n); if (i >= 0) G.items.splice(i, 1);
   updateHud(); saveGame(); openInv(); toast(`${n} を使った。`);
+}
+function updateGoal(changed) {
+  const el = $('#goal'), txt = G && G.goal && S.mode === 'play' ? sub(G.goal) : '';
+  if (el.hidden !== !txt) { el.hidden = !txt; resize(); }
+  el.textContent = txt;
+  if (changed && txt) { el.classList.remove('new'); void el.offsetWidth; el.classList.add('new'); toast('目的が更新された'); }
 }
 function hurt(scripted) {
   if (!scripted && RT.inv > 0) return;
@@ -1144,7 +1188,7 @@ addEventListener('keydown', e => {
     else if (/^Digit[1-9]$/.test(e.code)) choiceKey(e.code.slice(5));
     e.preventDefault(); return;
   }
-  if (/^(Space|Enter|KeyZ)$/.test(e.code)) { e.preventDefault(); if (!e.repeat) action(); return; }
+  if (/^(Space|Enter|KeyZ)$/.test(e.code)) { e.preventDefault(); if (e.repeat) return; if (titleNext) titleNext(); else action(); return; }
   if (e.code === 'KeyI') { openInv(); return; }
   if (k) { keys.add(k); e.preventDefault(); }
 });
@@ -1297,7 +1341,7 @@ function canSee(ax, ay, bx, by) {
 function toward(e, tx, ty, sp) { const dx = tx - e.x, dy = ty - e.y, l = Math.hypot(dx, dy); return l < 0.05 ? [0, 0, l] : [dx / l * sp, dy / l * sp, l]; }
 // 見回り：徘徊 → 察知（!）→ 追跡 → 見失う（?）→ 持ち場へ戻る
 function patrolStep(e, dt, sp, v1, v2, dist, ux, uy) {
-  const see = dist < v1 && canSee(e.x, e.y, G.x, G.y);
+  const see = RT.grace <= 0 && dist < v1 && canSee(e.x, e.y, G.x, G.y);
   let r = [0, 0];
   if (see && e.st !== 'chase') { e.st = 'chase'; e.mark = 0.9; }
   if (e.st === 'chase') {
@@ -1418,7 +1462,7 @@ function updateChase(dt) {
 
 /* ====================== 画面遷移 ====================== */
 function newGame() {
-  G = { room: setting('開始部屋', Object.keys(W.rooms)[0]), x: 1.5, y: 1.5, face: [0, 1], light: num(setting('最初の灯', 3), 3), items: [], flags: {}, aff: 0, done: {}, companion: null, vars: {}, areas: [], buff: 0, buffLv: 0 };
+  G = { room: setting('開始部屋', Object.keys(W.rooms)[0]), x: 1.5, y: 1.5, face: [0, 1], light: num(setting('最初の灯', 3), 3), items: [], flags: {}, aff: 0, done: {}, companion: null, vars: {}, areas: [], buff: 0, buffLv: 0, goal: setting('最初の目的', '') };
   RT.comp = null;
   startPlay();
   enterRoom(G.room);
@@ -1437,16 +1481,25 @@ function loadState(st, noSave) {
   enterRoom(G.room, null, true, noSave);
   updateHud();
 }
-function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; }
+function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; $('#goal').hidden = true; }
+let titleNext = null;
 function titleScreen() {
-  S.mode = 'title'; hideDlg(); $('#chase').hidden = true;
+  S.mode = 'title'; hideDlg(); $('#chase').hidden = true; $('#fade').style.opacity = 0;
   const t = setting('タイトル', '灯の館（仮）');
   $('#title').textContent = t; document.title = t; $('#roomName').textContent = '';
+  // 1 枚目：タイトルとキャッチ。クリック・タップ・スペースで次へ
+  showScreen(`<h2 class="big"></h2><p class="catch"></p><p class="press">クリック または スペースキーで はじめる</p>`);
+  $('#screen h2').textContent = t; $('#screen .catch').textContent = setting('キャッチ', '');
+  const go = () => { titleNext = null; $('#screen').onclick = null; titleMenu(); };
+  titleNext = go; $('#screen').onclick = go;
+}
+function titleMenu() {
+  const t = setting('タイトル', '灯の館（仮）');
   const saved = loadSaved();
   showScreen(`<h2></h2><p></p><div class="row"><button class="primary" id="sNew">はじめから</button><button id="sCont" ${saved ? '' : 'disabled'}>つづきから</button><button id="sMd">Markdown を読み込む</button></div>
     <p style="font-size:12px">移動：矢印キー / WASD / ドラッグ　調べる・進む：スペース / タップ　持ち物：I</p>`);
   $('#screen h2').textContent = t; $('#screen p').textContent = setting('説明', '');
-  $('#sNew').onclick = newGame;
+  $('#sNew').onclick = () => { if (saved && !confirm('今のセーブを消して、最初から始めますか？')) return; newGame(); };
   if (saved) $('#sCont').onclick = () => { if (W.rooms[saved.room]) loadState(saved); else newGame(); };
   $('#sMd').onclick = openMd;
 }
@@ -1714,6 +1767,7 @@ function loop(now) {
     if (G.buff > 0) { G.buff = Math.max(0, G.buff - dt); const b = $('#buff'), txt = G.buff > 0 ? `光+${G.buffLv} ${Math.floor(G.buff / 60)}:${String(Math.floor(G.buff % 60)).padStart(2, '0')}` : ''; if (b.textContent !== txt) b.textContent = txt; }
     else if ($('#buff').textContent) $('#buff').textContent = '';
     RT.stun = Math.max(0, RT.stun - dt);
+    if (!RT.busy || RT.chase) RT.grace = Math.max(0, (RT.grace || 0) - dt);
     const free = !RT.busy || RT.chase;
     if (free) { updatePlayer(dt); updateEnemies(dt); }
     if (RT.chase && S.mode === 'play') updateChase(dt);

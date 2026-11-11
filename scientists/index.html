@@ -58,7 +58,10 @@ canvas { display:block; width:100%; height:100%; }
 #screen h2 { margin:0; font-size:36px; letter-spacing:.1em; }
 #screen h2.big { font-size:48px; letter-spacing:.2em; color:#e8f0f0; text-shadow:0 0 18px rgba(120,220,200,.35); }
 #screen .catch { color:#a8c8c0; }
-#screen .press { margin-top:28px; color:var(--text); animation:blink 1.4s infinite; cursor:pointer; }
+body.titling header h1 { visibility:hidden; }
+#screen .menu { margin-top:28px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+#screen .desc { font-size:12px; }
+#screen .press { color:var(--text); animation:blink 1.4s infinite; cursor:pointer; }
 #screen p { margin:0; color:var(--dim); max-width:520px; line-height:1.7; }
 #screen .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
 /* スマホ用の操作（スティックとボタン）。タッチ端末か、一度でも触ったら出す */
@@ -1471,6 +1474,7 @@ function newGame() {
   if (ev) runEvent(ev);
 }
 function startPlay() {
+  document.body.classList.remove('titling');
   S.mode = 'play'; $('#screen').hidden = true; hideDlg();
   RT.busy = false; RT.chase = null; RT.guard = null; RT.inv = 0; RT.stun = 0; $('#chase').hidden = true;
 }
@@ -1483,25 +1487,26 @@ function loadState(st, noSave) {
 }
 function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; $('#goal').hidden = true; }
 let titleNext = null;
+// タイトルは 1 枚だけ。「はじめる」を押すと、同じ画面の下にメニューが出る
 function titleScreen() {
   S.mode = 'title'; hideDlg(); $('#chase').hidden = true; $('#fade').style.opacity = 0;
   const t = setting('タイトル', '灯の館（仮）');
   $('#title').textContent = t; document.title = t; $('#roomName').textContent = '';
-  // 1 枚目：タイトルとキャッチ。クリック・タップ・スペースで次へ
-  showScreen(`<h2 class="big"></h2><p class="catch"></p><p class="press">クリック または スペースキーで はじめる</p>`);
+  document.body.classList.add('titling');   // タイトル中はヘッダーの題名を隠す（2 重にしない）
+  showScreen(`<h2 class="big"></h2><p class="catch"></p><div class="menu"><p class="press">クリック または スペースキーで はじめる</p></div>`);
   $('#screen h2').textContent = t; $('#screen .catch').textContent = setting('キャッチ', '');
   const go = () => { titleNext = null; $('#screen').onclick = null; titleMenu(); };
   titleNext = go; $('#screen').onclick = go;
 }
 function titleMenu() {
-  const t = setting('タイトル', '灯の館（仮）');
   const saved = loadSaved();
-  showScreen(`<h2></h2><p></p><div class="row"><button class="primary" id="sNew">はじめから</button><button id="sCont" ${saved ? '' : 'disabled'}>つづきから</button><button id="sMd">Markdown を読み込む</button></div>
-    <p style="font-size:12px">移動：矢印キー / WASD / ドラッグ　調べる・進む：スペース / タップ　持ち物：I</p>`);
-  $('#screen h2').textContent = t; $('#screen p').textContent = setting('説明', '');
+  const m = $('#screen .menu');
+  m.innerHTML = `<div class="row"><button class="primary" id="sNew">はじめから</button><button id="sCont" ${saved ? '' : 'disabled'}>つづきから</button><button id="sMd">Markdown を読み込む</button></div><p class="desc"></p>`;
+  m.querySelector('.desc').textContent = setting('説明', '');
   $('#sNew').onclick = () => { if (saved && !confirm('今のセーブを消して、最初から始めますか？')) return; newGame(); };
   if (saved) $('#sCont').onclick = () => { if (W.rooms[saved.room]) loadState(saved); else newGame(); };
   $('#sMd').onclick = openMd;
+  $('#sNew').focus();
 }
 function ending(name) {
   S.mode = 'end';

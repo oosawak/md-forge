@@ -49,6 +49,7 @@ canvas { display:block; width:100%; height:100%; }
 #goal::before { content:"目的："; color:var(--accent); }
 #goal.new { animation:goalnew 1.6s; }
 @keyframes goalnew { 0%,40% { background:#3a3020; } 100% { background:#11161a; } }
+#mini { position:absolute; left:8px; top:8px; width:auto; height:auto; border:1px solid var(--line); border-radius:6px; background:rgba(8,10,14,.78); cursor:pointer; z-index:2; }
 #buff { font-size:12px; color:#ffd890; margin-left:6px; }
 #invHead { color:var(--dim); margin:0 0 8px; }
 #chase { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:min(360px, 70%); height:8px; border-radius:4px; background:#2a1a20; border:1px solid #5a2a30; }
@@ -102,6 +103,7 @@ dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
 <div id="goal" hidden></div>
 <main id="stage">
   <canvas id="cv"></canvas>
+  <canvas id="mini" hidden title="全体図（タップで拡大）"></canvas>
   <div id="fade"></div>
   <div id="chase" hidden><div></div><span>逃げろ</span></div>
   <div id="dlg" hidden><div class="name"></div><div class="text"></div><div class="choices"></div><div class="next">▼</div></div>
@@ -137,14 +139,14 @@ dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
 <script type="text/markdown" data-file="scenario.md">
 # scenario.md — SCIENTISTS 設定とイベント
 
-md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1段：潜入〜研究棟A クリアまで。
+md-forge Horror エンジン（scientists/ 版）用のシナリオです。潜入からエンディング（5 種）まで。
 
 ## 設定
 
 | 項目 | 値 |
 | --- | --- |
 | タイトル | SCIENTISTS |
-| 説明 | エデン生命科学研究所に潜入する。生命の価値を決めるのは、誰なのか。（第1段：潜入〜研究棟A） |
+| 説明 | エデン生命科学研究所に潜入し、研究を止めて脱出する。エンディングは 5 種類。 |
 | 開始部屋 | entrance |
 | 開始イベント | opening |
 | 最初の灯 | 3 |
@@ -163,6 +165,8 @@ md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1
 > - `[目的 文]`：画面上部の「目的：」を書き換える（`{数値:名前}` も使える）。最初の目的は設定「最初の目的」。
 > - `[暗く]` `[明るく]`：画面を黒くしたまま文を出す／元に戻す（導入や場面転換用）。
 > - 設定「キャッチ」はタイトルの下の一文、「入室の猶予」は部屋に入ってから実験体に見つからない秒数。
+> - `[追跡 名前 秒数 → イベント]`：灯が尽きたらゲームオーバーではなく、そのイベントへ移る。
+> - 条件 `部屋:ID`：今いる部屋。items.md の使う欄 `イベント:名前` で、使ったときにイベントを動かせる。
 > - カウンタ：資料（回収した研究資料）・真相（ノワとリヒトの真相に関わる資料）・救った・安楽死・見送った
 
 ## イベント 満杯
@@ -245,18 +249,16 @@ md-forge Horror エンジン（scientists/ 版）用のシナリオです。第1
 ## イベント labB_locked
 
 「研究棟B　遺伝子改良」の札。電子錠は赤く光っている。
-[分岐 フラグ:研究棟A_クリア → labB_locked_after]
-{主人公}「先に、研究棟Aを調べないと」
-
-## イベント labB_locked_after
-
-カードキーを当てても反応しない。別の鍵が必要らしい。
-（第1段はここまで）
+{主人公}「カードキーが要る。研究棟Aの主任なら、持っているかもしれない」
 
 ## イベント labC_locked
 
 「研究棟C　キメラ・軍事転用」の札。扉の向こうから、何かが這う音がする。
-{主人公}「……今は、近づかない方がいい」
+{主人公}「研究棟Bの主任のカードキーが要るみたい」
+
+## イベント holding_locked
+
+地下へ降りる階段。シャッターに、研究棟Cのカードリーダーがついている。
 
 ## イベント diary
 
@@ -375,10 +377,16 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 
 ## イベント gate_locker
 
-[済 → gate_locker_after]
+> 「済」は調べただけで付くので、暗くて見えなかった 1 回目も数えてしまう。取ったかどうかはフラグで見る。
+[分岐 フラグ:発煙筒_取った → gate_locker_after]
 [分岐 !持つ:懐中電灯 → gate_locker_dark]
 懐中電灯で奥を照らすと、発煙筒が一本残っていた。
 [取得 発煙筒]
+[分岐 持つ:発煙筒 → gate_locker_got]
+
+## イベント gate_locker_got
+
+[フラグ 発煙筒_取った]
 
 ## イベント gate_locker_dark
 
@@ -432,6 +440,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 
 ## イベント tank
 
+[分岐 フラグ:トワ_済 & 持つ:携帯維持装置 & !フラグ:トワ_眠った & !フラグ:トワ_救出 → towa_rescue]
 [分岐 フラグ:トワ_済 → tank_after]
 槽の中の少女が、目を開けた。年は十歳くらいに見える。
 スピーカーから、かすれた声がした。
@@ -479,9 +488,39 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 
 ## イベント tank_after
 
+[分岐 フラグ:トワ_救出 → tank_empty]
 [分岐 フラグ:トワ_眠った → tank_sleep]
 [分岐 フラグ:トワと約束 → tank_promise]
 トワは、目を閉じたまま動かない。
+
+## イベント tank_empty
+
+空っぽの槽。液体の中に、小さな泡がひとつ浮かんでいる。
+
+## イベント towa_rescue
+
+[分岐 フラグ:トワと約束 → towa_rescue_promise]
+{主人公}「……迎えに来た。この装置があれば、槽の外でも生きられる」
+トワ「……わたし、そとに、でていいの？」
+{主人公}「あなたが決めて」
+トワ「……いく。そらが、みたい」
+[数値 救った +1]
+[分岐 → towa_rescue_go]
+
+## イベント towa_rescue_promise
+
+{主人公}「約束を、果たしに来た」
+トワ「……ほんとうに、きた」
+トワ「ありがとう。……やくそく、まもってくれる ひと、はじめて」
+[フラグ 約束を果たした]
+[分岐 → towa_rescue_go]
+
+## イベント towa_rescue_go
+
+槽の液を抜き、トワを携帯型の生命維持装置につないだ。小さな体は、驚くほど軽い。
+[失う 携帯維持装置]
+[フラグ トワ_救出]
+トワは装置ごと、背中に負ぶって連れて行くことにした。
 
 ## イベント tank_sleep
 
@@ -522,12 +561,635 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 放送「研究棟A、見せてもらったよ。相変わらず、きみは優しいね」
 声は、それきり途切れた。
 {主人公}「今の声……どうして、わたしの名前を」
-（ここまでの記録：資料 {数値:資料}、真相 {数値:真相}、救った {数値:救った}、安楽死 {数値:安楽死}、見送った {数値:見送った}）
-[目的 （第1段はここまで）声の主を探す]
-（第1段はここまで）
+{主人公}「研究棟Aのカードキーで、研究棟Bも開くかもしれない」
+[目的 研究棟B（中央棟の北の扉）をカードキーAで開ける]
+
+## イベント 入室:labB_hall
+
+[済 → labB_hall_after]
+獣の匂い。檻がいくつも並び、そのいくつかは内側から壊されている。
+【ヒント】ハウンドは足が速く、遠くからでも気づく。檻の陰に入って視線を切れば、見失う。
+[目的 研究棟Bの奥（北）を調べる]
+
+## イベント labB_hall_after
+
+> 2 回目以降は何もしない。
+
+## イベント cage
+
+檻の格子に、爪の跡と、ちぎれた首輪が残っている。
+
+## イベント breeding_log
+
+[済 → breeding_log_after]
+飼育記録だ。
+「ハウンド計画：嗅覚と脚力を強化。視界に入った対象を執拗に追うが、障害物で視線が切れると追跡をやめる傾向がある」
+[数値 資料 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント breeding_log_after
+
+「障害物で視線が切れると追跡をやめる」——檻の陰をうまく使おう。
+
+## イベント labB_locker
+
+[分岐 フラグ:薬品_取った → labB_locker_after]
+ロッカーの中に、強い消毒薬の瓶と、空き瓶が入っていた。
+[取得 薬品]
+[フラグ 薬品_取った]
+[取得 空き瓶]
+
+## イベント labB_locker_after
+
+空のロッカー。
+
+## イベント 入室:labB_room
+
+[済 → labB_room_after]
+ガラス越しの観察室。部屋の真ん中に、少女の形をした何かが立っている。
+こちらが見ている間、それはぴくりとも動かない。
+【ヒント】ドールは、こちらが見ている間は動かない。正面を向いたまま近づき、すぐそばで調べると話しかけられる。
+
+## イベント labB_room_after
+
+> 2 回目以降は何もしない。
+
+## イベント hina_talk
+
+[分岐 フラグ:ドール_済 → hina_after]
+少女が、首をかしげた。関節が、人とは逆の向きに曲がる。
+ヒナ「……あなた、わたしと おなじ におい がする」
+ヒナ「わたしは ヒナ。ひとに なるために つくられたの。でも、まだ ひとじゃないって、せんせいたちは いう」
+ヒナ「ねえ。ひとって、なに？」
+{主人公}「……わからない。でも、あなたが自分で決めていいと思う」
+ヒナ「じゃあ……わたしは、どうしたらいい？」
+[選択 「一緒に外へ行こう」と手を取る → hina_free / 壁の停止スイッチで眠らせる → hina_sleep / 「ここで待っていて」と離れる → hina_leave]
+
+## イベント hina_free
+
+ヒナ「……て、つないだの、はじめて」
+ヒナ「わたし、ちいさい から、つうきこう を とおれる。さきに、そとで まってる」
+少女は天井の通気口へ、するりと消えた。
+[数値 救った +1]
+[フラグ ヒナ_自由]
+[フラグ ドール_済]
+
+## イベント hina_sleep
+
+{主人公}「……ごめん」
+壁のスイッチを押すと、少女の目から光が消え、その場に崩れ落ちた。
+ヒナ「……おやすみ、なさい……」
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ ドール_済]
+
+## イベント hina_leave
+
+{主人公}「ここで待っていて。全部終わったら、また来る」
+ヒナ「……うん。まってる。ずっと、まってる」
+少女は部屋の隅にしゃがみ込み、動かなくなった。
+[数値 見送った +1]
+[フラグ ドール_済]
+
+## イベント hina_after
+
+> ドールは会話の後に消える（map.md の条件）。
+
+## イベント mirror_window
+
+マジックミラーの向こうに、観察用の椅子がある。灰皿には吸い殻が山になっている。
+
+## イベント compare_record
+
+[済 → compare_record_after]
+「適応個体比較記録：N-0 と L-1」
+「N-0 の環境適応値は過去最高。L-1 はそれに次ぐ。L-1 は研究員として登用し、研究所内に留める」
+「両個体は幼少期から強い愛着を示す。分離後の反応を記録すること」
+{主人公}「N-0……旧資料室の記録と同じ。それに、L-1……」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント compare_record_after
+
+「N-0 と L-1 は、幼少期から強い愛着を示す」
+
+## イベント labB_desk
+
+[済 → labB_desk_after]
+主任の机に、研究棟Bのカードキーがある。
+[取得 カードキーB]
+[揺れ]
+檻の扉が一斉に開く音がした。
+放送「研究棟B、侵入者。群れを放ちます」
+{主人公}「……！」
+[追跡 群れの主 20]
+遠吠えが遠ざかっていく。
+[フラグ 研究棟B_クリア]
+{主人公}「研究棟Bのカードキー……これで研究棟Cに入れるはず」
+[目的 研究棟C（中央棟の北西の扉）をカードキーBで開ける]
+
+## イベント labB_desk_after
+
+主任の机。もう何も残っていない。
+
+## イベント 入室:labC_hall
+
+[済 → labC_hall_after]
+湿った空気。壁も床も、白い菌糸に覆われている。菌糸は、ゆっくりと脈打っていた。
+【ヒント】パラサイトは少しずつ増える。消毒装置に薬品を入れれば、除去できるかもしれない。
+[目的 研究棟Cの菌糸（パラサイト）をなんとかして、奥（北）へ進む]
+
+## イベント labC_hall_after
+
+> 2 回目以降は何もしない。
+
+## イベント disinfector
+
+[分岐 フラグ:消毒済み → disinfector_after]
+[分岐 持つ:薬品 → disinfect]
+消毒装置だ。薬品を入れる口があるが、中は空っぽだ。
+{主人公}「強い消毒薬があれば、動かせそう」
+
+## イベント use_chemical
+
+[分岐 部屋:labC_hall & !フラグ:消毒済み → disinfect]
+{主人公}「ここで使っても、意味がなさそう」
+
+## イベント disinfect
+
+薬品を消毒装置に流し込み、スイッチを入れた。
+白い霧が噴き出し、菌糸が音を立てて縮んでいく。
+[失う 薬品]
+[フラグ 消毒済み]
+[目的 研究棟Cの奥（北）を調べる]
+
+## イベント disinfector_after
+
+消毒装置は止まっている。床の菌糸は、灰色に枯れた。
+
+## イベント culture_log
+
+[済 → culture_log_after]
+培養記録だ。
+「パラサイト：宿主を選ばず増殖する。高濃度の消毒液に弱い。研究棟Bの備品を流用のこと」
+[数値 資料 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント culture_log_after
+
+「高濃度の消毒液に弱い」
+
+## イベント 入室:labC_room
+
+[済 → labC_room_after]
+広い模擬戦闘場。鏡のように光る人影が、こちらと同じ姿勢でこちらを見ている。
+【ヒント】ミラーはこちらの動きを学習して、行く先へ回り込む。同じ方向に走り続けず、急に向きを変えよう。
+
+## イベント labC_room_after
+
+> 2 回目以降は何もしない。
+
+## イベント ren
+
+[分岐 フラグ:レン_済 → ren_after]
+鎖で椅子に縛りつけられた少年がいる。腕には、番号の焼き印。
+レン「……来るな。俺は、命令されたら人を殺すように作られてる」
+レン「頭の中で、ずっと声がするんだ。次に命令が来たら、たぶん、止められない」
+レン「頼む。命令が来る前に、終わらせてくれ」
+[選択 鎖を解いて逃がす → ren_free / 望みどおり、眠らせる → ren_sleep / 縛ったまま置いていく → ren_leave]
+
+## イベント ren_free
+
+{主人公}「命令する人間は、もうすぐいなくなる。あなたは、自分で決めて生きて」
+鎖を外すと、少年はしばらく自分の手を見つめていた。
+レン「……ありがとう。外で、命令じゃない何かを探してみる」
+[数値 救った +1]
+[フラグ レン_自由]
+[フラグ レン_済]
+
+## イベント ren_sleep
+
+{主人公}「……わかった」
+棚の鎮静剤を、致死量だけ注射した。少年は、ほっとしたように目を閉じた。
+レン「……やっと、静かだ」
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ レン_済]
+
+## イベント ren_leave
+
+{主人公}「……ごめん。今は、ほどけない」
+レン「……そうか。なら、早くここを終わらせてくれ」
+[数値 見送った +1]
+[フラグ レン_済]
+
+## イベント ren_after
+
+[分岐 フラグ:レン_自由 → ren_after_free]
+少年は目を閉じたまま動かない。
+
+## イベント ren_after_free
+
+空の椅子と、ほどけた鎖。
+
+## イベント release_plan
+
+[済 → release_plan_after]
+「外部環境適応試験　計画書」
+「N-0 を外部に解放し、社会環境での適応を長期観察する。L-1 は対照として研究所内に残す」
+「N-0 には『L-1 を迎えに来る』と約束させること。帰還の動機となる。解放後、関連する記憶は消去する」
+頭の奥で、小さな声がした。——安全が確認できたら、リヒトも連れて行くからね。
+{主人公}「……わたしが、言った。リヒトに」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント release_plan_after
+
+「N-0 には『L-1 を迎えに来る』と約束させること」
+
+## イベント labC_desk
+
+[済 → labC_desk_after]
+主任の机に、研究棟Cのカードキーがある。
+[取得 カードキーC]
+[揺れ]
+床の下で、何かが培養槽を割る音がした。
+放送「研究棟C、融合兵器ゼロ、起動」
+[追跡 融合兵器ゼロ 22]
+重い足音が、壁の向こうへ消えた。
+[フラグ 研究棟C_クリア]
+{主人公}「このカードキーなら、中央棟の地下へ降りられる」
+[目的 中央棟の南西の階段から、地下の収容エリアへ降りる]
+
+## イベント labC_desk_after
+
+主任の机。もう何も残っていない。
+
+## イベント 入室:holding
+
+[済 → holding_after]
+地下の収容エリア。鉄の扉が並び、のぞき窓の向こうから、いくつもの目がこちらを見ている。
+声が聞こえる。泣き声、笑い声、名前を呼ぶ声。
+[目的 収容エリアを調べ、奥（南）の扉へ進む]
+
+## イベント holding_after
+
+> 2 回目以降は何もしない。
+
+## イベント cell
+
+のぞき窓の向こうで、誰かがこちらを見ている。人の形をしているものも、していないものもいる。
+
+## イベント holding_panel
+
+[分岐 フラグ:収容_済 → holding_panel_after]
+収容区画の制御盤。ここから、すべての房の扉を操作できる。
+「区画内の被験者：生存 12 名。うち 3 名は回復の見込みなし、苦痛の緩和を推奨」
+{主人公}「……」
+[選択 すべての房の扉を開ける → holding_free / 苦しんでいる 3 名だけ、眠らせる → holding_sleep / 今は何もしない → holding_leave]
+
+## イベント holding_free
+
+すべての扉のロックを外した。房の中から、ためらうような足音が出てくる。
+誰かが、小さな声で「ありがとう」と言った。
+[数値 救った +2]
+[フラグ 収容_開放]
+[フラグ 収容_済]
+
+## イベント holding_sleep
+
+{主人公}「……苦しみだけは、終わらせる」
+3 つの房に、安楽死用の薬剤が流れた。のぞき窓の向こうが、静かになった。
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ 収容_済]
+
+## イベント holding_leave
+
+{主人公}「……今は、決められない。研究所を止めてから、必ず」
+[数値 見送った +1]
+[フラグ 収容_済]
+
+## イベント holding_panel_after
+
+[分岐 フラグ:収容_開放 → holding_panel_open]
+制御盤の表示は、そのままになっている。
+
+## イベント holding_panel_open
+
+すべての房の扉は開いている。被験者たちは、思い思いの方向へ去っていった。
+
+## イベント holding_shelf
+
+[分岐 フラグ:維持装置_取った → holding_shelf_after]
+備品棚に、持ち運べる生命維持装置と医療キットがある。
+[取得 携帯維持装置]
+[フラグ 維持装置_取った]
+[取得 医療キット]
+[分岐 フラグ:トワ_済 & !フラグ:トワ_眠った → holding_shelf_towa]
+
+## イベント holding_shelf_towa
+
+{主人公}「これがあれば、トワを槽の外へ連れ出せる。……研究棟Aの延命実験室」
+
+## イベント holding_shelf_after
+
+備品棚は空っぽだ。
+
+## イベント licht_door
+
+扉に鍵がかかっている。
+
+## イベント 入室:licht_lab
+
+[済 → licht_lab_after]
+煙草の匂い。机の向こうで、白衣の青年がこちらを振り返った。
+[目的 研究室にいる青年と話す]
+
+## イベント licht_lab_after
+
+> 2 回目以降は何もしない。
+
+## イベント licht_meet
+
+リヒト「やあ、ノワ。おかえり」
+{主人公}「……どうして、わたしの名前を」
+リヒト「覚えてないんだね。それも、予定どおりか」
+リヒト「僕はリヒト。被験体 L-1。きみは N-0。二人とも、ここで生まれた」
+リヒト「きみは十年前、外に放たれた。外の世界でどう生きるかを観察するためにね」
+リヒト「出ていく日、きみは言ったんだ。『安全が確認できたら、リヒトも連れて行くからね』って」
+リヒト「僕は全部知ってた。それが研究の一部だってことも。それでも、待ってた」
+{主人公}「……ごめん。覚えて、ない」
+リヒト「いいよ。きみは戻ってきた。それで十分だ」
+リヒト「ここを止めに来たんだろう？　中枢まで案内するよ。そのほうが効率がいい」
+[同行 リヒト]
+[フラグ リヒト_再会]
+[目的 リヒトと一緒に、中枢（研究室の東）へ。所長室を調べる]
+
+## イベント 同行者と話す
+
+[分岐 フラグ:研究所停止 → licht_talk_end]
+[分岐 持つ:中枢キー → licht_talk_key]
+[分岐 部屋:director → licht_talk_director]
+{同行者}「所長は十年前に死んだよ。それからは、僕がここを回してる」
+{同行者}「僕のことを止めたいなら、止めていい。きみには、その権利がある」
+
+## イベント licht_talk_director
+
+{同行者}「所長は、大事なものに、いちばん大事な実験体の名前をつける癖があった」
+{同行者}「金庫も、たぶんそうだよ」
+
+## イベント licht_talk_key
+
+{同行者}「制御室は北だ。……決めるのは、きみだよ」
+
+## イベント licht_talk_end
+
+{同行者}「走って。話はあとでいくらでもできる」
+
+## イベント licht_shelf
+
+[分岐 フラグ:リヒトの私物 → licht_shelf_found]
+[分岐 フラグ:本棚_奥 → licht_shelf_tin]
+専門書がぎっしり並んでいる。……奥に、何かが挟まっているような気がする。
+[フラグ 本棚_奥]
+
+## イベント licht_shelf_tin
+
+本を何冊かどけると、奥から古いブリキの缶が出てきた。
+中には、子どもが描いた二人の絵と、色あせたメモが一枚。
+「ノワが むかえに くるまで、ここで まつ。　リヒト」
+{主人公}「……」
+[フラグ リヒトの私物]
+
+## イベント licht_shelf_found
+
+ブリキの缶は、元の場所に戻しておいた。
+
+## イベント licht_desk
+
+[済 → licht_desk_after]
+リヒトの研究日誌だ。
+「N-0 の帰還を確認。予定より三年遅い」
+「彼女が戻ったら、この研究所を終わらせる。僕のやり方で。データは残す。命の値段は、僕が決める」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント licht_desk_after
+
+「命の値段は、僕が決める」
+
+## イベント ashtray
+
+吸い殻が山になっている。銘柄は、職員室や観察室の灰皿と同じだ。
+
+## イベント licht_plant
+
+枯れかけた鉢植え。それでも、土は湿っている。誰かが毎日水をやっているらしい。
+
+## イベント 入室:director
+
+[済 → director_after]
+所長室。机の上の写真立ては、伏せられたままだ。
+[目的 所長室を調べ、制御室（北）の鍵を探す]
+
+## イベント director_after
+
+> 2 回目以降は何もしない。
+
+## イベント director_shelf
+
+表彰状とトロフィーが並んでいる。どれもほこりをかぶっている。
+
+## イベント final_report
+
+[済 → final_report_after]
+「所長最終報告」
+「生命の価値は、科学が決める。私はそう信じて、この研究所を作った」
+「だが N-0 と L-1 を見て、分からなくなった。あの二人の約束に、私は値段をつけられなかった」
+「後のことは L-1 に託す。彼なら、迷わないだろう」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント final_report_after
+
+「あの二人の約束に、私は値段をつけられなかった」
+
+## イベント director_safe
+
+[分岐 持つ:中枢キー → director_safe_after]
+金庫だ。文字を入れるダイヤルがついている。
+[入力 ノワ|NOIR|乃和|N-0 → director_safe_open]
+ダイヤルは動かない。違うらしい。
+
+## イベント director_safe_open
+
+カチリと音がして、金庫が開いた。中に、古い鍵が一本。
+[取得 中枢キー]
+{主人公}「……わたしの名前、だった」
+[目的 制御室（所長室の北）で、研究所を止める]
+
+## イベント director_safe_after
+
+空の金庫。
+
+## イベント control_locked
+
+制御室の扉。鍵がかかっている。所長室のどこかに、鍵があるはずだ。
+
+## イベント control_monitor
+
+モニターに、研究所じゅうの部屋が映っている。いくつかの画面は、もう何も映していない。
+
+## イベント control_panel
+
+[分岐 フラグ:研究所停止 → control_panel_after]
+研究所のすべての設備が、この制御盤につながっている。
+{同行者}「ここを止めれば、研究所は終わる。データも、実験体の生命維持も、全部」
+{同行者}「でも、データは残せる。僕と一緒に、別の場所で続けることもできる」
+{主人公}「……止める」
+{同行者}「そう言うと思った」
+停止レバーを引いた。照明が一つずつ消えていく。
+[フラグ 研究所停止]
+[揺れ]
+放送「最終防衛を起動。エデンの番人を解放します」
+{同行者}「北の通用門へ。走って！」
+[目的 北の通用門（脱出口）から外へ逃げる]
+
+## イベント control_panel_after
+
+制御盤は、もう何の反応もしない。
+
+## イベント escape_locked
+
+通用門への扉。まだ、外へ出るときではない。
+
+## イベント escape_back
+
+後ろの扉は、もう開かない。前へ進むしかない。
+
+## イベント 入室:escape
+
+[済 → escape_after]
+旧校舎の裏庭。通用門の向こうに、夜明け前の空が見える。
+門の上から、白い巨体が音もなく降りてきた。
+[フラグ 脱出中]
+[追跡 エデンの番人 25 → end_bad]
+[消す 脱出中]
+白い巨体は、朝の光を浴びて動きを止めた。
+[分岐 → ending_judge]
+
+## イベント escape_after
+
+> 追跡のあとは、そのままエンディングの判定へ進む。
+
+## イベント escape_gate
+
+通用門だ。もうすぐ夜が明ける。
+
+## イベント ending_judge
+
+> エンディングの判定。真相資料は全部で 5 つ（旧資料室・観察室・模擬戦闘場・リヒトの研究室・所長室）。
+[分岐 フラグ:トワと約束 & !フラグ:トワ_救出 → judge_promise_broken]
+[分岐 → judge_main]
+
+## イベント judge_promise_broken
+
+ふと、延命実験室の槽を思い出した。——まってる。
+トワとの約束は、果たせなかった。
+[数値 救った -1]
+[分岐 → judge_main]
+
+## イベント judge_main
+
+[分岐 数値:真相>=5 & !フラグ:誰かを殺した & フラグ:リヒトの私物 → end_secret]
+[分岐 数値:真相>=5 & 数値:救った>=3 → end_good]
+[分岐 数値:真相>=5 → end_true]
+[分岐 → end_normal]
+
+## イベント end_true
+
+[暗く]
+研究所の記録は、すべて警察に渡った。エデン生命科学研究所は、その日のうちに封鎖された。
+{同行者}「……きみに捕まるなら、悪くない」
+リヒトは、自分から手錠に両手を差し出した。
+{主人公}「面会に行く。何度でも」
+{同行者}「待ってるよ。待つのは、得意なんだ」
+ノワは、自分の出生と、研究所の真実に向き合うことを選んだ。
+（救った命 {数値:救った}　安楽死 {数値:安楽死}　回収した資料 {数値:資料}）
+[終わり TRUE END ― 約束の面会]
+
+## イベント end_good
+
+[暗く]
+研究所の記録は、すべて警察に渡った。地下から解き放たれた人々も、保護された。
+[分岐 フラグ:トワ_救出 → end_good_towa]
+[分岐 → end_good2]
+
+## イベント end_good_towa
+
+トワは、生まれて初めて見る朝焼けに、声を上げて泣いた。
+[分岐 → end_good2]
+
+## イベント end_good2
+
+[分岐 フラグ:ヒナ_自由 → end_good_hina]
+[分岐 → end_good3]
+
+## イベント end_good_hina
+
+通用門の外で、小さな人影が手を振っていた。「まってた」とヒナが言った。
+[分岐 → end_good3]
+
+## イベント end_good3
+
+気がつくと、リヒトの姿はどこにもなかった。
+門の柱に、吸いかけの煙草が一本だけ、まだ煙を上げていた。
+{主人公}「……また、待たせることになるのかな。今度は、わたしが」
+（救った命 {数値:救った}　安楽死 {数値:安楽死}　回収した資料 {数値:資料}）
+[終わり GOOD END ― 夜明けの煙]
+
+## イベント end_normal
+
+[暗く]
+研究所は止まった。だが、ノワが知らないままの真実と、救えなかった命が、地下に残った。
+{同行者}「データは僕の中にある。きみが止めないなら、僕はどこかで続けるよ」
+リヒトは、最後の煙草に火をつけ、小さな薬瓶をノワの手に握らせた。
+{同行者}「僕を止められるのは、きみだけだ。……約束、覚えてないんだろう？」
+ノワは、薬瓶のふたを開けた。リヒトは、穏やかに笑ったまま、それを飲んだ。
+研究所は壊滅した。多くの犠牲と、ひとつの約束を残して。
+（救った命 {数値:救った}　安楽死 {数値:安楽死}　回収した資料 {数値:資料}）
+[終わり NORMAL END ― 最後の一本]
+
+## イベント end_secret
+
+[暗く]
+研究所の記録は、すべて警察に渡った。ただし、L-1 の記録だけを除いて。
+{主人公}「リヒト。思い出した。全部じゃないけど」
+{主人公}「わたし、迎えに来たんだよ。十年、遅れたけど」
+リヒトは、くわえていた煙草を、初めて自分から捨てた。
+{同行者}「……遅いよ。でも、ありがとう」
+ノワは、リヒトを自分の部屋にかくまった。二人は、研究所のない場所で生きる道を選んだ。
+誰も殺さず、すべての真実を拾い集めた先に、その朝はあった。
+（救った命 {数値:救った}　回収した資料 {数値:資料}）
+[終わり SECRET END ― 迎えに来たよ]
+
+## イベント end_bad
+
+[暗く]
+白い腕が、ノワの体を持ち上げた。
+放送「被験体 N-0、回収。再観察を開始します」
+{同行者}「……ノワ」
+遠くで、リヒトの声がした。それきり、何も聞こえなくなった。
+ノワは、再び研究所の実験対象になった。
+[終わり BAD END ― 再観察]
 </script>
 <script type="text/markdown" data-file="map.md">
-# map.md — エデン生命科学研究所（第1段：エントランス・中央棟・研究棟A）
+# map.md — エデン生命科学研究所（全 16 部屋）
 
 書き方は horror/map.md と同じです。scientists/ 版では種類 `隠し扉` が増えました（条件が合うまでは壁に見え、合うと扉として通れる）。
 
@@ -564,7 +1226,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 W...............E
 #...............#
 #n.............n#
-########S########
+##U#####S########
 ```
 
 | 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
@@ -572,8 +1234,9 @@ W...............E
 | S | 扉 | entrance:N | | | | #3a3a44 | |
 | W | 扉 | staffroom:R | | | | #4a3020 | |
 | E | 扉 | labA_gate:L | | | | #3a4a44 | |
-| B | 扉 | labB:S | フラグ:研究棟B_解放 | labB_locked | | #3a3a50 | |
-| K | 扉 | labC:S | フラグ:研究棟C_解放 | labC_locked | | #4a2a2a | |
+| B | 扉 | labB_hall:S | 持つ:カードキーA | labB_locked | | #3a3a50 | |
+| K | 扉 | labC_hall:S | 持つ:カードキーB | labC_locked | | #4a2a2a | |
+| U | 扉 | holding:U | 持つ:カードキーC | holding_locked | | #2a2a2a | |
 | n | 置物 | | | | 🟩 | #182018 | 1.6 |
 
 ## 部屋 staffroom 職員室
@@ -679,6 +1342,206 @@ L.........#
 | m | 調べる | monitor | | | 🖥 | #1e2a2a | 1 |
 | k | 調べる | chief_desk | | | 🗃 | #3a2e22 | |
 | B | 番人位置 | | | | | | |
+
+## 部屋 labB_hall 研究棟B・飼育区画
+
+```
+#########N#########
+#.................#
+#..oo.....oo..h...#
+#.................#
+#.....oo....oo....#
+#..h..............#
+#.........oo....i.#
+#.k...............#
+#..oo.........oo..#
+#.................#
+#########S#########
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | central:B | | | | #3a3a50 | |
+| N | 扉 | labB_room:S | | | | #3a3a50 | |
+| o | 置物 | cage | | | ⛓ | #262630 | |
+| i | 調べる | breeding_log | | | 📋 | #2a2a30 | 1.2 |
+| k | 調べる | labB_locker | | | 🗄 | #2a3030 | |
+| h | 敵 | ハウンド | | | | | |
+
+## 部屋 labB_room 研究棟B・観察室
+
+```
+######X######
+#...........#
+#.c.......t.#
+#...........#
+#.....d.....#
+#...........#
+#.....B.....#
+#...........#
+#...........#
+######S######
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labB_hall:N | | | | #3a3a50 | |
+| X | 調べる | mirror_window | | | 🪞 | #20262e | |
+| c | 調べる | labB_desk | | | 🗃 | #3a2e22 | |
+| t | 調べる | compare_record | | | 📁 | #2a2a30 | 1.2 |
+| d | 敵 | ドール | !フラグ:ドール_済 | | | | |
+| B | 番人位置 | | | | | | |
+
+## 部屋 labC_hall 研究棟C・培養区画
+
+```
+########N########
+#.......#.......#
+#..p....#...p...#
+#.......#.......#
+#...............#
+#.v...........w.#
+#......p........#
+#...............#
+########S########
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | central:K | | | | #4a2a2a | |
+| N | 扉 | labC_room:S | | | | #4a2a2a | |
+| v | 調べる | disinfector | | | 🚿 | #1e2a2a | 1.4 |
+| w | 調べる | culture_log | | | 📋 | #2a2a30 | |
+| p | 敵 | パラサイト | !フラグ:消毒済み | | | | |
+
+## 部屋 labC_room 研究棟C・模擬戦闘場
+
+```
+###############
+#.............#
+#..m......m...#
+#.............#
+#......r......#
+#.............#
+#..q.......k..#
+#......B......#
+#.............#
+#######S#######
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labC_hall:N | | | | #4a2a2a | |
+| r | 調べる | ren | | | ⛓ | #3a2020 | 1.2 |
+| q | 調べる | release_plan | | | 📁 | #2a2a30 | |
+| k | 調べる | labC_desk | | | 🗃 | #3a2e22 | |
+| m | 敵 | ミラー | | | | | |
+| B | 番人位置 | | | | | | |
+
+## 部屋 holding 収容エリア（地下）
+
+```
+##U##############
+#a.a.a.....a.a.a#
+#...............#
+#...............#
+#.......L.......#
+#...............#
+#p.............s#
+#########R#######
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| U | 扉 | central:U | | | | #2a2a2a | |
+| R | 扉 | licht_lab:N | | | | #3a3040 | |
+| a | 調べる | cell | | | 🚪 | #24242c | |
+| p | 調べる | holding_panel | | | 🎛 | #1e2a2a | 1.4 |
+| s | 調べる | holding_shelf | | | 🧰 | #2a2a30 | |
+| L | 敵 | ロスト | | | | | |
+
+## 部屋 licht_lab リヒトの研究室
+
+```
+######N######
+#bb.......dd#
+#...........#
+#.a.........#
+#.....l.....E
+#...........#
+#.........z.#
+#############
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| N | 扉 | holding:R | | | | #3a3040 | |
+| E | 扉 | director:W | フラグ:リヒト_再会 | licht_door | | #3a3040 | |
+| b | 調べる | licht_shelf | | | 📚 | #2a2018 | |
+| d | 調べる | licht_desk | | | 📔 | #3a2e22 | 1.2 |
+| a | 調べる | ashtray | | | 🚬 | #2a2a30 | |
+| z | 置物 | licht_plant | | | 🪴 | #1e2a20 | |
+| l | 敵 | リヒト | !フラグ:リヒト_再会 | | | | |
+
+## 部屋 director 中枢・所長室
+
+```
+#####C#####
+#bb.....bb#
+#.........#
+W....t....#
+#.........#
+#.r.......#
+###########
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| W | 扉 | licht_lab:E | | | | #3a3040 | |
+| C | 扉 | control:S | 持つ:中枢キー | control_locked | | #303848 | |
+| b | 置物 | director_shelf | | | 📚 | #2a2018 | |
+| t | 調べる | final_report | | | 📁 | #3a2e22 | 1.4 |
+| r | 調べる | director_safe | | | 🔐 | #2a2a30 | |
+
+## 部屋 control 中枢・制御室
+
+```
+######X######
+#mm.......mm#
+#...........#
+#.....p.....#
+#...........#
+#...........#
+######S######
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | director:C | | | | #303848 | |
+| X | 扉 | escape:S | フラグ:研究所停止 | escape_locked | | #303848 | |
+| m | 置物 | control_monitor | | | 🖥 | #1e2a2a | 1 |
+| p | 調べる | control_panel | | | 🎛 | #2a2030 | 2 |
+
+## 部屋 escape 脱出口（旧校舎裏の通用門）
+
+```
+#######G#######
+#......B......#
+#..o.......o..#
+#.............#
+#.....o.o.....#
+#.............#
+#..o.......o..#
+#.............#
+#######S#######
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 絵 | 色 | 光 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | control:X | !フラグ:脱出中 | escape_back | | #303848 | |
+| G | 調べる | escape_gate | | | 🚪 | #3a2a20 | 1.6 |
+| o | 置物 | | | | 🪨 | #262630 | |
+| B | 番人位置 | | | | | | |
 </script>
 <script type="text/markdown" data-file="characters.md">
 # characters.md — SCIENTISTS 登場人物
@@ -687,17 +1550,22 @@ L.........#
 
 | 名前 | 役 | 服 | 髪 | 背 | 説明 |
 | --- | --- | --- | --- | --- | --- |
-| ノワ | 主人公 | #2a3040 | #1a1418 | 1 | 20 歳。組織の壊滅のために潜入したスパイ。記憶の一部が欠けている |
-| リヒト | その他 | #e8e8f0 | #b8c0c8 | 1.05 | 22 歳。研究所の研究員。柔和な笑顔の合理主義者。ヘビースモーカー |
+| ノワ | 主人公 | #2a3040 | #1a1418 | 1 | 20 歳。組織の壊滅のために潜入したスパイ。記憶の一部が欠けている。被験体 N-0 |
+| リヒト | 同行者 | #e8e8f0 | #b8c0c8 | 1.05 | 22 歳。研究所の研究員。柔和な笑顔の合理主義者。ヘビースモーカー。被験体 L-1 |
 | 放送 | その他 | #000000 | #9ad0c0 | 1 | 校内放送のスピーカー |
 | トワ | その他 | #d0e8f0 | #e8d8a0 | 0.8 | 生命延長計画の最初の被験者 |
-| 不死の看守 | 番人 | #303a40 | #000000 | 1.9 | 研究棟A のエリアボス。何度倒れても起き上がる |
+| ヒナ | その他 | #e8e0f0 | #f0d0e0 | 0.9 | 研究棟B のドール。人に近く作られた少女 |
+| レン | その他 | #4a3a30 | #2a2a2a | 0.95 | 研究棟C の少年兵。軍事転用の被験者 |
+| 不死の看守 | 番人 | #303a40 | #000000 | 1.9 | 研究棟A のエリアボス |
+| 群れの主 | その他 | #3a2a34 | #000000 | 2 | 研究棟B のエリアボス |
+| 融合兵器ゼロ | その他 | #2a3a2a | #000000 | 2.1 | 研究棟C のエリアボス |
+| エデンの番人 | その他 | #e0e0e8 | #000000 | 2.2 | 研究所の最後の守り |
 </script>
 <script type="text/markdown" data-file="items.md">
 # items.md — SCIENTISTS 持ち物
 
 「使う」がある物は消耗品で、scenario.md の「持ち物の上限」まで持てます。空欄は大事な物（上限に数えない・1 つだけ）。
-使う欄の効果：`灯+1`（灯を回復）・`光+1`（5 分間、見える範囲を 1 段広げる）・`気をそらす`（その部屋の実験体と番人を 3 秒止める）。`、` で複数書けます。
+使う欄の効果：`灯+1`（灯を回復）・`光+1`（5 分間、見える範囲を 1 段広げる）・`気をそらす`（その部屋の実験体と番人を 3 秒止める）・`イベント:名前`（使うとそのイベントが動く。物を減らすかどうかはイベントで決める）。`、` で複数書けます。
 
 ## アイテム
 
@@ -708,8 +1576,13 @@ L.........#
 | 電池 | 探索 | 🔋 | 光+1 | 懐中電灯の予備の電池。しばらく明るく照らせる |
 | 医療キット | 回復 | 🩹 | 灯+2 | 傷の手当てができる |
 | 薬 | 回復 | 💊 | 灯+1 | 痛み止め。少し落ち着く |
+| 薬品 | 謎解き | 🧪 | イベント:use_chemical | 強い消毒薬。消毒装置に入れるか、菌のそばで使う |
 | 懐中電灯 | 探索 | 🔦 | | 暗い場所の奥を照らせる |
-| カードキーA | 謎解き | 💳 | | 研究棟A の主任のカードキー |
+| カードキーA | 謎解き | 💳 | | 研究棟A の主任のカードキー。研究棟B の扉にも使える |
+| カードキーB | 謎解き | 💳 | | 研究棟B の主任のカードキー。研究棟C の扉が開く |
+| カードキーC | 謎解き | 💳 | | 研究棟C の主任のカードキー。地下の収容エリアへ降りられる |
+| 携帯維持装置 | 謎解き | 🫀 | | 持ち運べる生命維持装置。槽の外でも命をつなげる |
+| 中枢キー | 謎解き | 🗝 | | 制御室の鍵 |
 </script>
 <script type="text/markdown" data-file="enemies.md">
 # enemies.md — SCIENTISTS 実験体・動き・番人・技
@@ -718,13 +1591,20 @@ L.........#
 
 ## 敵
 
-- 形：人形・影・目玉・獣
-- 動きは「## 動き」の名前。`見回り` は scientists/ 版で追加した動き。
+- 形：人形・影・目玉・獣・菌・鏡、または `人:名前`（characters.md のその人の姿で描く）
+- 動きは「## 動き」の名前。
+- 話す：近くで調べると動くイベント（敵とイベントの二重表現。ドールなど）
+- 害：`いいえ` と書くと、触れても灯が減らない（会話の相手など）
 
-| 名前 | 形 | 色 | 大きさ | 速さ | 動き | 説明 |
-| --- | --- | --- | --- | --- | --- | --- |
-| ロスト | 影 | #000000 | 1.1 | 1.1 | 見回り | 実験に失敗し、形を保てなくなった生命体。目が弱く、近くまで来ないと気づかない |
-| キメラ | 獣 | #7a5a3a | 1 | 1.4 | 見回りキメラ | 複数の動物の特徴を持つ。耳と鼻が利き、遠くから気づく |
+| 名前 | 形 | 色 | 大きさ | 速さ | 動き | 話す | 害 | 説明 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ロスト | 影 | #000000 | 1.1 | 1.1 | 見回り | | | 実験に失敗し、形を保てなくなった生命体。目が弱く、近くまで来ないと気づかない |
+| キメラ | 獣 | #7a5a3a | 1 | 1.4 | 見回りキメラ | | | 複数の動物の特徴を持つ。耳と鼻が利き、遠くから気づく |
+| ハウンド | 獣 | #4a3a4a | 1.15 | 1.6 | 見回りハウンド | | | 身体能力を強化された獣人型。速いが、檻などの障害物で視線が切れると見失う |
+| ドール | 人形 | #e8e0f0 | 0.9 | 1.4 | うしろ | hina_talk | | 人に近い姿だが、関節の向きがおかしい。見ている間は動かない。近くで話しかけられる |
+| パラサイト | 菌 | #6a8a4a | 1 | 0.9 | 広がる | | | 菌糸の組織。少しずつ周りに広がる。消毒装置で除去できる |
+| ミラー | 鏡 | #b8c8d8 | 1 | 2.0 | 先回り | | | ノワの動きを学習して先回りする。急に向きを変えると読みが外れる |
+| リヒト | 人:リヒト | #e8e8f0 | 1 | 0 | 止まる | licht_meet | いいえ | 研究室で待っている |
 
 ## 動き
 
@@ -737,14 +1617,21 @@ L.........#
 | 撃つ | 4 | 2.2 | 距離を保って弾を撃つ |
 | 見張り | 3 | 0 | 近づくまで動かない |
 | うしろ | 0 | 0 | 背中を向けている間だけ近づく |
+| 止まる | 0 | 0 | その場から動かない |
 | 見回り | 3 | 1.4 | 部屋をゆっくり歩き回る。値1 マス以内で見つかると「!」で追ってくる（速さの値2 倍）。壁で見えなくなると「?」で探し、3 秒で持ち場へ戻る |
 | 見回りキメラ | 5 | 1.6 | 見回りと同じ（「見回り」で始まる名前は見回りとして動く）。察知が 5 マスと遠い |
+| 見回りハウンド | 6 | 1.9 | 見回りと同じ。察知が遠く、追うのが速い |
+| 広がる | 4 | 5 | その場から動かず、値2 秒ごとに近くへ分体を増やす（値1 体まで）。すぐ近くに来ると寄ってくる |
+| 先回り | 0.6 | 1.2 | 主人公の動きを学習して行く先へ回り込む。値1：学習の速さ、値2：先読みの最大秒 |
 
 ## 番人
 
 | 名前 | 形 | 色 | 大きさ | 速さ | 技 |
 | --- | --- | --- | --- | --- | --- |
 | 不死の看守 | 番人 | #303a40 | 1.9 | 1.2 | 延命の鎖・心拍・点滴の針 |
+| 群れの主 | 番人 | #3a2a34 | 2 | 1.5 | 飛びかかり・遠吠え・爪 |
+| 融合兵器ゼロ | 番人 | #2a3a2a | 2.1 | 1.3 | 腕の刃・胞子・榴弾 |
+| エデンの番人 | 番人 | #e0e0e8 | 2.2 | 1.4 | 断罪の光・鐘の声・羽 |
 
 ## 技
 
@@ -753,6 +1640,15 @@ L.........#
 | 延命の鎖 | 前 | 8 | 1.4 | 1.0 | 1.5 |
 | 心拍 | 円 | 3 | 0 | 1.2 | 1.8 |
 | 点滴の針 | 弾 | 5 | 70 | 0.8 | 1.4 |
+| 飛びかかり | 前 | 9 | 1.8 | 0.8 | 1.3 |
+| 遠吠え | 円 | 3.4 | 0 | 1.0 | 1.6 |
+| 爪 | 弾 | 3 | 40 | 0.6 | 1.0 |
+| 腕の刃 | 前 | 7 | 2.2 | 0.9 | 1.4 |
+| 胞子 | 円 | 4 | 0 | 1.3 | 1.8 |
+| 榴弾 | 弾 | 6 | 90 | 0.8 | 1.5 |
+| 断罪の光 | 前 | 12 | 1.6 | 0.9 | 1.3 |
+| 鐘の声 | 円 | 4.2 | 0 | 1.1 | 1.6 |
+| 羽 | 弾 | 7 | 100 | 0.7 | 1.2 |
 </script>
 <!--EMBED-END-->
 
@@ -859,6 +1755,7 @@ function sub(s) {
 }
 // 古いセーブにも新しい項目を足す
 function normalizeState(st) {
+  st.visited = st.visited || (st.room ? [st.room] : []);
   st.vars = st.vars || {}; st.areas = st.areas || []; st.buff = st.buff || 0; st.buffLv = st.buffLv || 0;
   st.items = st.items || []; st.flags = st.flags || {}; st.done = st.done || {};
   return st;
@@ -893,6 +1790,8 @@ function floorTiles() {
 function enterRoom(id, sym, keepPos, noSave) {
   if (!W.rooms[id]) { toast(`部屋「${id}」がありません`); return false; }
   G.room = id;
+  G.visited = G.visited || [];
+  if (!G.visited.includes(id)) G.visited.push(id);
   if (!keepPos) {
     const p = (sym && findSym(sym)) || findSym('@') || floorTiles()[0] || [1, 1];
     G.x = p[0] + 0.5; G.y = p[1] + 0.5;
@@ -921,6 +1820,7 @@ function refreshEnemies() {
     const key = x + ',' + y;
     keep.push(RT.enemies.find(e => e.key === key) || { key, d, x: x + 0.5, y: y + 0.5, hx: x + 0.5, hy: y + 0.5, t: Math.random() * 6, st: 'idle', timer: 0, vx: 0, vy: 0, cd: 1, mark: 0 });
   }
+  for (const e of RT.enemies) if (e.parent && keep.some(k => k.key === e.parent)) keep.push(e);
   RT.enemies = keep;
 }
 
@@ -939,6 +1839,7 @@ function cond(s) {
     else if ((m = /^(好感|灯)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(m[1] === '好感' ? G.aff : G.light, m[2], +m[3]);
     else if ((m = /^数値[:：](.+?)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(G.vars[m[1].trim()] || 0, m[2], +m[3]);
     else if ((m = /^解放[:：](.+)$/.exec(c))) v = G.areas.includes(m[1].trim());
+    else if ((m = /^部屋[:：](.+)$/.exec(c))) v = G.room === m[1].trim();
     else v = !!G.flags[c];
     return neg ? !v : v;
   });
@@ -1019,7 +1920,7 @@ async function exec(id, depth = 0) {
   const lines = W.events[id];
   if (!lines) { await say(null, `（イベント「${id}」がありません）`); return; }
   const first = !G.done[id];
-  G.done[id] = (G.done[id] || 0) + 1;
+  // 「済」は最後まで進んだときだけ付ける。途中で別のイベントへ移った（暗くて見えない・持ち物がいっぱい等）ときは、もう一度調べられる
   for (const raw of lines) {
     if (S.mode !== 'play') return 'stop';
     const ln = sub(raw);
@@ -1033,6 +1934,7 @@ async function exec(id, depth = 0) {
     const d = /^(.+?)「([\s\S]*)」$/.exec(ln);
     if (d) await say(d[1].trim(), d[2]); else await say(null, ln);
   }
+  if (S.mode === 'play') G.done[id] = (G.done[id] || 0) + 1;
 }
 const arrow = s => s.split(/\s*(?:→|->)\s*/);
 async function command(name, arg, first) {
@@ -1084,10 +1986,12 @@ async function command(name, arg, first) {
       if (W.events['入室:' + rid.trim()]) await exec('入室:' + rid.trim());
       break;
     }
-    case '追跡': {
-      const [gn, secs] = arg.split(/\s+/);
+    case '追跡': {   // [追跡 名前 秒数] / [追跡 名前 秒数 → 灯が尽きたときのイベント]
+      const [head, fail] = arrow(arg);
+      const [gn, secs] = head.split(/\s+/);
       hideDlg();
-      const r = await chase(gn, num(secs, 15));
+      const r = await chase(gn, num(secs, 15), fail);
+      if (r === 'fail') return { goto: fail };
       if (r === 'dead' || S.mode !== 'play') return 'stop';
       break;
     }
@@ -1141,10 +2045,72 @@ function applyEffect(spec) {
 }
 function useItem(n) {
   const it = W.items[n] || {};
+  const ev = /^イベント[:：](.+)$/.exec((it['使う'] || '').trim());
+  if (ev) { $('#invDlg').close(); if (!RT.busy) runEvent(ev[1].trim()); return; }   // 使った結果はイベントで決める
   if (!applyEffect(it['使う'] || '')) return;
   const i = G.items.indexOf(n); if (i >= 0) G.items.splice(i, 1);
   updateHud(); saveGame(); openInv(); toast(`${n} を使った。`);
 }
+let MINI = null, miniBig = false, miniTick = 0;
+function buildMiniLayout() {
+  const pos = {}, edges = [], used = new Set(), start = setting('開始部屋', Object.keys(W.rooms)[0]);
+  if (!W.rooms[start]) return { pos, edges };
+  pos[start] = [0, 0]; used.add('0,0');
+  const q = [start];
+  while (q.length) {
+    const id = q.shift(), r = W.rooms[id];
+    for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) {
+      const o = r.legend[r.grid[y][x]];
+      if (!o || !/扉/.test(o['種類'])) continue;
+      const to = (o['対象'] || '').split(/[:：]/)[0].trim();
+      if (!W.rooms[to]) continue;
+      if (!edges.some(e => (e.a === id && e.b === to) || (e.a === to && e.b === id))) edges.push({ a: id, b: to, o });
+      if (pos[to]) continue;
+      const d = y === 0 ? [0, -1] : y === r.h - 1 ? [0, 1] : x === 0 ? [-1, 0] : x === r.w - 1 ? [1, 0] : [0, 1];
+      let k = 1, pp;
+      do { pp = [pos[id][0] + d[0] * k, pos[id][1] + d[1] * k]; k++; } while (used.has(pp + '') && k < 8);
+      pos[to] = pp; used.add(pp + ''); q.push(to);
+    }
+  }
+  return { pos, edges };
+}
+function drawMini() {
+  const c = $('#mini');
+  if (!G || S.mode !== 'play' || !W.rooms[G.room]) { c.hidden = true; return; }
+  if (!MINI) MINI = buildMiniLayout();
+  const vis = new Set(G.visited || []);
+  // 見せる線：訪れた部屋から出ていて、隠し扉なら条件が合っているもの
+  const edges = MINI.edges.filter(e => (vis.has(e.a) || vis.has(e.b)) && (e.o['種類'] !== '隠し扉' || cond(e.o['条件']) || (vis.has(e.a) && vis.has(e.b))));
+  const known = new Set([...vis]); edges.forEach(e => { known.add(e.a); known.add(e.b); });
+  const ids = [...known].filter(id => MINI.pos[id]);
+  if (!ids.length) { c.hidden = true; return; }
+  const xs = ids.map(id => MINI.pos[id][0]), ys = ids.map(id => MINI.pos[id][1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys), cols = Math.max(...xs) - minX + 1, rows = Math.max(...ys) - minY + 1;
+  const cw = miniBig ? 46 : 20, chh = miniBig ? 28 : 12, gap = miniBig ? 18 : 8, pad = miniBig ? 12 : 6;
+  const W2 = pad * 2 + cols * cw + (cols - 1) * gap, H2 = pad * 2 + rows * chh + (rows - 1) * gap + (miniBig ? 0 : 0);
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  if (c.width !== W2 * dpr || c.height !== H2 * dpr) { c.width = W2 * dpr; c.height = H2 * dpr; c.style.width = W2 + 'px'; c.style.height = H2 + 'px'; }
+  c.hidden = false;
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W2, H2);
+  const at = id => { const [x, y] = MINI.pos[id]; return [pad + (x - minX) * (cw + gap), pad + (y - minY) * (chh + gap)]; };
+  g.strokeStyle = 'rgba(200,210,220,.45)'; g.lineWidth = 1.5;
+  for (const e of edges) { if (!MINI.pos[e.a] || !MINI.pos[e.b]) continue; const [ax, ay] = at(e.a), [bx, by] = at(e.b); g.beginPath(); g.moveTo(ax + cw / 2, ay + chh / 2); g.lineTo(bx + cw / 2, by + chh / 2); g.stroke(); }
+  for (const id of ids) {
+    const [x, y] = at(id), cur = id === G.room, seen = vis.has(id);
+    g.fillStyle = cur ? '#5a4628' : seen ? '#2c333c' : 'rgba(20,22,28,.9)';
+    g.fillRect(x, y, cw, chh);
+    g.strokeStyle = cur ? '#e8b860' : seen ? '#8a96a4' : 'rgba(140,150,160,.5)';
+    g.setLineDash(seen ? [] : [3, 2]); g.lineWidth = cur ? 2 : 1; g.strokeRect(x + 0.5, y + 0.5, cw - 1, chh - 1); g.setLineDash([]);
+    if (cur) {   // 部屋の中での自分の位置
+      const r = room(); g.fillStyle = '#fff4c0';
+      g.beginPath(); g.arc(x + G.x / r.w * cw, y + G.y / r.h * chh, miniBig ? 3 : 2, 0, 7); g.fill();
+    }
+    if (miniBig) { g.fillStyle = seen ? '#d8e0e8' : '#7a828c'; g.font = '12px DenkiChip, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+      const nm = seen ? (W.rooms[id].name || id) : '？'; g.fillText(nm.length > 7 ? nm.slice(0, 7) : nm, x + cw / 2, y + chh + 2); }
+  }
+}
+$('#mini').addEventListener('click', e => { e.stopPropagation(); miniBig = !miniBig; drawMini(); });
+$('#mini').addEventListener('pointerdown', e => e.stopPropagation());
 function updateGoal(changed) {
   const el = $('#goal'), txt = G && G.goal && S.mode === 'play' ? sub(G.goal) : '';
   if (el.hidden !== !txt) { el.hidden = !txt; resize(); }
@@ -1154,6 +2120,7 @@ function updateGoal(changed) {
 function hurt(scripted) {
   if (!scripted && RT.inv > 0) return;
   G.light -= 1; RT.inv = 1.4; RT.flash = 0.4; shake(); updateHud();
+  if (G.light <= 0 && RT.chase && RT.chase.fail) { G.light = 0; endChase('fail'); return; }   // 失敗イベントのある追跡は、ゲームオーバーにしない
   if (G.light <= 0) gameOver('灯が、すべて消えた。');
 }
 function openInv() {
@@ -1245,8 +2212,9 @@ function action() {
   examine();
 }
 function examine() {
-  const tx = Math.floor(G.x + G.face[0] * 0.75), ty = Math.floor(G.y + G.face[1] * 0.75);
-  for (const [x, y] of [[tx, ty], [Math.floor(G.x), Math.floor(G.y)]]) {
+  const fx = G.x + G.face[0] * 0.75, fy = G.y + G.face[1] * 0.75, px = -G.face[1] * 0.35, py = G.face[0] * 0.35;
+  const cand = [[fx, fy], [fx + px, fy + py], [fx - px, fy - py], [G.x, G.y]].map(([x, y]) => [Math.floor(x), Math.floor(y)]);
+  for (const [x, y] of cand) {
     const o = legendAt(x, y);
     if (o && /調べる|置物/.test(o['種類'])) {
       if (cond(o['条件'])) { if (o['対象']) runEvent(o['対象']); }
@@ -1254,6 +2222,8 @@ function examine() {
       return;
     }
   }
+  const talker = RT.enemies.find(e => e.d['話す'] && Math.hypot(e.x - G.x, e.y - G.y) < 1.5);
+  if (talker && W.events[talker.d['話す']]) { runEvent(talker.d['話す']); return; }
   if (RT.comp && Math.hypot(RT.comp.x - G.x, RT.comp.y - G.y) < 1.4 && W.events['同行者と話す']) runEvent('同行者と話す');
 }
 function inputVec() {
@@ -1283,23 +2253,27 @@ function moveBy(e, dx, dy, r) {
   return hit;
 }
 // 角に引っかかったとき、進みたい先が空いていれば、マスの中心へ自動で寄せる（扉や細い通路に入りやすくする）
+// 扉（通れる隠し扉を含む）のマスか
+function isDoorTile(x, y) { const o = legendAt(x, y); return !!(o && /扉/.test(o['種類']) && !isSolid(x, y)); }
+// 扉に入ろうとして角に当たったときだけ、扉の中心へ寄せる。物や壁に当たったら止まる
 function slideAssist(vx, vy, step) {
   const tx = Math.floor(G.x), ty = Math.floor(G.y);
   const nudge = (cur, center) => { const d = center - cur; return Math.abs(d) <= step ? center : cur + Math.sign(d) * step; };
-  if (Math.abs(vx) > Math.abs(vy) && blocked(G.x + Math.sign(vx) * 0.05, G.y)) {
+  if (Math.abs(vx) > Math.abs(vy) && blocked(G.x + Math.sign(vx) * (step + 0.02), G.y)) {
     const nx = tx + Math.sign(vx);
     for (const ry of [ty, ty + (G.y - ty < 0.5 ? -1 : 1)]) {
-      if (!isSolid(nx, ry) && !isSolid(tx, ry)) { const y = nudge(G.y, ry + 0.5); if (!blocked(G.x, y)) G.y = y; break; }
+      if (isDoorTile(nx, ry) && !isSolid(tx, ry)) { const y = nudge(G.y, ry + 0.5); if (!blocked(G.x, y)) G.y = y; break; }
     }
-  } else if (Math.abs(vy) > Math.abs(vx) && blocked(G.x, G.y + Math.sign(vy) * 0.05)) {
+  } else if (Math.abs(vy) > Math.abs(vx) && blocked(G.x, G.y + Math.sign(vy) * (step + 0.02))) {
     const ny = ty + Math.sign(vy);
     for (const rx of [tx, tx + (G.x - tx < 0.5 ? -1 : 1)]) {
-      if (!isSolid(rx, ny) && !isSolid(rx, ty)) { const x = nudge(G.x, rx + 0.5); if (!blocked(x, G.y)) G.x = x; break; }
+      if (isDoorTile(rx, ny) && !isSolid(rx, ty)) { const x = nudge(G.x, rx + 0.5); if (!blocked(x, G.y)) G.x = x; break; }
     }
   }
 }
 function updatePlayer(dt) {
   const [vx, vy] = inputVec();
+  RT.pv = [vx * 4, vy * 4];
   if (!vx && !vy) return;
   if (Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3) G.face = Math.abs(vx) > Math.abs(vy) ? [Math.sign(vx), 0] : [0, Math.sign(vy)];
   const sp = 4, px = G.x, py = G.y;
@@ -1391,10 +2365,34 @@ function updateEnemies(dt) {
       case '見張り': if (e.st === 'wake' || dist < v1) { e.st = 'wake'; vx = ux * sp; vy = uy * sp; } break;
       case 'うしろ': { const look = G.face[0] * -ux + G.face[1] * -uy; e.st = look > 0.2 ? 'freeze' : 'move'; if (e.st === 'move') { vx = ux * sp; vy = uy * sp; } break; }
       case '見回り': [vx, vy] = patrolStep(e, dt, sp, v1, v2 || 1, dist, ux, uy); break;
+      case '広がる': {   // その場から動かず、値2 秒ごとに近くへ分体を増やす（値1 体まで）。すぐ近くに来ると寄ってくる
+        if (dist < 1.6) { vx = ux * sp; vy = uy * sp; }
+        if (!e.parent) {
+          e.cd -= dt;
+          const kids = RT.enemies.filter(k => k.parent === e.key);
+          if (e.cd <= 0 && kids.length < v1) {
+            e.cd = v2 || 4;
+            const spots = floorTiles().filter(([x, y]) => Math.hypot(x + 0.5 - e.hx, y + 0.5 - e.hy) < 2.6 && !RT.enemies.some(k => Math.floor(k.x) === x && Math.floor(k.y) === y));
+            const t = spots[Math.floor(Math.random() * spots.length)];
+            if (t) RT.enemies.push({ key: e.key + '#' + RT.t.toFixed(2), parent: e.key, d: e.d, x: t[0] + 0.5, y: t[1] + 0.5, hx: t[0] + 0.5, hy: t[1] + 0.5, t: 0, st: 'idle', timer: 0, vx: 0, vy: 0, cd: 1, mark: 0, grow: 0 });
+          }
+        }
+        e.grow = Math.min(1, (e.grow ?? 1) + dt);
+        break;
+      }
+      case '先回り': {   // 主人公の動きを学習して、行く先へ回り込む。値1：学習の速さ、値2：先読みの最大秒。急に向きを変えると外れる
+        const pv = RT.pv || [0, 0];
+        if (dist < 7) e.learn = Math.min(v2 || 1.5, (e.learn || 0) + v1 * dt);
+        const [ax, ay] = toward(e, G.x + pv[0] * (e.learn || 0), G.y + pv[1] * (e.learn || 0), sp);
+        vx = ax; vy = ay;
+        e.st = dist < 7 && (e.learn || 0) > 0.3 ? 'learn' : 'idle';
+        break;
+      }
+      case '止まる': break;   // その場から動かない（会話の相手など）
       default: vx = ux * sp; vy = uy * sp;
     }
     if (moveBy(e, vx * dt, vy * dt, 0.25) && e.st === 'patrol') e.wp = null;
-    if (dist < 0.55 + num(e.d['大きさ'], 1) * 0.2) { hurt(); e.x -= ux * 1.2; e.y -= uy * 1.2; if (blocked(e.x, e.y, 0.25)) { e.x += ux * 1.2; e.y += uy * 1.2; } if (e.st === 'dash') e.st = 'idle'; }
+    if (e.d['害'] !== 'いいえ' && dist < 0.55 + num(e.d['大きさ'], 1) * 0.2) { hurt(); e.x -= ux * 1.2; e.y -= uy * 1.2; if (blocked(e.x, e.y, 0.25)) { e.x += ux * 1.2; e.y += uy * 1.2; } if (e.st === 'dash') e.st = 'idle'; }
   }
   for (const s of RT.shots) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
@@ -1405,14 +2403,14 @@ function updateEnemies(dt) {
 }
 
 /* ====================== 追跡（md-forge のボス技を流用） ====================== */
-function chase(name, secs) {
+function chase(name, secs, fail) {
   return new Promise(res => {
     const gd = W.guards[name] || Object.values(W.guards)[0];
     if (!gd) { res('none'); return; }
     let p = findSym((Object.entries(room().legend).find(([, o]) => o['種類'] === '番人位置') || [])[0] || '\u0000');
     if (!p) { const f = floorTiles(); f.sort((a, b) => Math.hypot(b[0] - G.x, b[1] - G.y) - Math.hypot(a[0] - G.x, a[1] - G.y)); p = f[0] || [1, 1]; }
     RT.guard = { d: gd, x: p[0] + 0.5, y: p[1] + 0.5, alpha: 0, cd: 1.2, act: null };
-    RT.chase = { t: secs, total: secs, res };
+    RT.chase = { t: secs, total: secs, res, fail };
     $('#chase').hidden = false;
     keys.clear();
   });
@@ -1465,7 +2463,7 @@ function updateChase(dt) {
 
 /* ====================== 画面遷移 ====================== */
 function newGame() {
-  G = { room: setting('開始部屋', Object.keys(W.rooms)[0]), x: 1.5, y: 1.5, face: [0, 1], light: num(setting('最初の灯', 3), 3), items: [], flags: {}, aff: 0, done: {}, companion: null, vars: {}, areas: [], buff: 0, buffLv: 0, goal: setting('最初の目的', '') };
+  G = { room: setting('開始部屋', Object.keys(W.rooms)[0]), x: 1.5, y: 1.5, face: [0, 1], light: num(setting('最初の灯', 3), 3), items: [], flags: {}, aff: 0, done: {}, companion: null, vars: {}, areas: [], buff: 0, buffLv: 0, goal: setting('最初の目的', ''), visited: [] };
   RT.comp = null;
   startPlay();
   enterRoom(G.room);
@@ -1485,7 +2483,7 @@ function loadState(st, noSave) {
   enterRoom(G.room, null, true, noSave);
   updateHud();
 }
-function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; $('#goal').hidden = true; }
+function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; $('#goal').hidden = true; $('#mini').hidden = true; }
 let titleNext = null;
 // タイトルは 1 枚だけ。「はじめる」を押すと、同じ画面の下にメニューが出る
 function titleScreen() {
@@ -1633,8 +2631,13 @@ function drawFlame(x, y, size, seed) {
 }
 function drawEnemy(e, ox, oy) {
   const x = ox + e.x * TS, y = oy + e.y * TS, s = TS * num(e.d['大きさ'], 1), col = e.d['色'] || '#ddd';
-  const shape = e.d['形'];
-  if (shape === '影') {
+  const shape = e.d['形'] || '';
+  const who = /^人[:：](.+)$/.exec(shape);
+  if (who) {   // 人:名前 … characters.md のその人の色で描く（会話の相手など）
+    const c = charByName(who[1].trim()) || {}, dx = G.x - e.x, dy = G.y - e.y;
+    const face = Math.hypot(dx, dy) < 4 ? (Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy) || 1]) : [0, 1];
+    drawPerson(x, y, c['服'] || col, c['髪'] || '#333', num(c['背'], 1), face);
+  } else if (shape === '影') {
     ctx.save(); ctx.globalAlpha = 0.85;
     const gr = ctx.createRadialGradient(x, y, 0, x, y, s * 0.5); gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 7); ctx.fill();
@@ -1653,6 +2656,23 @@ function drawEnemy(e, ox, oy) {
     ctx.fillStyle = '#e8d040'; ctx.fillRect(s * 0.4, -s * 0.16, s * 0.05, s * 0.04);
     ctx.fillStyle = '#c03040'; ctx.fillRect(s * 0.33, -s * 0.15, s * 0.04, s * 0.04);   // 色の違う目
     ctx.restore();
+  } else if (shape === '菌') {   // 菌糸のかたまり。触手がうねる
+    const g = e.grow ?? 1, r = s * 0.32 * (0.4 + 0.6 * g);
+    ctx.save(); ctx.translate(x, y);
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, s * 0.04); ctx.globalAlpha = 0.8;
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2 + Math.sin(e.t * 1.3 + i) * 0.3, l = r * (1.6 + Math.sin(e.t * 2 + i * 1.7) * 0.3);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(Math.cos(a + 0.6) * l * 0.6, Math.sin(a + 0.6) * l * 0.6, Math.cos(a) * l, Math.sin(a) * l); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,180,.5)';
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(Math.cos(i * 1.9) * r * 0.5, Math.sin(i * 1.9) * r * 0.5, r * 0.15, 0, 7); ctx.fill(); }
+    ctx.restore();
+  } else if (shape === '鏡') {   // 主人公と同じ姿の、銀色の写し
+    const hero = roleChar('主人公') || {}, dx = G.x - e.x, dy = G.y - e.y;
+    const face = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy) || 1];
+    drawPerson(x, y, col, hero['髪'] || '#888', num(e.d['大きさ'], 1), face, 0.75);
+    if (e.st === 'learn') { ctx.strokeStyle = 'rgba(180,220,255,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, s * 0.5 + Math.sin(RT.t * 6) * 2, 0, 7); ctx.stroke(); }
   } else if (shape === '目玉') {
     const lx = (G.x - e.x), ly = (G.y - e.y), l = Math.hypot(lx, ly) || 1;
     ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, s * 0.36, 0, 7); ctx.fill();
@@ -1677,7 +2697,7 @@ function drawMarks(e, ox, oy) {
 }
 function drawGuard(g, ox, oy) {
   const x = ox + g.x * TS, y = oy + g.y * TS, s = TS * num(g.d['大きさ'], 1.6);
-  const c = roleChar('番人');
+  const c = charByName(g.d['名前']);   // 番人ごとの色（characters.md に同名がいればその服の色）
   ctx.save(); ctx.globalAlpha = g.alpha;
   ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.3, s * 0.32, s * 0.1, 0, 0, 7); ctx.fill();
   ctx.fillStyle = (c && c['服']) || g.d['色'] || '#222';
@@ -1790,6 +2810,7 @@ function loop(now) {
   const talking = S.mode === 'play' && RT.busy && !RT.chase;
   if (talking !== lastTalking) { lastTalking = talking; document.body.classList.toggle('talking', talking); }
   draw();
+  if (++miniTick % 6 === 0) drawMini();
   requestAnimationFrame(loop);
 }
 
@@ -1807,7 +2828,7 @@ function applyUser(text, src) {
   toast(`${src}: ${heads.length} 見出しを反映`);
 }
 function rebuild() {
-  W = buildWorld();
+  W = buildWorld(); MINI = null;
   if (S.mode === 'title') { titleScreen(); return; }
   if (G && W.rooms[G.room]) {
     const rm = room();

@@ -1,0 +1,3571 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SCIENTISTS</title>
+<style>
+:root { --bg:#0b090d; --panel:#17131b; --line:#3a3040; --text:#e8e2ec; --dim:#9a90a4; --accent:#e8b860; --danger:#e05060; }
+* { box-sizing:border-box; }
+/* でんきチップ（x8y12pxDenkiChip, hicc, SIL OFL 1.1）。12px の倍数で使うとドットがきれいに出る */
+@font-face { font-family:"DenkiChip"; src:url("fonts/x8y12pxDenkiChip.woff2") format("woff2"); font-display:swap; }
+html,body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:"DenkiChip","Hiragino Sans","Noto Sans JP",system-ui,sans-serif; font-size:12px; font-weight:normal; -webkit-font-smoothing:none; font-smooth:never; text-rendering:optimizeSpeed; overscroll-behavior:none; }
+b, strong, h1, h2, h3 { font-weight:normal; }
+body { display:flex; flex-direction:column; height:100dvh; }
+header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+header h1 { font-size:12px; margin:0; letter-spacing:.05em; }
+#roomName { color:var(--dim); font-size:12px; }
+#lights { margin-left:auto; white-space:nowrap; padding-top:10px; }
+/* 灯の HUD：ろうそくと揺れる炎 */
+.cdl { display:inline-block; position:relative; width:7px; height:14px; margin:0 5px; border-radius:2px; vertical-align:middle; background:linear-gradient(90deg,#d8ccb0,#f6efdc 45%,#c8bb9c); }
+.cdl::before { content:""; position:absolute; left:50%; top:-3px; width:1px; height:3px; background:#3a2a20; }
+.cdl i { position:absolute; left:50%; bottom:calc(100% + 1px); width:8px; height:13px; margin-left:-4px; border-radius:50% 50% 45% 45% / 65% 65% 35% 35%;
+  background:radial-gradient(ellipse at 50% 78%, #fffbe0 0 22%, #ffd060 38%, #ff8a20 60%, rgba(255,60,10,0) 78%);
+  transform-origin:50% 100%; animation:flick .8s ease-in-out infinite alternate; filter:drop-shadow(0 0 5px rgba(255,150,50,.9)); }
+.cdl.off { opacity:.35; }
+.cdl.off i { display:none; }
+.cdl.out i { display:block; animation:snuff .6s forwards; }
+@keyframes flick { 0%{transform:scale(1,1) skewX(0)} 30%{transform:scale(.9,1.1) skewX(5deg)} 55%{transform:scale(1.06,.94) skewX(-4deg)} 80%{transform:scale(.94,1.12) skewX(3deg)} 100%{transform:scale(1,.96) skewX(-2deg)} }
+@keyframes snuff { to { transform:scale(.2,.4) translateY(-6px); opacity:0; } }
+button { font:inherit; color:var(--text); background:#241e2a; border:1px solid var(--line); border-radius:6px; padding:6px 10px; cursor:pointer; }
+button:hover { border-color:var(--accent); }
+button.primary { background:#4a3420; border-color:var(--accent); }
+main { position:relative; flex:1; overflow:hidden; touch-action:none; user-select:none; -webkit-user-select:none; }
+canvas { display:block; width:100%; height:100%; }
+.shake { animation:shake .35s; }
+@keyframes shake { 20%{transform:translate(-6px,3px)} 40%{transform:translate(5px,-4px)} 60%{transform:translate(-4px,-2px)} 80%{transform:translate(3px,4px)} }
+#fade { position:absolute; inset:0; background:#000; opacity:0; pointer-events:none; transition:opacity .5s; }
+#dlg { position:absolute; left:50%; bottom:12px; transform:translateX(-50%); width:min(680px, calc(100% - 24px)); background:rgba(14,11,17,.94); border:1px solid var(--line); border-radius:10px; padding:12px 14px 14px; min-height:92px; }
+#dlg .name { font-size:12px; margin-bottom:6px; }
+#dlg .text { font-size:24px; line-height:36px; white-space:pre-wrap; }
+#dlg .next { position:absolute; right:12px; bottom:6px; color:var(--dim); animation:blink 1s infinite; }
+@keyframes blink { 50%{opacity:0} }
+#dlg .choices { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+#dlg .choices button { text-align:left; font-size:24px; line-height:30px; }
+#dlg .choices button.sel { border-color:var(--accent); background:#3a2a20; }
+#dlg .ask { display:flex; gap:8px; flex-wrap:wrap; }
+#dlg .ask input { flex:1; min-width:140px; font:inherit; font-size:24px; color:var(--text); background:#0f0c12; border:1px solid var(--accent); border-radius:6px; padding:4px 8px; }
+#goal { padding:4px 12px; font-size:12px; color:#d8e8e0; background:#11161a; border-bottom:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#goal::before { content:"目的："; color:var(--accent); }
+#goal.new { animation:goalnew 1.6s; }
+@keyframes goalnew { 0%,40% { background:#3a3020; } 100% { background:#11161a; } }
+#mini { position:absolute; left:8px; top:8px; width:auto; height:auto; border:1px solid var(--line); border-radius:6px; background:rgba(8,10,14,.78); cursor:pointer; z-index:2; }
+#buff { font-size:12px; color:#ffd890; margin-left:6px; }
+#invHead { color:var(--dim); margin:0 0 8px; }
+#chase { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:min(360px, 70%); height:8px; border-radius:4px; background:#2a1a20; border:1px solid #5a2a30; }
+#chase div { height:100%; background:var(--danger); border-radius:4px; }
+#chase span { position:absolute; top:12px; width:100%; text-align:center; font-size:12px; color:#f0a0a8; }
+#screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; background:rgba(5,4,7,.9); text-align:center; padding:24px; }
+#screen h2 { margin:0; font-size:36px; letter-spacing:.1em; }
+#screen h2.big { font-size:48px; letter-spacing:.2em; color:#e8f0f0; text-shadow:0 0 18px rgba(120,220,200,.35); }
+#screen .catch { color:#a8c8c0; }
+body.titling header h1 { visibility:hidden; }
+#screen .menu { margin-top:28px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+#screen .desc { font-size:12px; }
+#screen .press { color:var(--text); animation:blink 1.4s infinite; cursor:pointer; }
+#screen p { margin:0; color:var(--dim); max-width:520px; line-height:1.7; }
+#screen .row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+/* スマホ用の操作（スティックとボタン）。タッチ端末か、一度でも触ったら出す */
+.touchui { display:none; }
+body.touch .touchui { display:block; }
+#stick { position:absolute; left:calc(18px + env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom)); width:124px; height:124px; border-radius:50%; background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.18); touch-action:none; }
+#stick .knob { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%; background:rgba(232,184,96,.35); border:2px solid rgba(232,184,96,.7); pointer-events:none; }
+#btns { position:absolute; right:calc(16px + env(safe-area-inset-right)); bottom:calc(18px + env(safe-area-inset-bottom)); width:150px; height:130px; }
+#btns button { position:absolute; border-radius:50%; touch-action:none; -webkit-tap-highlight-color:transparent; }
+#btns button:active, #btns button.on { filter:brightness(1.5); }
+#act { right:0; bottom:0; width:78px; height:78px; font-size:12px; background:rgba(74,52,32,.85); border:2px solid var(--accent); }
+#bInv { left:0; top:0; width:56px; height:56px; font-size:12px; background:rgba(36,30,42,.85); }
+body.touch #dlg { bottom:calc(150px + env(safe-area-inset-bottom)); }
+body.touch.talking #stick { opacity:.25; }
+#toast { position:absolute; top:28px; left:50%; transform:translateX(-50%); background:rgba(30,24,34,.95); border:1px solid var(--line); padding:6px 12px; border-radius:6px; font-size:12px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap; max-width:90%; overflow:hidden; text-overflow:ellipsis; }
+dialog { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:10px; width:min(560px, calc(100% - 24px)); padding:16px; }
+dialog::backdrop { background:rgba(0,0,0,.6); }
+dialog h3 { margin:0 0 10px; font-size:24px; }
+dialog textarea { width:100%; height:160px; background:#0f0c12; color:var(--text); border:1px solid var(--line); border-radius:6px; font-family:ui-monospace,monospace; font-size:12px; padding:8px; }
+dialog .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+dialog .note { color:var(--dim); font-size:12px; line-height:1.6; }
+.inv { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; }
+.inv li { display:flex; gap:10px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:6px; }
+.inv .ic { font-size:22px; width:28px; text-align:center; }
+.inv .tx { flex:1; font-size:12px; }
+.inv .tx b { display:block; font-size:24px; line-height:30px; }
+#drop { position:fixed; inset:0; background:rgba(232,184,96,.12); border:3px dashed var(--accent); display:none; align-items:center; justify-content:center; font-size:24px; z-index:9; pointer-events:none; }
+[hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">SCIENTISTS</h1><span id="roomName"></span>
+  <span id="lights"></span><span id="buff"></span>
+  <button id="btnInv">持ち物</button>
+  <button id="btnMd">Markdown</button>
+</header>
+<div id="goal" hidden></div>
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <canvas id="mini" hidden title="全体図（タップで拡大）"></canvas>
+  <div id="fade"></div>
+  <div id="chase" hidden><div></div><span>逃げろ</span></div>
+  <div id="dlg" hidden><div class="name"></div><div class="text"></div><div class="choices"></div><div class="next">▼</div></div>
+  <div id="stick" class="touchui"><div class="knob"></div></div>
+  <div id="btns" class="touchui"><button id="bInv">持ち物</button><button id="act">調べる</button></div>
+  <div id="toast"></div>
+  <div id="screen"></div>
+</main>
+<div id="drop">.md をドロップすると定義が変わります</div>
+
+<dialog id="mdDlg">
+  <h3>Markdown を読み込む</h3>
+  <p class="note">同じ <code>## 見出し</code> の定義が置き換わります（<code>## 部屋 ID</code> と <code>## イベント ID</code> は ID で判定）。画面に .md をドロップしても読み込めます。</p>
+  <div class="row"><input type="file" id="mdFile" accept=".md,.markdown,.txt,text/markdown" multiple></div>
+  <textarea id="mdText" placeholder="ここに Markdown を貼り付けて「反映」"></textarea>
+  <div class="row">
+    <button class="primary" id="mdApply">反映</button>
+    <button id="mdReset">最初の定義に戻す</button>
+    <button id="mdRestart">最初から始める</button>
+    <span style="flex:1"></span><button id="mdClose">閉じる</button>
+  </div>
+  <p class="note" id="mdInfo"></p>
+</dialog>
+
+<dialog id="invDlg">
+  <h3>持ち物</h3>
+  <p id="invHead"></p>
+  <ul class="inv" id="invList"></ul>
+  <div class="row"><span style="flex:1"></span><button id="invClose">閉じる</button></div>
+</dialog>
+
+<!--EMBED-START-->
+<script type="text/markdown" data-file="scenario.md">
+# scenario.md — SCIENTISTS 設定とイベント
+
+md-forge Horror エンジン（scientists/ 版）用のシナリオです。潜入からエンディング（5 種）まで。
+
+## 設定
+
+| 項目 | 値 |
+| --- | --- |
+| タイトル | SCIENTISTS |
+| 説明 | エデン生命科学研究所に潜入し、研究を止めて脱出する。エンディングは 5 種類。 |
+| 開始部屋 | entrance |
+| 開始イベント | opening |
+| 最初の灯 | 3 |
+| 灯の最大 | 5 |
+| 持ち物の上限 | 4 |
+| キャッチ | 生命の価値を決めるのは、誰なのか。 |
+| 入室の猶予 | 2 |
+| 最初の目的 | 研究所の証拠（研究資料）を集める |
+
+## 書き方（scientists/ 版で増えた命令）
+
+> - `[数値 名前 +1]` `[数値 名前 -1]` `[数値 名前 =0]`：カウンタ。条件は `数値:名前>=3`。セリフの中で `{数値:名前}` と書くと値が入る。
+> - `[解放 名前]`：エリアを解放する。条件は `解放:名前`。
+> - `[入力 答え → イベント]`：文字を入力させる。答えは `|` で区切って複数書ける。ひらがな・カタカナ・全角半角・大文字小文字の違いは区別しない。外れたら次の行へ進む。
+> - `[取得 物]`：消耗品（items.md の「使う」がある物）は「持ち物の上限」まで。いっぱいのときは `## イベント 満杯` へ移る。
+> - `[目的 文]`：画面上部の「目的：」を書き換える（`{数値:名前}` も使える）。最初の目的は設定「最初の目的」。
+> - `[暗く]` `[明るく]`：画面を黒くしたまま文を出す／元に戻す（導入や場面転換用）。
+> - 設定「キャッチ」はタイトルの下の一文、「入室の猶予」は部屋に入ってから実験体に見つからない秒数。
+> - `[追跡 名前 秒数 → イベント]`：灯が尽きたらゲームオーバーではなく、そのイベントへ移る。
+> - 条件 `部屋:ID`：今いる部屋。items.md の使う欄 `イベント:名前` で、使ったときにイベントを動かせる。
+> - カウンタ：資料（回収した研究資料）・真相（ノワとリヒトの真相に関わる資料）・救った・安楽死・見送った
+
+## 書き方（横スクロール版 scientists-side で増えた命令と見方）
+
+> - 部屋の描き方・見た目の一覧は map.md の冒頭。コードブロックは 2 行（壁の列・床の列）。
+> - `[変化 記号 見た目]`：今の部屋のその物の見た目を変える。`[変化 部屋ID:記号 見た目]` で別の部屋の物も。見た目を書かないと元に戻る。
+> - `[文字 文]`：壁に赤い文字が浮かぶ。`[落書き 記号 文]`：壁に文字を残す。`[手 記号]`：その物から手が伸びる（近くにいると灯が 1 つ消える）。
+> - `[振り向く]` `[向き 左]` `[向き 右]`：主人公の向き。
+> - 操作：←→ で歩く。扉・階段の前で ↑ か「調べる」。同じ列に壁の物と床の物があるときは、「調べる」は床の物、↑ は壁の物。ロッカーなど「隠れる」の前で調べると隠れ、左右に動くと出る。
+
+## イベント 満杯
+
+これ以上は持てない。何かを使ってから、もう一度調べよう。
+
+## イベント opening
+
+[暗く]
+郊外の丘の上に、二十年前に廃校になった中学校がある。
+窓は割れ、校庭は草に埋もれ、近所の子どもたちは「出る」と噂する。
+だが、その地下と旧校舎には、今も明かりが灯っている。
+——エデン生命科学研究所。
+「生命は、科学によって自由に設計し、作り変えられるものである」
+そう信じる者たちが、ここで命を作り、延ばし、混ぜ合わせている。
+[待つ 0.6]
+{主人公}「わたしはノワ。組織の壊滅のために送り込まれたスパイ」
+{主人公}「任務は二つ。研究所の中で行われていることの証拠——研究資料を集めること。そして、研究を止めること」
+{主人公}「戦う力はない。実験体に見つかったら、隠れるか、逃げるだけ」
+> 操作の案内（黒い画面のまま出す）
+【操作】移動：←→ キー・AD・ドラッグ（スマホは左下のスティック）
+【操作】調べる・会話を進める：スペース・クリック・タップ（スマホは「調べる」）。扉や階段、壁の物は ↑ でも調べられる。
+【操作】持ち物：I キー・「持ち物」ボタン。右上のろうそくが体力。実験体に触れると消える。
+[明るく]
+深夜。非常灯だけが、旧校舎の玄関ホールを照らしている。
+{主人公}「……潜入、成功」
+ふいに、頭の奥が痛んだ。この玄関を、知っている気がする。
+{主人公}「……気のせい。まずは、このあたりを調べよう」
+[目的 玄関ホールを調べてから、奥の扉の先（中央棟）へ進む]
+
+## イベント shoebox
+
+[済 → shoebox_after]
+古い下駄箱。ひとつだけ、新しい南京錠がかかっていない棚がある。
+[取得 懐中電灯]
+{主人公}「誰かが置いていった……？　まるで、わたしが来るのを知っていたみたい」
+
+## イベント shoebox_after
+
+上履きが並んでいる。名札はどれも削り取られている。
+
+## イベント shoebox2
+
+ほこりをかぶった上履き。小さなサイズだ。
+
+## イベント board
+
+掲示板に、古い時間割が貼られたままになっている。
+その上に、新しい紙が一枚。
+「研究棟A（生命延長）は、旧理科室棟。合言葉は主任のみ管理」
+
+## イベント reception
+
+[済 → reception_after]
+受付の窓口。引き出しの奥に、薬の小瓶がある。
+[取得 薬]
+
+## イベント reception_after
+
+受付の窓口。来客名簿は白紙だ。
+
+## イベント exit_locked
+
+正面の扉。外から板が打ちつけられていて、内側からは開かない。
+{主人公}「出口は、別に探すしかない」
+
+## イベント 入室:central
+
+[分岐 フラグ:研究棟A_クリア & !済:phase1_end → phase1_end]
+[済 → central_after]
+旧校舎の一階廊下。教室の札はそのままに、扉だけが電子錠に替えられている。
+{主人公}「左の端が職員室、右の端の渡り廊下が研究棟A……」
+{主人公}「研究棟Aの扉は、電子錠で閉じているはず。職員室に手がかりがあるかもしれない」
+[目的 職員室（廊下の左端）で、研究棟Aに入る手がかりを探す]
+
+## イベント central_after
+
+> 2 回目以降は何もしない。
+
+## イベント labB_locked
+
+「研究棟B　遺伝子改良」の札。電子錠は赤く光っている。
+{主人公}「カードキーが要る。研究棟Aの主任なら、持っているかもしれない」
+
+## イベント labC_locked
+
+「研究棟C　キメラ・軍事転用」の札。扉の向こうから、何かが這う音がする。
+{主人公}「研究棟Bの主任のカードキーが要るみたい」
+
+## イベント holding_locked
+
+地下へ降りる階段。シャッターに、研究棟Cのカードリーダーがついている。
+
+## イベント diary
+
+[済 → diary_after]
+研究員の日誌だ。
+「生命延長計画は、最初の被験者から始まった。彼女は『トワ』と呼ばれた。永遠に生きるはずの子だった」
+「主任は、あの子の名前を研究棟Aの合言葉にした。悪趣味だと思う」
+「資料の原本は、本棚の奥の旧資料室に移した。あそこは誰も使わない」
+[数値 資料 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+[目的 研究棟A前室（中央棟の右端）の電子錠に、合言葉を入れる]
+
+## イベント diary_after
+
+「トワ」「本棚の奥の旧資料室」——日誌の言葉を思い出す。
+
+## イベント shelf
+
+[分岐 フラグ:本棚を押した → shelf_after]
+[分岐 !済:diary → shelf_plain]
+日誌の言葉を思い出して、本棚の奥を押してみる。
+ガコン、と重い音がして、壁の一部がずれた。
+[フラグ 本棚を押した]
+[揺れ]
+{主人公}「隠し通路……」
+
+## イベント shelf_plain
+
+古い教育書が並んでいる。一冊だけ、奥に押し込まれたままの本がある。
+
+## イベント shelf_after
+
+本棚の横に、細い通路が口を開けている。
+
+## イベント blackboard
+
+黒板に、消し残しの文字がある。
+「延命は救済か？　——生命の価値を決めるのは、誰なのか」
+
+## イベント desk
+
+机の上に、吸い殻が山になった灰皿がある。最近まで誰かがいたらしい。
+
+## イベント sink
+
+[済 → sink_after]
+流しに、空き瓶が転がっている。投げれば音で気をそらせそうだ。
+[取得 空き瓶]
+
+## イベント sink_after
+
+流しの蛇口から、水が一滴ずつ落ちている。
+
+## イベント 入室:archive
+
+[済 → archive_after]
+ほこりの匂い。誰にも忘れられた部屋だ。
+
+## イベント archive_after
+
+> 2 回目以降は何もしない。
+
+## イベント archive_files
+
+[済 → archive_files_after]
+棚の奥に、一冊だけ新しいファイルがある。
+「被験体 N-0　経過観察記録（外部環境適応試験）」
+「解放後、警察に保護。記憶処理は成功。本人は自身の出自を認識していない」
+写真の部分は、切り取られている。
+{主人公}「N-0……？」
+[数値 資料 +1]
+[数値 真相 +1]
+[フラグ 真相_N0]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント archive_files_after
+
+N-0 の記録。読み返すと、なぜか胸がざわつく。
+
+## イベント archive_desk
+
+[済 → archive_desk_after]
+机の引き出しに、医療キットが残っていた。
+[取得 医療キット]
+
+## イベント archive_desk_after
+
+空の引き出し。
+
+## イベント gate_locked
+
+電子錠がかかっている。横のパネルに、合言葉を入れるらしい。
+
+## イベント gate_panel
+
+[分岐 解放:研究棟A → gate_panel_open]
+パネルに「合言葉を入力してください（カタカナ2文字）」と表示されている。
+[入力 トワ|TOWA|永遠 → gate_ok]
+ブザーが鳴った。違うらしい。
+[分岐 !済:diary → gate_hint]
+[数値 合言葉ミス +1]
+[分岐 数値:合言葉ミス>=2 → gate_hint2]
+{主人公}「職員室の日誌には『あの子の名前を合言葉にした』とあった。最初の被験者の名前……」
+
+## イベント gate_hint
+
+{主人公}「合言葉……職員室（中央棟の左端）に、何か手がかりがあるかもしれない」
+
+## イベント gate_hint2
+
+{主人公}「最初の被験者。永遠に生きるはずだった子。日誌には『トワ』と書いてあった」
+
+## イベント gate_ok
+
+ピッ、と短い音。錠の赤いランプが緑に変わった。
+[解放 研究棟A]
+[変化 p パネル:開]
+{主人公}「……トワ。永遠に生きるはずだった子」
+[目的 研究棟Aの奥を調べる（実験体に見つからないように）]
+
+## イベント gate_panel_open
+
+パネルには「解錠中」と表示されている。
+
+## イベント gate_locker
+
+> 「済」は調べただけで付くので、暗くて見えなかった 1 回目も数えてしまう。取ったかどうかはフラグで見る。
+[分岐 フラグ:発煙筒_取った → gate_locker_after]
+[分岐 !持つ:懐中電灯 → gate_locker_dark]
+懐中電灯で奥を照らすと、発煙筒が一本残っていた。
+[取得 発煙筒]
+[分岐 持つ:発煙筒 → gate_locker_got]
+
+## イベント gate_locker_got
+
+[フラグ 発煙筒_取った]
+
+## イベント gate_locker_dark
+
+ロッカーの奥は真っ暗で、何があるか分からない。明かりがあれば……
+
+## イベント gate_locker_after
+
+空のロッカー。
+
+## イベント 入室:labA_ward
+
+[済 → ward_after]
+消毒液と、何かが腐った匂い。
+病床の間を、何かがゆっくり歩いている。
+{主人公}「見つからないように……。音を立てれば、あっちへ気を引けるかも」
+【ヒント】実験体は、向いている方しか見ていない（うっすら赤い帯）。見つかると頭の上に「!」が出て追ってくる。ロッカーの前で調べて中に隠れれば、気づかずに通り過ぎる（「?」）。ただし、目の前で隠れると見つかる。持ち物の空き瓶や発煙筒を使うと 3 秒足が止まり、その間はすり抜けられる。
+
+## イベント ward_after
+
+> 2 回目以降は何もしない。
+
+## イベント ward_shelf
+
+[済 → ward_shelf_after]
+薬品棚。割れていない瓶がいくつか残っている。
+[取得 電池]
+[取得 薬]
+
+## イベント ward_shelf_after
+
+薬品棚は空っぽだ。
+
+## イベント bed
+
+古い病床。シーツに、人の形の染みが残っている。
+
+## イベント 入室:labA_room
+
+[済 → labA_room_after]
+部屋の奥に、液体で満たされた円筒の槽がある。
+その中に、人がいた。
+{主人公}「……生きてる」
+
+## イベント labA_room_after
+
+> 2 回目以降は何もしない。
+
+## イベント monitor
+
+モニターに心拍の波形が流れている。日付の欄は、四十年以上前から数え続けていた。
+
+## イベント tank
+
+[分岐 フラグ:トワ_済 & 持つ:携帯維持装置 & !フラグ:トワ_眠った & !フラグ:トワ_救出 → towa_rescue]
+[分岐 フラグ:トワ_済 → tank_after]
+槽の中の少女が、目を開けた。年は十歳くらいに見える。
+スピーカーから、かすれた声がした。
+トワ「……だれ？　新しい、けんきゅういんさん？」
+{主人公}「ちがう。わたしは、ここを止めに来た」
+トワ「とめる……。じゃあ、わたしも、おわれるの？」
+トワ「わたし、ずっと、ここにいるの。ねむっても、また、おこされるの」
+[選択 生命維持装置を止める → towa_stop / 装置はそのままにして記録だけ持ち出す → towa_leave / トワの望みを聞く → towa_ask]
+
+## イベント towa_stop
+
+{主人公}「……ごめんね。もう、起こされないように」
+装置のスイッチを切った。波形が、ゆっくりと平らになっていく。
+トワ「……ありがとう。おやすみ、なさい」
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ トワ_済]
+[フラグ トワ_眠った]
+
+## イベント towa_leave
+
+{主人公}「……わたしには、決められない」
+トワ「そう……。じゃあ、また、ひとりだね」
+槽の記録だけを抜き取って、背を向けた。
+[数値 見送った +1]
+[数値 資料 +1]
+[フラグ トワ_済]
+[フラグ トワ_置いてきた]
+
+## イベント towa_ask
+
+{主人公}「あなたは、どうしたい？」
+トワ「……そと。そとの、そらが、みたい」
+トワ「でも、ここからでたら、わたし、たぶん、すぐしんじゃう」
+[選択 「いつか外へ連れ出す」と約束する → towa_promise / 「わたしには約束できない」と答える → towa_leave]
+
+## イベント towa_promise
+
+{主人公}「約束する。ここを止めたら、必ず迎えに来る。外の空を見せる」
+トワ「……やくそく。まってる」
+少女は、もう一度目を閉じた。波形が、少しだけ穏やかになった気がした。
+[数値 救った +1]
+[フラグ トワと約束]
+[フラグ トワ_済]
+
+## イベント tank_after
+
+[分岐 フラグ:トワ_救出 → tank_empty]
+[分岐 フラグ:トワ_眠った → tank_sleep]
+[分岐 フラグ:トワと約束 → tank_promise]
+トワは、目を閉じたまま動かない。
+
+## イベント tank_empty
+
+空っぽの槽。液体の中に、小さな泡がひとつ浮かんでいる。
+
+## イベント towa_rescue
+
+[分岐 フラグ:トワと約束 → towa_rescue_promise]
+{主人公}「……迎えに来た。この装置があれば、槽の外でも生きられる」
+トワ「……わたし、そとに、でていいの？」
+{主人公}「あなたが決めて」
+トワ「……いく。そらが、みたい」
+[数値 救った +1]
+[分岐 → towa_rescue_go]
+
+## イベント towa_rescue_promise
+
+{主人公}「約束を、果たしに来た」
+トワ「……ほんとうに、きた」
+トワ「ありがとう。……やくそく、まもってくれる ひと、はじめて」
+[フラグ 約束を果たした]
+[分岐 → towa_rescue_go]
+
+## イベント towa_rescue_go
+
+槽の液を抜き、トワを携帯型の生命維持装置につないだ。小さな体は、驚くほど軽い。
+[失う 携帯維持装置]
+[フラグ トワ_救出]
+[変化 labA_room:T 槽:空]
+トワは装置ごと、背中に負ぶって連れて行くことにした。
+
+## イベント tank_sleep
+
+槽の中の少女は、静かに眠っている。もう誰にも起こされない。
+
+## イベント tank_promise
+
+トワ「……やくそく、わすれないでね」
+
+## イベント chief_desk
+
+[済 → chief_desk_after]
+主任の机。引き出しに、研究棟Aのカードキーと報告書がある。
+「生命延長計画 最終報告：被験者T-01は死ねない。成功と呼ぶべきか、私にはもう分からない」
+[取得 カードキーA]
+[数値 資料 +1]
+[揺れ]
+けたたましい警報が鳴り響いた。
+放送「研究棟A、侵入者。看守を起こします」
+{主人公}「しまった……！」
+[追跡 不死の看守 20]
+……足音が遠ざかっていく。警報が止んだ。
+{主人公}「逃げ切った……」
+[フラグ 研究棟A_クリア]
+研究棟Aの調査を終えた。（回収した資料 {数値:資料}）
+{主人公}「中央棟へ戻ろう」
+[目的 カードキーAを持って、中央棟へ戻る]
+
+## イベント chief_desk_after
+
+主任の机。もう何も残っていない。
+
+## イベント phase1_end
+
+中央棟に戻ると、天井のスピーカーが小さく鳴った。
+放送「……おかえり、ノワ」
+{主人公}「！」
+放送「研究棟A、見せてもらったよ。相変わらず、きみは優しいね」
+声は、それきり途切れた。
+{主人公}「今の声……どうして、わたしの名前を」
+{主人公}「研究棟Aのカードキーで、研究棟Bも開くかもしれない」
+[目的 研究棟B（中央棟の廊下、右寄りのカードキーの扉）をカードキーAで開ける]
+
+## イベント 入室:labB_hall
+
+[済 → labB_hall_after]
+獣の匂い。檻がいくつも並び、そのいくつかは内側から壊されている。
+【ヒント】ハウンドは足が速く、遠くからでも気づく。ただし前しか見ていない。檻の陰やロッカーに隠れてやり過ごせば、見失う。
+[目的 研究棟Bの奥（右）を調べる]
+
+## イベント labB_hall_after
+
+> 2 回目以降は何もしない。
+
+## イベント cage
+
+檻の格子に、爪の跡と、ちぎれた首輪が残っている。
+
+## イベント breeding_log
+
+[済 → breeding_log_after]
+飼育記録だ。
+「ハウンド計画：嗅覚と脚力を強化。視界に入った対象を執拗に追うが、障害物で視線が切れると追跡をやめる傾向がある」
+[数値 資料 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント breeding_log_after
+
+「障害物で視線が切れると追跡をやめる」——檻の陰をうまく使おう。
+
+## イベント labB_locker
+
+[分岐 フラグ:薬品_取った → labB_locker_after]
+ロッカーの中に、強い消毒薬の瓶と、空き瓶が入っていた。
+[取得 薬品]
+[フラグ 薬品_取った]
+[取得 空き瓶]
+
+## イベント labB_locker_after
+
+空のロッカー。
+
+## イベント 入室:labB_room
+
+[済 → labB_room_after]
+ガラス越しの観察室。部屋の真ん中に、少女の形をした何かが立っている。
+こちらが見ている間、それはぴくりとも動かない。
+【ヒント】ドールは、こちらが見ている間は動かない。正面を向いたまま近づき、すぐそばで調べると話しかけられる。
+
+## イベント labB_room_after
+
+> 2 回目以降は何もしない。
+
+## イベント hina_talk
+
+[分岐 フラグ:ドール_済 → hina_after]
+少女が、首をかしげた。関節が、人とは逆の向きに曲がる。
+ヒナ「……あなた、わたしと おなじ におい がする」
+ヒナ「わたしは ヒナ。ひとに なるために つくられたの。でも、まだ ひとじゃないって、せんせいたちは いう」
+ヒナ「ねえ。ひとって、なに？」
+{主人公}「……わからない。でも、あなたが自分で決めていいと思う」
+ヒナ「じゃあ……わたしは、どうしたらいい？」
+[選択 「一緒に外へ行こう」と手を取る → hina_free / 壁の停止スイッチで眠らせる → hina_sleep / 「ここで待っていて」と離れる → hina_leave]
+
+## イベント hina_free
+
+ヒナ「……て、つないだの、はじめて」
+ヒナ「わたし、ちいさい から、つうきこう を とおれる。さきに、そとで まってる」
+少女は天井の通気口へ、するりと消えた。
+[数値 救った +1]
+[フラグ ヒナ_自由]
+[フラグ ドール_済]
+
+## イベント hina_sleep
+
+{主人公}「……ごめん」
+壁のスイッチを押すと、少女の目から光が消え、その場に崩れ落ちた。
+ヒナ「……おやすみ、なさい……」
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ ドール_済]
+
+## イベント hina_leave
+
+{主人公}「ここで待っていて。全部終わったら、また来る」
+ヒナ「……うん。まってる。ずっと、まってる」
+少女は部屋の隅にしゃがみ込み、動かなくなった。
+[数値 見送った +1]
+[フラグ ドール_済]
+
+## イベント hina_after
+
+> ドールは会話の後に消える（map.md の条件）。
+
+## イベント mirror_window
+
+マジックミラーの向こうに、観察用の椅子がある。灰皿には吸い殻が山になっている。
+
+## イベント compare_record
+
+[済 → compare_record_after]
+「適応個体比較記録：N-0 と L-1」
+「N-0 の環境適応値は過去最高。L-1 はそれに次ぐ。L-1 は研究員として登用し、研究所内に留める」
+「両個体は幼少期から強い愛着を示す。分離後の反応を記録すること」
+{主人公}「N-0……旧資料室の記録と同じ。それに、L-1……」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント compare_record_after
+
+「N-0 と L-1 は、幼少期から強い愛着を示す」
+
+## イベント labB_desk
+
+[済 → labB_desk_after]
+主任の机に、研究棟Bのカードキーがある。
+[取得 カードキーB]
+[揺れ]
+檻の扉が一斉に開く音がした。
+放送「研究棟B、侵入者。群れを放ちます」
+{主人公}「……！」
+[追跡 群れの主 20]
+遠吠えが遠ざかっていく。
+[フラグ 研究棟B_クリア]
+{主人公}「研究棟Bのカードキー……これで研究棟Cに入れるはず」
+[目的 研究棟C（中央棟の廊下、まん中のカードキーの扉）をカードキーBで開ける]
+
+## イベント labB_desk_after
+
+主任の机。もう何も残っていない。
+
+## イベント 入室:labC_hall
+
+[済 → labC_hall_after]
+湿った空気。壁も床も、白い菌糸に覆われている。菌糸は、ゆっくりと脈打っていた。
+【ヒント】パラサイトは少しずつ増える。消毒装置に薬品を入れれば、除去できるかもしれない。
+[目的 研究棟Cの菌糸（パラサイト）をなんとかして、奥（右）へ進む]
+
+## イベント labC_hall_after
+
+> 2 回目以降は何もしない。
+
+## イベント disinfector
+
+[分岐 フラグ:消毒済み → disinfector_after]
+[分岐 持つ:薬品 → disinfect]
+消毒装置だ。薬品を入れる口があるが、中は空っぽだ。
+{主人公}「強い消毒薬があれば、動かせそう」
+[分岐 フラグ:薬品_取った → disinfector_hint_used]
+{主人公}「消毒薬……研究棟Bの飼育区画に、ロッカーがあった。探してみよう」
+
+## イベント disinfector_hint_used
+
+{主人公}「持っていた薬品は……持ち物から『使う』で、ここで使えるはず」
+
+## イベント use_chemical
+
+[分岐 部屋:labC_hall & !フラグ:消毒済み → disinfect]
+{主人公}「ここで使っても、意味がなさそう」
+
+## イベント disinfect
+
+薬品を消毒装置に流し込み、スイッチを入れた。
+白い霧が噴き出し、菌糸が音を立てて縮んでいく。
+[失う 薬品]
+[フラグ 消毒済み]
+[変化 labC_hall:v 消毒装置:動]
+[目的 研究棟Cの奥（右）を調べる]
+
+## イベント disinfector_after
+
+消毒装置は止まっている。床の菌糸は、灰色に枯れた。
+
+## イベント culture_log
+
+[済 → culture_log_after]
+培養記録だ。
+「パラサイト：宿主を選ばず増殖する。高濃度の消毒液に弱い。研究棟Bの備品を流用のこと」
+[数値 資料 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント culture_log_after
+
+「高濃度の消毒液に弱い」
+
+## イベント 入室:labC_room
+
+[済 → labC_room_after]
+広い模擬戦闘場。鏡のように光る人影が、こちらと同じ姿勢でこちらを見ている。
+【ヒント】ミラーは近づくとこちらの動きを学習して、行く先へ回り込む。同じ方向に走り続けず、急に向きを変えよう。ロッカーに隠れると、持ち場へ戻っていく。
+
+## イベント labC_room_after
+
+> 2 回目以降は何もしない。
+
+## イベント ren
+
+[分岐 フラグ:レン_済 → ren_after]
+鎖で椅子に縛りつけられた少年がいる。腕には、番号の焼き印。
+レン「……来るな。俺は、命令されたら人を殺すように作られてる」
+レン「頭の中で、ずっと声がするんだ。次に命令が来たら、たぶん、止められない」
+レン「頼む。命令が来る前に、終わらせてくれ」
+[選択 鎖を解いて逃がす → ren_free / 望みどおり、眠らせる → ren_sleep / 縛ったまま置いていく → ren_leave]
+
+## イベント ren_free
+
+{主人公}「命令する人間は、もうすぐいなくなる。あなたは、自分で決めて生きて」
+鎖を外すと、少年はしばらく自分の手を見つめていた。
+レン「……ありがとう。外で、命令じゃない何かを探してみる」
+[数値 救った +1]
+[フラグ レン_自由]
+[変化 r 椅子]
+[フラグ レン_済]
+
+## イベント ren_sleep
+
+{主人公}「……わかった」
+棚の鎮静剤を、致死量だけ注射した。少年は、ほっとしたように目を閉じた。
+レン「……やっと、静かだ」
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ レン_済]
+
+## イベント ren_leave
+
+{主人公}「……ごめん。今は、ほどけない」
+レン「……そうか。なら、早くここを終わらせてくれ」
+[数値 見送った +1]
+[フラグ レン_済]
+
+## イベント ren_after
+
+[分岐 フラグ:レン_自由 → ren_after_free]
+少年は目を閉じたまま動かない。
+
+## イベント ren_after_free
+
+空の椅子と、ほどけた鎖。
+
+## イベント release_plan
+
+[済 → release_plan_after]
+「外部環境適応試験　計画書」
+「N-0 を外部に解放し、社会環境での適応を長期観察する。L-1 は対照として研究所内に残す」
+「N-0 には『L-1 を迎えに来る』と約束させること。帰還の動機となる。解放後、関連する記憶は消去する」
+頭の奥で、小さな声がした。——安全が確認できたら、リヒトも連れて行くからね。
+{主人公}「……わたしが、言った。リヒトに」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント release_plan_after
+
+「N-0 には『L-1 を迎えに来る』と約束させること」
+
+## イベント labC_desk
+
+[済 → labC_desk_after]
+主任の机に、研究棟Cのカードキーがある。
+[取得 カードキーC]
+[揺れ]
+床の下で、何かが培養槽を割る音がした。
+放送「研究棟C、融合兵器ゼロ、起動」
+[追跡 融合兵器ゼロ 22]
+重い足音が、壁の向こうへ消えた。
+[フラグ 研究棟C_クリア]
+{主人公}「このカードキーなら、中央棟の地下へ降りられる」
+[目的 中央棟の廊下、左寄りの階段から地下の収容エリアへ降りる]
+
+## イベント labC_desk_after
+
+主任の机。もう何も残っていない。
+
+## イベント 入室:holding
+
+[済 → holding_after]
+地下の収容エリア。鉄の扉が並び、のぞき窓の向こうから、いくつもの目がこちらを見ている。
+声が聞こえる。泣き声、笑い声、名前を呼ぶ声。
+[目的 収容エリアを調べ、右端の扉へ進む]
+
+## イベント holding_after
+
+> 2 回目以降は何もしない。
+
+## イベント cell
+
+のぞき窓の向こうで、誰かがこちらを見ている。人の形をしているものも、していないものもいる。
+
+## イベント holding_panel
+
+[分岐 フラグ:収容_済 → holding_panel_after]
+収容区画の制御盤。ここから、すべての房の扉を操作できる。
+「区画内の被験者：生存 12 名。うち 3 名は回復の見込みなし、苦痛の緩和を推奨」
+{主人公}「……」
+[選択 すべての房の扉を開ける → holding_free / 苦しんでいる 3 名だけ、眠らせる → holding_sleep / 今は何もしない → holding_leave]
+
+## イベント holding_free
+
+すべての扉のロックを外した。房の中から、ためらうような足音が出てくる。
+誰かが、小さな声で「ありがとう」と言った。
+[数値 救った +2]
+[フラグ 収容_開放]
+[フラグ 収容_済]
+
+## イベント holding_sleep
+
+{主人公}「……苦しみだけは、終わらせる」
+3 つの房に、安楽死用の薬剤が流れた。のぞき窓の向こうが、静かになった。
+[数値 安楽死 +1]
+[フラグ 誰かを殺した]
+[フラグ 収容_済]
+
+## イベント holding_leave
+
+{主人公}「……今は、決められない。研究所を止めてから、必ず」
+[数値 見送った +1]
+[フラグ 収容_済]
+
+## イベント holding_panel_after
+
+[分岐 フラグ:収容_開放 → holding_panel_open]
+制御盤の表示は、そのままになっている。
+
+## イベント holding_panel_open
+
+すべての房の扉は開いている。被験者たちは、思い思いの方向へ去っていった。
+
+## イベント holding_shelf
+
+[分岐 フラグ:維持装置_取った → holding_shelf_after]
+備品棚に、持ち運べる生命維持装置と医療キットがある。
+[取得 携帯維持装置]
+[フラグ 維持装置_取った]
+[取得 医療キット]
+[分岐 フラグ:トワ_済 & !フラグ:トワ_眠った → holding_shelf_towa]
+
+## イベント holding_shelf_towa
+
+{主人公}「これがあれば、トワを槽の外へ連れ出せる。……研究棟Aの延命実験室」
+
+## イベント holding_shelf_after
+
+備品棚は空っぽだ。
+
+## イベント licht_door
+
+扉に鍵がかかっている。
+{主人公}「先に、ここにいる青年と話してみよう」
+
+## イベント 入室:licht_lab
+
+[済 → licht_lab_after]
+煙草の匂い。机の向こうで、白衣の青年がこちらを振り返った。
+[目的 研究室にいる青年と話す]
+
+## イベント licht_lab_after
+
+> 2 回目以降は何もしない。
+
+## イベント licht_meet
+
+リヒト「やあ、ノワ。おかえり」
+{主人公}「……どうして、わたしの名前を」
+リヒト「覚えてないんだね。それも、予定どおりか」
+リヒト「僕はリヒト。被験体 L-1。きみは N-0。二人とも、ここで生まれた」
+リヒト「きみは十年前、外に放たれた。外の世界でどう生きるかを観察するためにね」
+リヒト「出ていく日、きみは言ったんだ。『安全が確認できたら、リヒトも連れて行くからね』って」
+リヒト「僕は全部知ってた。それが研究の一部だってことも。それでも、待ってた」
+{主人公}「……ごめん。覚えて、ない」
+リヒト「いいよ。きみは戻ってきた。それで十分だ」
+リヒト「ここを止めに来たんだろう？　中枢まで案内するよ。そのほうが効率がいい」
+[同行 リヒト]
+[フラグ リヒト_再会]
+[目的 リヒトと一緒に、中枢（研究室の右の扉）へ。所長室を調べる]
+
+## イベント 同行者と話す
+
+[分岐 フラグ:研究所停止 → licht_talk_end]
+[分岐 持つ:中枢キー → licht_talk_key]
+[分岐 部屋:director → licht_talk_director]
+{同行者}「所長は十年前に死んだよ。それからは、僕がここを回してる」
+{同行者}「僕のことを止めたいなら、止めていい。きみには、その権利がある」
+
+## イベント licht_talk_director
+
+{同行者}「所長は、大事なものに、いちばん大事な実験体の名前をつける癖があった」
+{同行者}「金庫も、たぶんそうだよ」
+
+## イベント licht_talk_key
+
+{同行者}「制御室は、この部屋の右の扉だ。……決めるのは、きみだよ」
+
+## イベント licht_talk_end
+
+{同行者}「走って。話はあとでいくらでもできる」
+
+## イベント licht_shelf
+
+[分岐 フラグ:リヒトの私物 → licht_shelf_found]
+[分岐 フラグ:本棚_奥 → licht_shelf_tin]
+専門書がぎっしり並んでいる。……奥に、何かが挟まっているような気がする。
+[フラグ 本棚_奥]
+
+## イベント licht_shelf_tin
+
+本を何冊かどけると、奥から古いブリキの缶が出てきた。
+中には、子どもが描いた二人の絵と、色あせたメモが一枚。
+「ノワが むかえに くるまで、ここで まつ。　リヒト」
+{主人公}「……」
+[フラグ リヒトの私物]
+
+## イベント licht_shelf_found
+
+ブリキの缶は、元の場所に戻しておいた。
+
+## イベント licht_desk
+
+[済 → licht_desk_after]
+リヒトの研究日誌だ。
+「N-0 の帰還を確認。予定より三年遅い」
+「彼女が戻ったら、この研究所を終わらせる。僕のやり方で。データは残す。命の値段は、僕が決める」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント licht_desk_after
+
+「命の値段は、僕が決める」
+
+## イベント ashtray
+
+吸い殻が山になっている。銘柄は、職員室や観察室の灰皿と同じだ。
+
+## イベント licht_plant
+
+枯れかけた鉢植え。それでも、土は湿っている。誰かが毎日水をやっているらしい。
+
+## イベント 入室:director
+
+[済 → director_after]
+所長室。机の上の写真立ては、伏せられたままだ。
+[目的 所長室を調べ、制御室（右の扉）の鍵を探す]
+
+## イベント director_after
+
+> 2 回目以降は何もしない。
+
+## イベント director_shelf
+
+表彰状とトロフィーが並んでいる。どれもほこりをかぶっている。
+
+## イベント final_report
+
+[済 → final_report_after]
+「所長最終報告」
+「生命の価値は、科学が決める。私はそう信じて、この研究所を作った」
+「だが N-0 と L-1 を見て、分からなくなった。あの二人の約束に、私は値段をつけられなかった」
+「後のことは L-1 に託す。彼なら、迷わないだろう」
+「制御室の鍵は、この部屋の金庫に入れた。文字は、N-0 の名前にしてある」
+[数値 資料 +1]
+[数値 真相 +1]
+資料を手に入れた。（回収した資料 {数値:資料}）
+
+## イベント final_report_after
+
+「あの二人の約束に、私は値段をつけられなかった」
+「金庫の文字は、N-0 の名前にしてある」
+
+## イベント director_photo
+
+伏せられた写真立てを起こした。
+幼い女の子と男の子が、手をつないで笑っている。
+裏に、細い字で「N-0 ノワ　L-1 リヒト」と書かれている。
+
+## イベント director_safe
+
+[分岐 持つ:中枢キー → director_safe_after]
+金庫だ。カタカナを入れるダイヤルがついている。2文字らしい。
+[入力 ノワ|NOIR|乃和|N-0 → director_safe_open]
+ダイヤルは動かない。違うらしい。
+[分岐 !済:final_report → director_safe_hint]
+[数値 金庫ミス +1]
+[分岐 数値:金庫ミス>=2 → director_safe_hint2]
+{主人公}「報告書には『N-0 の名前にした』とあった。N-0……リヒトは、わたしをそう呼んだ」
+
+## イベント director_safe_hint
+
+{主人公}「机の上の報告書に、何か書いてあるかもしれない」
+
+## イベント director_safe_hint2
+
+{主人公}「N-0 は、わたし。……わたしの名前は、ノワ」
+
+## イベント director_safe_open
+
+カチリと音がして、金庫が開いた。中に、古い鍵が一本。
+[取得 中枢キー]
+{主人公}「……わたしの名前、だった」
+[目的 制御室（所長室の右の扉）で、研究所を止める]
+
+## イベント director_safe_after
+
+空の金庫。
+
+## イベント control_locked
+
+制御室の扉。鍵がかかっている。所長室のどこかに、鍵があるはずだ。
+
+## イベント control_monitor
+
+モニターに、研究所じゅうの部屋が映っている。いくつかの画面は、もう何も映していない。
+
+## イベント control_panel
+
+[分岐 フラグ:研究所停止 → control_panel_after]
+研究所のすべての設備が、この制御盤につながっている。
+{同行者}「ここを止めれば、研究所は終わる。データも、実験体の生命維持も、全部」
+{同行者}「でも、データは残せる。僕と一緒に、別の場所で続けることもできる」
+{主人公}「……止める」
+{同行者}「そう言うと思った」
+停止レバーを引いた。照明が一つずつ消えていく。
+[フラグ 研究所停止]
+[揺れ]
+放送「最終防衛を起動。エデンの番人を解放します」
+{同行者}「右の扉から通用門へ。走って！」
+[目的 制御室の右の扉から、通用門（脱出口）へ逃げる]
+
+## イベント control_panel_after
+
+制御盤は、もう何の反応もしない。
+
+## イベント escape_locked
+
+通用門への扉。まだ、外へ出るときではない。
+{主人公}「この扉は、研究所を止めないと開かない。制御室の制御盤を調べよう」
+
+## イベント escape_back
+
+後ろの扉は、もう開かない。前へ進むしかない。
+
+## イベント 入室:escape
+
+[済 → escape_after]
+旧校舎の裏庭。通用門の向こうに、夜明け前の空が見える。
+門の上から、白い巨体が音もなく降りてきた。
+【ヒント】扉は開かない。番人が技を構えている間（赤い範囲）は、横をすり抜けられる。夜明けまで逃げ切れ。
+[フラグ 脱出中]
+[追跡 エデンの番人 25 → end_bad]
+[消す 脱出中]
+白い巨体は、朝の光を浴びて動きを止めた。
+[分岐 → ending_judge]
+
+## イベント escape_after
+
+> 追跡のあとは、そのままエンディングの判定へ進む。
+
+## イベント escape_gate
+
+通用門だ。もうすぐ夜が明ける。
+
+## イベント ending_judge
+
+> エンディングの判定。真相資料は全部で 5 つ（旧資料室・観察室・模擬戦闘場・リヒトの研究室・所長室）。
+[分岐 フラグ:トワと約束 & !フラグ:トワ_救出 → judge_promise_broken]
+[分岐 → judge_main]
+
+## イベント judge_promise_broken
+
+ふと、延命実験室の槽を思い出した。——まってる。
+トワとの約束は、果たせなかった。
+[数値 救った -1]
+[分岐 → judge_main]
+
+## イベント judge_main
+
+[分岐 数値:真相>=5 & !フラグ:誰かを殺した & フラグ:リヒトの私物 → end_secret]
+[分岐 数値:真相>=5 & 数値:救った>=3 → end_good]
+[分岐 数値:真相>=5 → end_true]
+[分岐 → end_normal]
+
+## イベント end_true
+
+[暗く]
+研究所の記録は、すべて警察に渡った。エデン生命科学研究所は、その日のうちに封鎖された。
+{同行者}「……きみに捕まるなら、悪くない」
+リヒトは、自分から手錠に両手を差し出した。
+{主人公}「面会に行く。何度でも」
+{同行者}「待ってるよ。待つのは、得意なんだ」
+ノワは、自分の出生と、研究所の真実に向き合うことを選んだ。
+（救った命 {数値:救った}　安楽死 {数値:安楽死}　回収した資料 {数値:資料}）
+[終わり TRUE END ― 約束の面会]
+
+## イベント end_good
+
+[暗く]
+研究所の記録は、すべて警察に渡った。地下から解き放たれた人々も、保護された。
+[分岐 フラグ:トワ_救出 → end_good_towa]
+[分岐 → end_good2]
+
+## イベント end_good_towa
+
+トワは、生まれて初めて見る朝焼けに、声を上げて泣いた。
+[分岐 → end_good2]
+
+## イベント end_good2
+
+[分岐 フラグ:ヒナ_自由 → end_good_hina]
+[分岐 → end_good3]
+
+## イベント end_good_hina
+
+通用門の外で、小さな人影が手を振っていた。「まってた」とヒナが言った。
+[分岐 → end_good3]
+
+## イベント end_good3
+
+気がつくと、リヒトの姿はどこにもなかった。
+門の柱に、吸いかけの煙草が一本だけ、まだ煙を上げていた。
+{主人公}「……また、待たせることになるのかな。今度は、わたしが」
+（救った命 {数値:救った}　安楽死 {数値:安楽死}　回収した資料 {数値:資料}）
+[終わり GOOD END ― 夜明けの煙]
+
+## イベント end_normal
+
+[暗く]
+研究所は止まった。だが、ノワが知らないままの真実と、救えなかった命が、地下に残った。
+{同行者}「データは僕の中にある。きみが止めないなら、僕はどこかで続けるよ」
+リヒトは、最後の煙草に火をつけ、小さな薬瓶をノワの手に握らせた。
+{同行者}「僕を止められるのは、きみだけだ。……約束、覚えてないんだろう？」
+ノワは、薬瓶のふたを開けた。リヒトは、穏やかに笑ったまま、それを飲んだ。
+研究所は壊滅した。多くの犠牲と、ひとつの約束を残して。
+（救った命 {数値:救った}　安楽死 {数値:安楽死}　回収した資料 {数値:資料}）
+[終わり NORMAL END ― 最後の一本]
+
+## イベント end_secret
+
+[暗く]
+研究所の記録は、すべて警察に渡った。ただし、L-1 の記録だけを除いて。
+{主人公}「リヒト。思い出した。全部じゃないけど」
+{主人公}「わたし、迎えに来たんだよ。十年、遅れたけど」
+リヒトは、くわえていた煙草を、初めて自分から捨てた。
+{同行者}「……遅いよ。でも、ありがとう」
+ノワは、リヒトを自分の部屋にかくまった。二人は、研究所のない場所で生きる道を選んだ。
+誰も殺さず、すべての真実を拾い集めた先に、その朝はあった。
+（救った命 {数値:救った}　回収した資料 {数値:資料}）
+[終わり SECRET END ― 迎えに来たよ]
+
+## イベント end_bad
+
+[暗く]
+白い腕が、ノワの体を持ち上げた。
+放送「被験体 N-0、回収。再観察を開始します」
+{同行者}「……ノワ」
+遠くで、リヒトの声がした。それきり、何も聞こえなくなった。
+ノワは、再び研究所の実験対象になった。
+[終わり BAD END ― 再観察]
+</script>
+<script type="text/markdown" data-file="map.md">
+# map.md — エデン生命科学研究所（横スクロール版・全 16 部屋）
+
+横から見た部屋を、**2 行**で描きます。書き方の全体は scenario.md の `## 書き方` にもあります。
+
+- 1 行目：**壁の列**（絵・額縁・張り紙・スイッチ・覗き穴・窓・扉・階段など、壁についている物）
+- 2 行目：**床の列**（家具・暗幕・敵・`@` 始めの位置など、床に置く物）
+- 1 文字が横 1 マス。`.` は何もない所。`|` と `#` は行き止まり（両端に置く）。2 行は同じ長さにそろえると読みやすい
+- 同じ記号は 1 つの意味しか持てません（壁の列と床の列で別の記号を使う）
+- 同じ列に壁の物と床の物を置くと、「調べる」は床の物、↑ は壁の物を調べます
+
+コードブロックの外に、部屋の設定を書けます（省略可）：
+
+- `- 壁の色：#2c2430` / `- 床の色：#221a16`
+- `- 明るさ：0`（0＝真っ暗で灯の届く所だけ見える〜1＝全部見える）
+
+表の列（空欄でよい列は省略してもかまいません）：
+
+| 列 | 意味 |
+| --- | --- |
+| 記号 | コードブロックの中の 1 文字 |
+| 種類 | `調べる`（前で調べるとイベント）・`置物`（調べるとイベント。対象が空なら飾り）・`扉`・`階段`（前で ↑ か「調べる」で移動）・`隠れる`（前で調べると隠れる。左右に動くと出る。対象にイベントを書くと、隠れたときに動く）・`障害`（条件が合うまで通れない。ぶつかると「だめなとき」）・`床`（その位置まで歩くとイベント）・`敵`・`番人位置`（追跡のとき番人が出る所） |
+| 対象 | 扉・階段は `部屋ID:記号`（着く場所）。調べる・置物・床はイベント名。敵は enemies.md の敵の名前 |
+| 条件 | 扉は開く条件、敵は出てくる条件、ほかはイベントが動く条件（書き方は scenario.md と同じ） |
+| だめなとき | 条件が合わないときに動くイベント（鍵のかかった扉など） |
+| 出る | この条件が合うまで、その物は無いのと同じ（見えない・調べられない・光らない）。隠し扉や、灯りを点けると現れる文字に |
+| 見た目 | 描き方。下の一覧。`名前:状態` の形で、イベントの `[変化 記号 見た目]` で書き換えられる |
+| 絵 | 見た目が無いときに出す 1 文字（絵文字も可） |
+| 色 | 下地や扉の色 |
+| 光 | 周りを照らす広さ（マス）。見た目に「消」が付いている間は光らない。「赤」が付くと部屋を赤く染める |
+| 通ったら | 扉・階段を通って着いたときに動くイベント（「入室:部屋ID」より先に動く）。閉めた扉の背後から何か来る、など |
+
+見た目の一覧：
+
+- 壁：`絵`（肖像。`絵:目` 目が主人公を追う・`絵:泣く`・`絵:笑う`・`絵:無い` 人物が抜け出た）・`写真`（家族写真。`写真:目`・`写真:欠け` まん中が消えた・`写真:空き` 一人分の空白）・`額縁`（空の額）・`風景`（`風景:赤`）・`張り紙`（`張り紙:白`・`張り紙:血`）・`スイッチ`（`スイッチ:入`）・`覗き穴`（`覗き穴:目`）・`窓`（`窓:手` 手形・`窓:顔`・`窓:白`）・`時計`（`時計:逆` 針が逆に回る）・`鏡`（近づくと自分が映る。`鏡:影`）・`ランプ`（`ランプ:赤`・`ランプ:消`）
+- 扉・階段：`扉`（`扉:鉄`・`扉:開`）・`階段:上`・`階段:下`。種類が `調べる` でも見た目を `扉` にすると扉の絵になる（玄関など、イベントで扱いたい扉）
+- 床：`カウンター`・`机`・`長椅子`・`椅子`・`棚`・`カーテン`／`暗幕`・`ロッカー`（隠れると、中から扉のすき間ごしに外を見る画面になる。`ロッカー:開` 半開き）・`カメラ`・`台`・`花台`・`箱`
+
+scientists-side で足した見た目（研究所用）：
+
+- 壁：`モニター`（心拍の波形。`モニター:消`）・`金庫`・`黒板`・`窓口`（受付の小窓）・`パネル`（テンキーの操作盤。`パネル:開` で表示が緑）・`非常灯`（緑の誘導灯。光と組み合わせる）
+- 扉：`扉:カード`（横にカードリーダー）・`扉:テンキー`（横にテンキー）。どちらも条件が合うとランプが緑になる。`扉:門`（格子の門）
+- 床：`槽`（液体の円筒の槽。`槽:空`）・`檻`（`檻:壊れ`）・`ベッド`・`制御盤`・`下駄箱`・`消毒装置`（`消毒装置:動`）・`瓦礫`・`本棚`・`植木`・`流し`・`人:名前`（characters.md のその人をその場に描く）
+- `机`・`台`・`ロッカー` に「絵」も書くと、上に小さく絵を置く（机の上の日誌など）
+
+元の scientists/map.md からの変更：部屋 ID・扉の記号と行き先・条件・だめなとき・敵の出る条件・調べる対象のイベント名は同じです。位置は横 1 列に並べ直しました（扉の左右は部屋の端、奥の扉は壁の途中）。ロッカーは labA_ward・labB_hall・labC_room にあり、横スクロールでは敵をやり過ごすのに隠れる所が要るので、labA_ward のロッカーを 4 つに、labB_hall に「檻の陰」（隠れる）を 2 つ、holding にロッカーを 2 つ足しました。見回りの実験体が隠れ場所の前を通り過ぎるよう、隠れ場所は見回りの範囲（持ち場の左右 5 マス）の内側、端から 2 マス以上内に置いています。
+
+## 部屋 entrance エントランス（旧校舎の玄関ホール）
+
+- 壁の色：#2c2a30
+- 床の色：#22201c
+- 明るさ：0.1
+
+```
+|.X...b..e..N...i...e..|
+|...k......@.........j.|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| N | 扉 | central:S |  |  |  | 扉 |  | #3a3a44 |  |  |
+| X | 調べる | exit_locked |  |  |  | 扉 |  | #3a2a20 |  |  |
+| b | 調べる | board |  |  |  | 張り紙 |  |  |  |  |
+| i | 調べる | reception |  |  |  | 窓口 |  |  |  |  |
+| k | 置物 | shoebox2 |  |  |  | 下駄箱 |  | #2a2420 |  |  |
+| j | 調べる | shoebox |  |  |  | 下駄箱 |  | #2a2420 |  |  |
+| e | 置物 |  |  |  |  | 非常灯 |  |  | 1.6 |  |
+
+## 部屋 central 中央棟・一階廊下
+
+- 壁の色：#262a30
+- 床の色：#1e1e22
+- 明るさ：0.1
+
+```
+|W...U...n..S....K....B...n...E|
+|..............................|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | entrance:N |  |  |  | 扉 |  | #3a3a44 |  |  |
+| W | 扉 | staffroom:R |  |  |  | 扉 |  | #4a3020 |  |  |
+| E | 扉 | labA_gate:L |  |  |  | 扉 |  | #3a4a44 |  |  |
+| B | 扉 | labB_hall:S | 持つ:カードキーA | labB_locked |  | 扉:カード |  | #3a3a50 |  |  |
+| K | 扉 | labC_hall:S | 持つ:カードキーB | labC_locked |  | 扉:カード |  | #4a2a2a |  |  |
+| U | 階段 | holding:U | 持つ:カードキーC | holding_locked |  | 階段:下 |  |  |  |  |
+| n | 置物 |  |  |  |  | 非常灯 |  |  | 1.6 |  |
+
+## 部屋 staffroom 職員室
+
+- 壁の色：#2e2824
+- 床の色：#241e18
+- 明るさ：0.15
+
+```
+|.H.....g...........R|
+|..hh.d....j.d..d.s..|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| R | 扉 | central:W |  |  |  | 扉 |  | #4a3020 |  |  |
+| H | 隠し扉 | archive:D | フラグ:本棚を押した |  |  | 扉:開 |  | #2a2018 |  |  |
+| h | 調べる | shelf |  |  |  | 本棚 |  | #2a2018 |  |  |
+| g | 調べる | blackboard |  |  |  | 黒板 |  | #1e3024 |  |  |
+| d | 調べる | desk |  |  |  | 机 |  | #3a2e22 |  |  |
+| j | 調べる | diary |  |  |  | 机 | 📔 | #3a2e22 | 1.2 |  |
+| s | 調べる | sink |  |  |  | 流し |  |  |  |  |
+
+## 部屋 archive 旧資料室（隠し部屋）
+
+- 壁の色：#241e1a
+- 床の色：#1c1612
+- 明るさ：0
+
+```
+|.D........|
+|....ff..t.|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| D | 扉 | staffroom:H |  |  |  | 扉 |  | #2a2018 |  |  |
+| f | 調べる | archive_files |  |  |  | 棚 |  | #2a2420 |  |  |
+| t | 調べる | archive_desk |  |  |  | 机 |  | #3a2e22 |  |  |
+
+## 部屋 labA_gate 研究棟A・前室
+
+- 壁の色：#22302e
+- 床の色：#1a2220
+- 明るさ：0.15
+
+```
+|L.....p.G.....|
+|..l.......q.l.|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| L | 扉 | central:E |  |  |  | 扉 |  | #3a4a44 |  |  |
+| G | 扉 | labA_ward:S | 解放:研究棟A | gate_locked |  | 扉:テンキー |  | #3a4a44 |  |  |
+| p | 調べる | gate_panel |  |  |  | パネル |  |  | 1.2 |  |
+| l | 調べる | gate_locker |  |  |  | ロッカー |  | #2a3030 |  |  |
+| q | 置物 |  |  |  |  | 台 | 🧪 | #1e2a2a |  |  |
+
+## 部屋 labA_ward 研究棟A・病棟廊下
+
+- 壁の色：#1e2a2a
+- 床の色：#182020
+- 明るさ：0.05
+
+```
+|S................................N|
+|...b..b..L.r..L.v..b.b..L.x..L.b..|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labA_gate:G |  |  |  | 扉 |  | #3a4a44 |  |  |
+| N | 扉 | labA_room:S |  |  |  | 扉 |  | #3a4a44 |  |  |
+| b | 置物 | bed |  |  |  | ベッド |  |  |  |  |
+| v | 調べる | ward_shelf |  |  |  | 棚 |  | #1e2a2a |  |  |
+| r | 敵 | ロスト |  |  |  |  |  |  |  |  |
+| x | 敵 | キメラ |  |  |  |  |  |  |  |  |
+| L | 隠れる |  |  |  |  | ロッカー | 🗄 | #2a3434 |  |  |
+
+## 部屋 labA_room 研究棟A・延命実験室
+
+- 壁の色：#1a2a30
+- 床の色：#141e22
+- 明るさ：0.2
+
+```
+|S...m.........m.....|
+|.........T......k..B|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labA_ward:N |  |  |  | 扉 |  | #3a4a44 |  |  |
+| T | 調べる | tank |  |  |  | 槽 |  |  | 2.2 |  |
+| m | 調べる | monitor |  |  |  | モニター |  |  | 1 |  |
+| k | 調べる | chief_desk |  |  |  | 机 | 🗃 | #3a2e22 |  |  |
+| B | 番人位置 |  |  |  |  |  |  |  |  |  |
+
+## 部屋 labB_hall 研究棟B・飼育区画
+
+- 壁の色：#24242e
+- 床の色：#1c1c24
+- 明るさ：0.05
+
+```
+|S................i...............N|
+|...o..k....L.h..c...o...L.h..c..o.|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | central:B |  |  |  | 扉 |  | #3a3a50 |  |  |
+| N | 扉 | labB_room:S |  |  |  | 扉 |  | #3a3a50 |  |  |
+| o | 置物 | cage |  |  |  | 檻:壊れ |  |  |  |  |
+| i | 調べる | breeding_log |  |  |  | 張り紙 |  |  | 1.2 |  |
+| k | 調べる | labB_locker |  |  |  | ロッカー |  | #2a3030 |  |  |
+| h | 敵 | ハウンド |  |  |  |  |  |  |  |  |
+| L | 隠れる |  |  |  |  | ロッカー | 🗄 | #2a3434 |  |  |
+| c | 隠れる |  |  |  |  | 檻 |  |  |  |  |
+
+## 部屋 labB_room 研究棟B・観察室
+
+- 壁の色：#262630
+- 床の色：#1e1e26
+- 明るさ：0.15
+
+```
+|S...X...t.............|
+|...........c.....d...B|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labB_hall:N |  |  |  | 扉 |  | #3a3a50 |  |  |
+| X | 調べる | mirror_window |  |  |  | 鏡 |  |  |  |  |
+| c | 調べる | labB_desk |  |  |  | 机 | 🗃 | #3a2e22 |  |  |
+| t | 調べる | compare_record |  |  |  | 張り紙 |  |  | 1.2 |  |
+| d | 敵 | ドール | !フラグ:ドール_済 |  |  |  |  |  |  |  |
+| B | 番人位置 |  |  |  |  |  |  |  |  |  |
+
+## 部屋 labC_hall 研究棟C・培養区画
+
+- 壁の色：#2a2222
+- 床の色：#201a1a
+- 明るさ：0.08
+
+```
+|S.....w....................N|
+|...v........p....p....p.....|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | central:K |  |  |  | 扉 |  | #4a2a2a |  |  |
+| N | 扉 | labC_room:S |  |  |  | 扉 |  | #4a2a2a |  |  |
+| v | 調べる | disinfector |  |  |  | 消毒装置 |  |  | 1.4 |  |
+| w | 調べる | culture_log |  |  |  | 張り紙 |  |  |  |  |
+| p | 敵 | パラサイト | !フラグ:消毒済み |  |  |  |  |  |  |  |
+
+## 部屋 labC_room 研究棟C・模擬戦闘場
+
+- 壁の色：#2a2020
+- 床の色：#201818
+- 明るさ：0.1
+
+```
+|S....q......................|
+|.........k....L....r..m..m.B|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | labC_hall:N |  |  |  | 扉 |  | #4a2a2a |  |  |
+| r | 調べる | ren |  |  |  | 人:レン |  |  | 1.2 |  |
+| q | 調べる | release_plan |  |  |  | 張り紙 |  |  |  |  |
+| k | 調べる | labC_desk |  |  |  | 机 | 🗃 | #3a2e22 |  |  |
+| m | 敵 | ミラー |  |  |  |  |  |  |  |  |
+| L | 隠れる |  |  |  |  | ロッカー | 🗄 | #2a3434 |  |  |
+| B | 番人位置 |  |  |  |  |  |  |  |  |  |
+
+## 部屋 holding 収容エリア（地下）
+
+- 壁の色：#1e1e24
+- 床の色：#18181c
+- 明るさ：0.05
+
+```
+|U...a...a...a...p...a...a...a..R|
+|.............k..L..k.........s..|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| U | 階段 | central:U |  |  |  | 階段:上 |  |  |  |  |
+| R | 扉 | licht_lab:N |  |  |  | 扉 |  | #3a3040 |  |  |
+| a | 調べる | cell |  |  |  | 扉:鉄 |  | #24242c |  |  |
+| p | 調べる | holding_panel |  |  |  | パネル |  |  | 1.4 |  |
+| s | 調べる | holding_shelf |  |  |  | 箱 | 🧰 | #2a2a30 |  |  |
+| L | 敵 | ロスト |  |  |  |  |  |  |  |  |
+| k | 隠れる |  |  |  |  | ロッカー | 🗄 | #2a3434 |  |  |
+
+## 部屋 licht_lab リヒトの研究室
+
+- 壁の色：#2a2630
+- 床の色：#201c24
+- 明るさ：0.2
+
+```
+|N....................E|
+|...bb..a...d...l..z...|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| N | 扉 | holding:R |  |  |  | 扉 |  | #3a3040 |  |  |
+| E | 扉 | director:W | フラグ:リヒト_再会 | licht_door |  | 扉 |  | #3a3040 |  |  |
+| b | 調べる | licht_shelf |  |  |  | 本棚 |  | #2a2018 |  |  |
+| d | 調べる | licht_desk |  |  |  | 机 | 📔 | #3a2e22 | 1.2 |  |
+| a | 調べる | ashtray |  |  |  | 机 | 🚬 | #2a2a30 |  |  |
+| z | 置物 | licht_plant |  |  |  | 植木 |  |  |  |  |
+| l | 敵 | リヒト | !フラグ:リヒト_再会 |  |  |  |  |  |  |  |
+
+## 部屋 director 中枢・所長室
+
+- 壁の色：#2a2830
+- 床の色：#22202a
+- 明るさ：0.2
+
+```
+|W......r.........C|
+|...b......t..p....|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| W | 扉 | licht_lab:E |  |  |  | 扉 |  | #3a3040 |  |  |
+| C | 扉 | control:S | 持つ:中枢キー | control_locked |  | 扉:鉄 |  | #303848 |  |  |
+| b | 置物 | director_shelf |  |  |  | 本棚 |  | #2a2018 |  |  |
+| t | 調べる | final_report |  |  |  | 机 | 📁 | #3a2e22 | 1.4 |  |
+| p | 調べる | director_photo |  |  |  | 机 | 🖼 | #3a2e22 |  |  |
+| r | 調べる | director_safe |  |  |  | 金庫 |  |  |  |  |
+
+## 部屋 control 中枢・制御室
+
+- 壁の色：#22262e
+- 床の色：#1a1e26
+- 明るさ：0.25
+
+```
+|S..m..m.....m..m.X|
+|.........p........|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | director:C |  |  |  | 扉:鉄 |  | #303848 |  |  |
+| X | 扉 | escape:S | フラグ:研究所停止 | escape_locked |  | 扉:鉄 |  | #303848 |  |  |
+| m | 置物 | control_monitor |  |  |  | モニター |  |  | 1 |  |
+| p | 調べる | control_panel |  |  |  | 制御盤 |  |  | 2 |  |
+
+## 部屋 escape 脱出口（旧校舎裏の通用門）
+
+- 壁の色：#1a1e28
+- 床の色：#2a2a24
+- 明るさ：0.3
+
+```
+|S......................................G|
+|.......o.......o.....B.....o......o.....|
+```
+
+| 記号 | 種類 | 対象 | 条件 | だめなとき | 出る | 見た目 | 絵 | 色 | 光 | 通ったら |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S | 扉 | control:X | !フラグ:脱出中 | escape_back |  | 扉:鉄 |  | #303848 |  |  |
+| G | 調べる | escape_gate |  |  |  | 扉:門 |  | #3a2a20 | 1.6 |  |
+| o | 置物 |  |  |  |  | 瓦礫 |  |  |  |  |
+| B | 番人位置 |  |  |  |  |  |  |  |  |  |
+</script>
+<script type="text/markdown" data-file="characters.md">
+# characters.md — SCIENTISTS 登場人物
+
+## キャラ
+
+| 名前 | 役 | 服 | 髪 | 背 | 説明 |
+| --- | --- | --- | --- | --- | --- |
+| ノワ | 主人公 | #2a3040 | #1a1418 | 1 | 20 歳。組織の壊滅のために潜入したスパイ。記憶の一部が欠けている。被験体 N-0 |
+| リヒト | 同行者 | #e8e8f0 | #b8c0c8 | 1.05 | 22 歳。研究所の研究員。柔和な笑顔の合理主義者。ヘビースモーカー。被験体 L-1 |
+| 放送 | その他 | #000000 | #9ad0c0 | 1 | 校内放送のスピーカー |
+| トワ | その他 | #d0e8f0 | #e8d8a0 | 0.8 | 生命延長計画の最初の被験者 |
+| ヒナ | その他 | #e8e0f0 | #f0d0e0 | 0.9 | 研究棟B のドール。人に近く作られた少女 |
+| レン | その他 | #4a3a30 | #2a2a2a | 0.95 | 研究棟C の少年兵。軍事転用の被験者 |
+| 不死の看守 | 番人 | #303a40 | #000000 | 1.9 | 研究棟A のエリアボス |
+| 群れの主 | その他 | #3a2a34 | #000000 | 2 | 研究棟B のエリアボス |
+| 融合兵器ゼロ | その他 | #2a3a2a | #000000 | 2.1 | 研究棟C のエリアボス |
+| エデンの番人 | その他 | #e0e0e8 | #000000 | 2.2 | 研究所の最後の守り |
+</script>
+<script type="text/markdown" data-file="items.md">
+# items.md — SCIENTISTS 持ち物
+
+「使う」がある物は消耗品で、scenario.md の「持ち物の上限」まで持てます。空欄は大事な物（上限に数えない・1 つだけ）。
+使う欄の効果：`灯+1`（灯を回復）・`光+1`（5 分間、見える範囲を 1 段広げる）・`気をそらす`（その部屋の実験体と番人を 3 秒止める）・`イベント:名前`（使うとそのイベントが動く。物を減らすかどうかはイベントで決める）。`、` で複数書けます。
+
+## アイテム
+
+| 名前 | 分類 | 絵 | 使う | 説明 |
+| --- | --- | --- | --- | --- |
+| 空き瓶 | 回避 | 🍶 | 気をそらす | 投げると音が鳴る。実験体の注意をそらす |
+| 発煙筒 | 回避 | 🧨 | 気をそらす | 煙で視界をふさぎ、実験体と番人の足を止める |
+| 電池 | 探索 | 🔋 | 光+1 | 懐中電灯の予備の電池。しばらく明るく照らせる |
+| 医療キット | 回復 | 🩹 | 灯+2 | 傷の手当てができる |
+| 薬 | 回復 | 💊 | 灯+1 | 痛み止め。少し落ち着く |
+| 薬品 | 謎解き | 🧪 | イベント:use_chemical | 強い消毒薬。消毒装置に入れるか、菌のそばで使う |
+| 懐中電灯 | 探索 | 🔦 | | 暗い場所の奥を照らせる |
+| カードキーA | 謎解き | 💳 | | 研究棟A の主任のカードキー。研究棟B の扉にも使える |
+| カードキーB | 謎解き | 💳 | | 研究棟B の主任のカードキー。研究棟C の扉が開く |
+| カードキーC | 謎解き | 💳 | | 研究棟C の主任のカードキー。地下の収容エリアへ降りられる |
+| 携帯維持装置 | 謎解き | 🫀 | | 持ち運べる生命維持装置。槽の外でも命をつなげる |
+| 中枢キー | 謎解き | 🗝 | | 制御室の鍵 |
+</script>
+<script type="text/markdown" data-file="enemies.md">
+# enemies.md — SCIENTISTS 実験体・動き・番人・技
+
+触れられると灯が 1 つ消え、0 でゲームオーバーです。ノワは実験体を倒せません。逃げる・隠れる・気をそらすで切り抜けます。
+
+**横スクロール版（scientists-side）での動き**：実験体は左右にだけ動きます。
+
+- 見回り（ロスト・キメラ・ハウンド）は、持ち場の左右 5 マスを端から端へ歩き、端で立ち止まって振り返ります。向いている方しか見ていません（うっすら赤い帯）。ロッカーや檻の陰に隠れると、気づかずに通り過ぎます。目の前で、こちらを向いて追ってきているときに隠れると、見つかって灯が 1 つ消えます。
+- 横スクロールでは壁で視線が切れないので、キメラ・ハウンドの察知（値1）は scientists/ より短くしてあります（キメラ 5→4、ハウンド 6→4。ハウンドの追う速さも 1.9→1.6 倍にして、走れば振り切れるようにした）。実験体は主人公に触れると 1.2 秒よろけて止まります。
+- うしろ（ドール）は、こちらが向いている間は動きません。
+- 広がる（パラサイト）は、その場から動かず、左右に分体を増やして通路をふさぎます。
+- 先回り（ミラー）は、5 マス以内に入ると動きを学習して行く先へ回り込みます。急に向きを変えると読みが外れます。離れるか隠れると、持ち場へ戻ります。
+- 空き瓶・発煙筒で気をそらしている 3 秒の間は、実験体と番人に触れても平気です（すり抜けられる）。
+- 番人（追跡）には隠れても見つかります。扉から逃げれば振り切れます。番人は技を構えている間（赤い範囲が出ている間）は体に触れても平気なので、その間に横をすり抜けられます。`前` の技は向いている方だけに届きます。
+
+## 敵
+
+- 形：人形・影・目玉・獣・菌・鏡、または `人:名前`（characters.md のその人の姿で描く）
+- 動きは「## 動き」の名前。
+- 話す：近くで調べると動くイベント（敵とイベントの二重表現。ドールなど）
+- 害：`いいえ` と書くと、触れても灯が減らない（会話の相手など）
+
+| 名前 | 形 | 色 | 大きさ | 速さ | 動き | 話す | 害 | 説明 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| ロスト | 影 | #000000 | 1.1 | 1.1 | 見回り | | | 実験に失敗し、形を保てなくなった生命体。目が弱く、近くまで来ないと気づかない |
+| キメラ | 獣 | #7a5a3a | 1 | 1.4 | 見回りキメラ | | | 複数の動物の特徴を持つ。耳と鼻が利き、遠くから気づく |
+| ハウンド | 獣 | #4a3a4a | 1.15 | 1.6 | 見回りハウンド | | | 身体能力を強化された獣人型。速いが、檻などの障害物で視線が切れると見失う |
+| ドール | 人形 | #e8e0f0 | 0.9 | 1.4 | うしろ | hina_talk | | 人に近い姿だが、関節の向きがおかしい。見ている間は動かない。近くで話しかけられる |
+| パラサイト | 菌 | #6a8a4a | 1 | 0.9 | 広がる | | | 菌糸の組織。少しずつ周りに広がる。消毒装置で除去できる |
+| ミラー | 鏡 | #b8c8d8 | 1 | 2.0 | 先回り | | | ノワの動きを学習して先回りする。急に向きを変えると読みが外れる |
+| リヒト | 人:リヒト | #e8e8f0 | 1 | 0 | 止まる | licht_meet | いいえ | 研究室で待っている |
+
+## 動き
+
+| 動き | 値1 | 値2 | 説明 |
+| --- | --- | --- | --- |
+| 近づく | 0 | 0 | まっすぐ近づく |
+| ふらふら | 0.8 | 3 | 左右に揺れながら近づく |
+| 回り込む | 1.2 | 0.35 | まわりを回りながら近づく |
+| 突進 | 0.8 | 4 | 構えてから突っ込む |
+| 撃つ | 4 | 2.2 | 距離を保って弾を撃つ |
+| 見張り | 3 | 0 | 近づくまで動かない |
+| うしろ | 0 | 0 | 背中を向けている間だけ近づく |
+| 止まる | 0 | 0 | その場から動かない |
+| 見回り | 3 | 1.4 | 部屋をゆっくり歩き回る。値1 マス以内で見つかると「!」で追ってくる（速さの値2 倍）。壁で見えなくなると「?」で探し、3 秒で持ち場へ戻る |
+| 見回りキメラ | 4 | 1.6 | 見回りと同じ（「見回り」で始まる名前は見回りとして動く）。察知が 5 マスと遠い |
+| 見回りハウンド | 4 | 1.6 | 見回りと同じ。察知が遠く、追うのが速い |
+| 広がる | 4 | 5 | その場から動かず、値2 秒ごとに近くへ分体を増やす（値1 体まで）。すぐ近くに来ると寄ってくる |
+| 先回り | 0.6 | 1.2 | 主人公の動きを学習して行く先へ回り込む。値1：学習の速さ、値2：先読みの最大秒 |
+
+## 番人
+
+| 名前 | 形 | 色 | 大きさ | 速さ | 技 |
+| --- | --- | --- | --- | --- | --- |
+| 不死の看守 | 番人 | #303a40 | 1.9 | 1.2 | 延命の鎖・心拍・点滴の針 |
+| 群れの主 | 番人 | #3a2a34 | 2 | 1.5 | 飛びかかり・遠吠え・爪 |
+| 融合兵器ゼロ | 番人 | #2a3a2a | 2.1 | 1.3 | 腕の刃・胞子・榴弾 |
+| エデンの番人 | 番人 | #e0e0e8 | 2.2 | 1.4 | 断罪の光・鐘の声・羽 |
+
+## 技
+
+横スクロール版では、`前` は向いている方へ長さ L マス、`円` は左右 L マス、`弾` は L 個の弾を横に撃ちます（6 マスまで届く。幅は使いません）。長さは scientists/ より短くしてあります。
+
+| 技 | 種類 | 長さ | 幅 | 構え | 間隔 |
+| --- | --- | --- | --- | --- | --- |
+| 延命の鎖 | 前 | 4 | 1.4 | 1.0 | 1.5 |
+| 心拍 | 円 | 2 | 0 | 1.2 | 1.8 |
+| 点滴の針 | 弾 | 2 | 70 | 0.8 | 1.4 |
+| 飛びかかり | 前 | 4.5 | 1.8 | 0.8 | 1.3 |
+| 遠吠え | 円 | 2.2 | 0 | 1.0 | 1.6 |
+| 爪 | 弾 | 2 | 40 | 0.6 | 1.0 |
+| 腕の刃 | 前 | 4 | 2.2 | 0.9 | 1.4 |
+| 胞子 | 円 | 2.4 | 0 | 1.3 | 1.8 |
+| 榴弾 | 弾 | 2 | 90 | 0.8 | 1.5 |
+| 断罪の光 | 前 | 5 | 1.6 | 0.9 | 1.3 |
+| 鐘の声 | 円 | 2.6 | 0 | 1.1 | 1.6 |
+| 羽 | 弾 | 3 | 100 | 0.7 | 1.2 |
+</script>
+<!--EMBED-END-->
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const FILES = ['scenario.md', 'map.md', 'characters.md', 'items.md', 'enemies.md'];
+
+/* ====================== Markdown → 定義 ====================== */
+// 見出しごとに区切る。部屋とイベントは ID をキーにする（表示名が違っても置き換わる）。
+function secKey(head) {
+  const m = /^(部屋|イベント)\s+(\S+)/.exec(head);
+  return m ? m[1] + ' ' + m[2] : head;
+}
+function parseMd(text, src) {
+  const secs = {}; let cur = null, inCode = false;
+  for (const ln of text.replace(/\r/g, '').split('\n')) {
+    if (/^\s*```/.test(ln)) inCode = !inCode;
+    const m = !inCode && /^##\s+(.+?)\s*$/.exec(ln);
+    if (m) { cur = { head: m[1], lines: [], src }; secs[secKey(m[1])] = cur; continue; }
+    if (cur) cur.lines.push(ln);
+  }
+  return secs;
+}
+function splitRow(l) { let s = l.trim(); if (s.startsWith('|')) s = s.slice(1); if (s.endsWith('|')) s = s.slice(0, -1); return s.split('|').map(x => x.trim()); }
+function secTable(sec) {
+  const L = sec.lines;
+  const i = L.findIndex((l, k) => /^\s*\|/.test(l) && L[k + 1] && /^\s*\|[\s:|-]+\|?\s*$/.test(L[k + 1]));
+  if (i < 0) return [];
+  const hdr = splitRow(L[i]), rows = [];
+  for (let k = i + 2; k < L.length && /^\s*\|/.test(L[k]); k++) {
+    const c = splitRow(L[k]), o = {};
+    hdr.forEach((h, j) => o[h] = (c[j] ?? '').trim());
+    rows.push(o);
+  }
+  return rows;
+}
+function secCode(sec) {
+  const out = []; let inCode = false, done = false;
+  for (const l of sec.lines) {
+    if (/^\s*```/.test(l)) { if (inCode) { done = true; break; } inCode = true; continue; }
+    if (inCode) out.push(l.replace(/\s+$/, ''));
+  }
+  return done || inCode ? out : [];
+}
+function secScript(sec) {
+  const out = []; let inCode = false;
+  for (let l of sec.lines) {
+    if (/^\s*```/.test(l)) { inCode = !inCode; continue; }
+    if (inCode) continue;
+    l = l.trim();
+    if (!l || l.startsWith('>') || l.startsWith('<!--')) continue;
+    l = l.replace(/^[-*]\s+/, '');
+    if (l) out.push(l);
+  }
+  return out;
+}
+const num = (v, d) => { const n = parseFloat(v); return isFinite(n) ? n : d; };
+
+let RAW = {}, DEFAULT_RAW = {}, W = null;
+function applyText(text, src, target = RAW) {
+  const s = parseMd(text, src);
+  Object.assign(target, s);
+  return Object.values(s).map(x => x.head);
+}
+function buildWorld() {
+  const w = { settings: {}, chars: [], items: {}, enemies: {}, moves: {}, guards: {}, skills: {}, rooms: {}, events: {} };
+  for (const [key, sec] of Object.entries(RAW)) {
+    let m;
+    if (key === '設定') secTable(sec).forEach(r => w.settings[r['項目']] = r['値']);
+    else if (key === 'キャラ') w.chars = secTable(sec);
+    else if (key === 'アイテム') secTable(sec).forEach(r => w.items[r['名前']] = r);
+    else if (key === '敵') secTable(sec).forEach(r => w.enemies[r['名前']] = r);
+    else if (key === '動き') secTable(sec).forEach(r => w.moves[r['動き']] = r);
+    else if (key === '番人') secTable(sec).forEach(r => w.guards[r['名前']] = r);
+    else if (key === '技') secTable(sec).forEach(r => w.skills[r['技']] = r);
+    else if ((m = /^部屋\s+(\S+)\s*(.*)$/.exec(sec.head))) w.rooms[m[1]] = buildRoom(m[1], m[2] || m[1], sec);
+    else if ((m = /^イベント\s+(\S+)/.exec(sec.head))) w.events[m[1]] = secScript(sec);
+  }
+  return w;
+}
+// 横スクロール版の部屋：コードブロックの 1 行目が「壁の列」、2 行目が「床の列」。1 文字が横 1 マス
+// コードブロックの外の「- 壁の色：#xxxxxx」のような行は、部屋の設定になる
+function buildRoom(id, name, sec) {
+  const rows = secCode(sec).filter(l => l.trim() !== '');
+  const legend = {}, props = {};
+  secTable(sec).forEach(r => { if (r['記号']) legend[r['記号']] = r; });
+  let inCode = false;
+  for (const l of sec.lines) {
+    if (/^\s*```/.test(l)) { inCode = !inCode; continue; }
+    const m = !inCode && /^\s*[-*]\s*([^：:|]+?)\s*[：:]\s*(.+?)\s*$/.exec(l);
+    if (m) props[m[1]] = m[2];
+  }
+  const wall = rows[0] || '', floor = rows[1] || '';
+  const w = Math.max(1, wall.length, floor.length), objs = [];
+  [['wall', wall], ['floor', floor]].forEach(([layer, row]) => {
+    for (let x = 0; x < row.length; x++) { const o = legend[row[x]]; if (o) objs.push({ sym: row[x], x, layer, o }); }
+  });
+  return { id, name, wall, floor, legend, props, objs, w, h: 1 };
+}
+
+
+/* ====================== 状態 ====================== */
+const S = { mode: 'title' };       // title | play | end
+let G = null;                       // 保存する状態
+let checkpoint = null;
+const RT = { enemies: [], shots: [], warns: [], guard: null, chase: null, inv: 0, busy: false, lastTile: '', t: 0, comp: null, flash: 0, stun: 0, hazards: [], floats: [], hide: false, hideAt: null };
+const roleChar = role => W.chars.find(c => c['役'] === role);
+const charByName = n => W.chars.find(c => c['名前'] === n);
+const room = () => W.rooms[G.room];
+const setting = (k, d) => (W.settings[k] ?? '') !== '' ? W.settings[k] : d;
+const saveKey = () => 'md-forge-sidescroll:' + setting('タイトル', 'untitled');
+
+function sub(s) {
+  return s.replace(/\{(主人公|同行者|番人)\}/g, (_, r) => { const c = roleChar(r); return c ? c['名前'] : r; })
+          .replace(/\{数値[:：]([^}]+)\}/g, (_, n) => String(G ? (G.vars[n.trim()] || 0) : 0));
+}
+// 古いセーブにも新しい項目を足す
+function normalizeState(st) {
+  st.visited = st.visited || (st.room ? [st.room] : []);
+  st.vars = st.vars || {}; st.areas = st.areas || []; st.buff = st.buff || 0; st.buffLv = st.buffLv || 0;
+  st.items = st.items || []; st.flags = st.flags || {}; st.done = st.done || {};
+  st.looks = st.looks || {}; st.writes = st.writes || {}; st.y = 0; if (!st.face || !st.face[0]) st.face = [1, 0];
+  return st;
+}
+// 自動セーブ（部屋の移動時とイベント終了時）。追跡中・ゲームオーバー中は保存しない
+function saveGame() {
+  if (!G || S.mode !== 'play' || RT.chase) return;
+  try { localStorage.setItem(saveKey(), JSON.stringify(G)); } catch (e) {}
+}
+function loadSaved() { try { const v = JSON.parse(localStorage.getItem(saveKey()) || 'null'); return v ? normalizeState(v) : null; } catch (e) { return null; } }
+
+/* ====================== 部屋（横から見た 1 列） ====================== */
+// | と # は行き止まり。種類「障害」は条件が合うまでふさぐ。「出る」が合わない物は、無いのと同じ
+const KIND_USE = /^(調べる|置物|扉|階段|隠し扉|隠れる|障害)$/;
+function colCh(layer, x) { return room()[layer][x] || '.'; }
+const shown = ob => cond(ob.o['出る']) && (ob.o['種類'] !== '隠し扉' || cond(ob.o['条件']));
+function objsAt(x) { return room().objs.filter(ob => ob.x === x && shown(ob)); }
+function isSolid(x) {
+  const r = room();
+  if (x < 0 || x >= r.w) return true;
+  if (/[#|]/.test(colCh('wall', x)) || /[#|]/.test(colCh('floor', x))) return true;
+  return objsAt(x).some(ob => ob.o['種類'] === '障害' && !cond(ob.o['条件']));
+}
+function findSym(sym) {
+  const r = room();
+  for (const layer of ['floor', 'wall']) { const x = r[layer].indexOf(sym); if (x >= 0) return [x, 0]; }
+  return null;
+}
+function floorTiles() { const r = room(), out = []; for (let x = 0; x < r.w; x++) if (!isSolid(x)) out.push([x, 0]); return out; }
+const lookKey = (rid, sym) => rid + ':' + sym;
+// 見た目は [変化] で書き換えられる（セーブに残る）
+function lookOf(ob) { return (G.looks && G.looks[lookKey(G.room, ob.sym)]) ?? ob.o['見た目'] ?? ''; }
+function enterRoom(id, sym, keepPos, noSave) {
+  if (!W.rooms[id]) { toast(`部屋「${id}」がありません`); return false; }
+  G.room = id; G.y = 0;
+  G.visited = G.visited || [];
+  if (!G.visited.includes(id)) G.visited.push(id);
+  if (!keepPos) {
+    const p = (sym && findSym(sym)) || findSym('@') || floorTiles()[0] || [1, 0];
+    G.x = p[0] + 0.5;
+    if (blocked(G.x)) { const f = floorTiles().sort((a, b) => Math.abs(a[0] - p[0]) - Math.abs(b[0] - p[0]))[0]; if (f) G.x = f[0] + 0.5; }
+  }
+  RT.entryX = sym && !keepPos ? G.x : null;   // 入ってきた扉の位置（追跡の番人は、ここ＝背後から来る）
+  RT.lastCol = Math.floor(G.x); RT.bumpCol = null; RT.hide = false; RT.hideAt = null;
+  RT.grace = num(setting('入室の猶予', 2), 2);   // 部屋に入ってすぐは敵に見つからない（秒）
+  if (RT.chase) endChase('escaped');
+  RT.shots = []; RT.warns = []; RT.guard = null; RT.hazards = []; RT.floats = [];
+  spawnEnemies();
+  if (RT.comp) RT.comp.x = G.x - G.face[0] * 0.8;
+  $('#roomName').textContent = room().name;
+  checkpoint = JSON.parse(JSON.stringify(G));
+  if (!noSave) saveGame();
+  resize();
+  return true;
+}
+function spawnEnemies() { RT.enemies = []; refreshEnemies(); }
+// 条件が合った敵を出し、合わなくなった敵を消す（イベントの後にも呼ぶ）
+function refreshEnemies() {
+  const keep = [];
+  for (const ob of room().objs) {
+    if (ob.o['種類'] !== '敵' || !shown(ob) || !cond(ob.o['条件'])) continue;
+    const d = W.enemies[ob.o['対象']];
+    if (!d) continue;
+    const key = ob.sym + ob.x;
+    keep.push(RT.enemies.find(e => e.key === key) || { key, d, x: ob.x + 0.5, y: 0, hx: ob.x + 0.5, face: -1, t: Math.random() * 6, st: 'idle', timer: 0, vx: 0, cd: 1, mark: 0 });
+  }
+  for (const e of RT.enemies) if (e.parent && keep.some(k => k.key === e.parent)) keep.push(e);   // 「広がる」の分体
+  RT.enemies = keep;
+}
+
+
+/* ====================== 条件 ====================== */
+function cmp(a, op, b) { return op === '>=' ? a >= b : op === '<=' ? a <= b : op === '>' ? a > b : op === '<' ? a < b : a === b; }
+function cond(s) {
+  s = sub((s || '').trim());
+  if (!s) return true;
+  return s.split(/\s*[&＆]\s*/).every(c => {
+    let neg = false, v, m;
+    c = c.trim();
+    if (/^[!！]/.test(c)) { neg = true; c = c.slice(1).trim(); }
+    if ((m = /^持つ[:：](.+)$/.exec(c))) v = G.items.includes(m[1].trim());
+    else if ((m = /^フラグ[:：](.+)$/.exec(c))) v = !!G.flags[m[1].trim()];
+    else if ((m = /^済[:：](.+)$/.exec(c))) v = !!G.done[m[1].trim()];
+    else if ((m = /^(好感|灯)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(m[1] === '好感' ? G.aff : G.light, m[2], +m[3]);
+    else if ((m = /^数値[:：](.+?)\s*(>=|<=|==|=|>|<)\s*(-?\d+)$/.exec(c))) v = cmp(G.vars[m[1].trim()] || 0, m[2], +m[3]);
+    else if ((m = /^解放[:：](.+)$/.exec(c))) v = G.areas.includes(m[1].trim());
+    else if ((m = /^部屋[:：](.+)$/.exec(c))) v = G.room === m[1].trim();
+    else v = !!G.flags[c];
+    return neg ? !v : v;
+  });
+}
+
+/* ====================== 会話 ====================== */
+let dlgNext = null;
+function nameColor(n) { const c = charByName(n); return c ? (c['髪'] && c['髪'] !== '#000000' ? c['髪'] : c['服']) : '#e8b860'; }
+function say(name, text) {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false;
+    d.querySelector('.choices').innerHTML = '';
+    const nm = d.querySelector('.name'); nm.textContent = name || ''; nm.style.color = name ? nameColor(name) : '';
+    const tx = d.querySelector('.text'); tx.textContent = name ? '「' + text + '」' : text;
+    const full = tx.textContent; let i = 0; tx.textContent = '';
+    d.querySelector('.next').hidden = true;
+    const iv = setInterval(() => { i += 2; tx.textContent = full.slice(0, i); if (i >= full.length) stop(); }, 28);
+    function stop() { clearInterval(iv); tx.textContent = full; d.querySelector('.next').hidden = false; typing = false; }
+    let typing = true;
+    dlgNext = () => { if (typing) stop(); else { dlgNext = null; res(); } };
+  });
+}
+function choose(opts) {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false; d.querySelector('.next').hidden = true;
+    const box = d.querySelector('.choices'); box.innerHTML = '';
+    let sel = 0;
+    const btns = opts.map((o, i) => {
+      const b = document.createElement('button'); b.textContent = (i + 1) + '. ' + o.label;
+      b.onclick = e => { e.stopPropagation(); done(i); };
+      box.appendChild(b); return b;
+    });
+    const mark = () => btns.forEach((b, i) => b.classList.toggle('sel', i === sel));
+    mark();
+    function done(i) { dlgNext = null; choiceKey = null; box.innerHTML = ''; res(opts[i]); }
+    choiceKey = k => {
+      if (k === 'up') { sel = (sel + opts.length - 1) % opts.length; mark(); }
+      else if (k === 'down') { sel = (sel + 1) % opts.length; mark(); }
+      else if (k === 'ok') done(sel);
+      else if (/^[1-9]$/.test(k) && +k <= opts.length) done(+k - 1);
+    };
+    dlgNext = null;
+  });
+}
+let choiceKey = null;
+function hideDlg() { $('#dlg').hidden = true; }
+// 暗号入力：テキスト欄を出して、入力を返す
+function askText() {
+  return new Promise(res => {
+    const d = $('#dlg'); d.hidden = false; d.querySelector('.next').hidden = true;
+    const box = d.querySelector('.choices');
+    box.innerHTML = '<div class="ask"><input type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="答えを入力"><button class="primary">決定</button><button>やめる</button></div>';
+    const inp = box.querySelector('input'), [ok, cancel] = box.querySelectorAll('button');
+    const done = v => { dlgNext = null; box.innerHTML = ''; res(v); };
+    ok.onclick = e => { e.stopPropagation(); done(inp.value); };
+    cancel.onclick = e => { e.stopPropagation(); done(null); };
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && !e.isComposing) done(inp.value); });
+    dlgNext = null;
+    setTimeout(() => inp.focus(), 50);
+  });
+}
+// 全角半角・大文字小文字・ひらがなカタカナの違いは同じとみなす
+function normAnswer(s) {
+  return (s || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, '').replace(/[\u3041-\u3096]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+}
+
+/* ====================== イベント ====================== */
+async function runEvent(id) {
+  if (RT.busy || !id) return;
+  RT.busy = true; keys.clear(); joy = null;
+  try { for (const i of [].concat(id)) { if (S.mode !== 'play') break; await exec(i); } }   // 複数のイベントを続けて動かせる
+  catch (e) { console.error(e); toast('イベントでエラー: ' + e.message); }
+  finally { RT.busy = false; hideDlg(); updateHud(); if (S.mode === 'play') { refreshEnemies(); saveGame(); } }
+}
+async function exec(id, depth = 0) {
+  if (depth > 50) throw new Error('イベントの移動が多すぎます: ' + id);
+  const lines = W.events[id];
+  if (!lines) { await say(null, `（イベント「${id}」がありません）`); return; }
+  const first = !G.done[id];
+  // 「済」は最後まで進んだときだけ付ける。途中で別のイベントへ移った（暗くて見えない・持ち物がいっぱい等）ときは、もう一度調べられる
+  for (const raw of lines) {
+    if (S.mode !== 'play') return 'stop';
+    const ln = sub(raw);
+    const m = /^\[(\S+)\s*([\s\S]*?)\]$/.exec(ln);
+    if (m) {
+      const r = await command(m[1], m[2].trim(), first);
+      if (r === 'stop') return 'stop';
+      if (r && r.goto) return exec(r.goto, depth + 1);
+      continue;
+    }
+    const d = /^(.+?)「([\s\S]*)」$/.exec(ln);
+    if (d) await say(d[1].trim(), d[2]); else await say(null, ln);
+  }
+  if (S.mode === 'play') G.done[id] = (G.done[id] || 0) + 1;
+}
+const arrow = s => s.split(/\s*(?:→|->)\s*/);
+async function command(name, arg, first) {
+  switch (name) {
+    case '取得': {
+      const cons = isConsumable(arg);
+      if (!cons && G.items.includes(arg)) break;            // 大事な物は 1 つだけ
+      if (cons && consumableCount() >= itemLimit()) {      // 持ち物の上限（消耗品だけ数える）
+        if (W.events['満杯']) return { goto: '満杯' };
+        await say(null, `${arg} を見つけたが、これ以上は持てない。`); break;
+      }
+      G.items.push(arg); updateHud(); await say(null, `${itemIcon(arg)} ${arg} を手に入れた。`); break;
+    }
+    case '失う': { const i = G.items.indexOf(arg); if (i >= 0) G.items.splice(i, 1); updateHud(); break; }
+    case '数値': {   // [数値 名前 +1] / [数値 名前 -1] / [数値 名前 =0]
+      const m = /^(.+?)\s*([+\-=＋－＝])\s*(-?\d+)$/.exec(arg);
+      if (!m) { await say(null, `（[数値 ${arg}] の書き方が違います）`); break; }
+      const k = m[1].trim(), v = +m[3], op = m[2].normalize('NFKC');
+      G.vars[k] = op === '=' ? v : (G.vars[k] || 0) + (op === '+' ? v : -v);
+      break;
+    }
+    case '解放': if (!G.areas.includes(arg)) G.areas.push(arg); break;
+    case '入力': {   // [入力 答え → イベント]。答えは | で複数書ける
+      const [ans, to] = arrow(arg);
+      const v = await askText();
+      if (v != null && ans.split(/[|｜]/).some(a => normAnswer(a) === normAnswer(v))) return { goto: to };
+      break;
+    }
+    case 'フラグ': G.flags[arg] = true; break;
+    case '消す': delete G.flags[arg]; break;
+    case '灯': {
+      const v = parseInt(arg, 10) || 0;
+      if (v < 0) { for (let i = 0; i < -v; i++) hurt(true); if (S.mode !== 'play') return 'stop'; }
+      else { G.light = Math.min(maxLight(), G.light + v); updateHud(); }
+      break;
+    }
+    case '好感': G.aff += parseInt(arg, 10) || 0; break;
+    case '分岐': { const [c, to] = arrow(arg); if (cond(c)) return { goto: to }; break; }
+    case '済': { const [, to] = arrow(arg); if (!first) return { goto: to || arg }; break; }
+    case '選択': {
+      const opts = arg.split(/\s*[/／]\s*/).map(o => { const [label, to] = arrow(o); return { label, to }; });
+      const o = await choose(opts);
+      if (o.to) return { goto: o.to };
+      break;
+    }
+    case '移動': {
+      const [rid, sym] = arg.split(/[:：]/);
+      await fade(true); enterRoom(rid.trim(), sym && sym.trim()); await fade(false);
+      if (W.events['入室:' + rid.trim()]) await exec('入室:' + rid.trim());
+      break;
+    }
+    case '追跡': {   // [追跡 名前 秒数] / [追跡 名前 秒数 → 灯が尽きたときのイベント]
+      const [head, fail] = arrow(arg);
+      const [gn, secs] = head.split(/\s+/);
+      hideDlg();
+      const r = await chase(gn, num(secs, 15), fail);
+      if (r === 'fail') return { goto: fail };
+      if (r === 'dead' || S.mode !== 'play') return 'stop';
+      break;
+    }
+    case '同行': G.companion = arg; RT.comp = { x: G.x, y: G.y }; break;
+    case '離脱': G.companion = null; RT.comp = null; break;
+    case '揺れ': shake(); await wait(0.35); break;
+    case '暗転': await fade(true); await wait(0.4); await fade(false); break;
+    case '目的': G.goal = arg; updateGoal(true); break;   // 画面上部の「目的」を書き換える。{数値:名前} も使える
+    case '暗く': hideDlg(); await fade(true); break;     // 黒い画面のまま、次の文を出す（導入・場面転換用）
+    case '明るく': hideDlg(); await fade(false); break;
+    case '待つ': hideDlg(); await wait(num(arg, 1)); break;
+    case '止める': return 'stop';
+    case '終わり': hideDlg(); ending(arg); return 'stop';
+    case 'ゲームオーバー': hideDlg(); gameOver(arg); return 'stop';
+    // ---- 横スクロール版で増えた命令（壁のギミック用） ----
+    case '変化': {   // [変化 記号 見た目] / [変化 部屋ID:記号 見た目]。見た目を書かないと元に戻る
+      const [where, ...rest] = arg.split(/\s+/);
+      const [a, b] = where.split(/[:：]/), key = b ? lookKey(a, b) : lookKey(G.room, a);
+      if (rest.length) G.looks[key] = rest.join(' '); else delete G.looks[key];
+      break;
+    }
+    case '落書き': {   // [落書き 記号 文]：その物の上の壁に文字を残す（消えない）。文を書かないと消す
+      const m = /^(\S+)\s*([\s\S]*)$/.exec(arg) || ['', '', ''];
+      const [a, b] = m[1].split(/[:：]/), key = b ? lookKey(a, b) : lookKey(G.room, a);
+      if (m[2]) G.writes[key] = m[2]; else delete G.writes[key];
+      break;
+    }
+    case '文字': hideDlg(); RT.floats.push({ text: arg, x: G.x, t: 0, dur: 3 }); await wait(2.6); break;   // 壁に文字が浮かんで消える
+    case '手': {   // [手 記号]：その壁から手が伸びる。会話が閉じて少しすると伸び、近くにいると灯が消える
+      const p = arg && findSym(arg);
+      RT.hazards.push({ x: p ? p[0] + 0.5 : G.x, t: 0, hit: false, seed: Math.random() * 9 });
+      break;
+    }
+    case '振り向く': G.face = [-G.face[0], 0]; await wait(0.3); break;
+    case '向き': G.face = [/左/.test(arg) ? -1 : 1, 0]; break;
+    default: await say(null, `（命令「${name}」は知りません）`);
+  }
+}
+const wait = s => new Promise(r => setTimeout(r, s * 1000));
+function fade(on) { $('#fade').style.opacity = on ? 1 : 0; return wait(0.5); }
+function shake() { const m = $('#stage'); m.classList.remove('shake'); void m.offsetWidth; m.classList.add('shake'); }
+
+/* ====================== 持ち物・灯 ====================== */
+const maxLight = () => num(setting('灯の最大', 5), 5);
+const itemIcon = n => (W.items[n] && W.items[n]['絵']) || '◆';
+function updateHud() {
+  if (!G) { $('#lights').innerHTML = ''; return; }
+  const prev = updateHud.shown ?? G.light;
+  let h = '';
+  for (let i = 0; i < maxLight(); i++) {
+    const cls = i < G.light ? 'on' : (i < prev ? 'off out' : 'off');   // 今消えた灯は、しぼむように消す
+    h += `<span class="cdl ${cls}"><i style="animation-delay:${(-i * 0.37).toFixed(2)}s"></i></span>`;
+  }
+  $('#lights').innerHTML = h;
+  updateHud.shown = G.light;
+  updateGoal();
+}
+const isConsumable = n => !!((W.items[n] || {})['使う'] || '').trim();
+const consumableCount = () => G.items.filter(isConsumable).length;
+const itemLimit = () => num(setting('持ち物の上限', ''), Infinity);
+const effLight = () => G.light + (G.buff > 0 ? G.buffLv : 0);
+// 「使う」欄の効果。読点・カンマで複数書ける：灯+1 / 光+1 / 気をそらす
+function applyEffect(spec) {
+  const done = [];
+  for (const part of spec.split(/[、,，]/).map(s => s.trim()).filter(Boolean)) {
+    let m;
+    if ((m = /^灯\s*([+-]?\d+)$/.exec(part))) { G.light = Math.min(maxLight(), G.light + +m[1]); done.push('灯'); }
+    else if ((m = /^光\s*([+-]?\d+)$/.exec(part))) { G.buffLv = Math.max(G.buffLv || 0, +m[1]); G.buff = 300; done.push('光'); }
+    else if (part === '気をそらす') { RT.stun = 3; done.push('気をそらす'); }
+  }
+  return done.length > 0;
+}
+function useItem(n) {
+  const it = W.items[n] || {};
+  const ev = /^イベント[:：](.+)$/.exec((it['使う'] || '').trim());
+  if (ev) { $('#invDlg').close(); if (!RT.busy) runEvent(ev[1].trim()); return; }   // 使った結果はイベントで決める
+  if (!applyEffect(it['使う'] || '')) return;
+  const i = G.items.indexOf(n); if (i >= 0) G.items.splice(i, 1);
+  updateHud(); saveGame(); openInv(); toast(`${n} を使った。`);
+}
+let MINI = null, miniBig = false, miniTick = 0;
+// 全体図の置き方：左右の端の扉は左右へ、階段は上下へ（見た目「階段:下」は下）、壁の途中の扉は上へ
+function doorDir(r, ob) {
+  if (ob.o['種類'] === '階段') return /下/.test(ob.o['見た目'] || '') ? [0, 1] : [0, -1];
+  return ob.x < r.w * 0.2 ? [-1, 0] : ob.x >= r.w * 0.8 ? [1, 0] : [0, -1];
+}
+function buildMiniLayout() {
+  const pos = {}, edges = [], used = new Set(), start = setting('開始部屋', Object.keys(W.rooms)[0]);
+  if (!W.rooms[start]) return { pos, edges };
+  pos[start] = [0, 0]; used.add('0,0');
+  const q = [start];
+  while (q.length) {
+    const id = q.shift(), r = W.rooms[id];
+    for (const ob of r.objs) {
+      if (!/扉|階段/.test(ob.o['種類'])) continue;
+      const to = (ob.o['対象'] || '').split(/[:：]/)[0].trim();
+      if (!W.rooms[to]) continue;
+      if (!edges.some(e => (e.a === id && e.b === to) || (e.a === to && e.b === id))) edges.push({ a: id, b: to, o: ob.o });
+      if (pos[to]) continue;
+      const d = doorDir(r, ob);
+      let k = 1, pp;
+      do { pp = [pos[id][0] + d[0] * k, pos[id][1] + d[1] * k]; k++; } while (used.has(pp + '') && k < 8);
+      pos[to] = pp; used.add(pp + ''); q.push(to);
+    }
+  }
+  return { pos, edges };
+}
+
+function drawMini() {
+  const c = $('#mini');
+  if (!G || S.mode !== 'play' || !W.rooms[G.room]) { c.hidden = true; return; }
+  if (!MINI) MINI = buildMiniLayout();
+  const vis = new Set(G.visited || []);
+  // 見せる線：訪れた部屋から出ていて、隠し扉なら条件が合っているもの
+  const edges = MINI.edges.filter(e => (vis.has(e.a) || vis.has(e.b)) && ((cond(e.o['出る']) && (e.o['種類'] !== '隠し扉' || cond(e.o['条件']))) || (vis.has(e.a) && vis.has(e.b))));
+  const known = new Set([...vis]); edges.forEach(e => { known.add(e.a); known.add(e.b); });
+  const ids = [...known].filter(id => MINI.pos[id]);
+  if (!ids.length) { c.hidden = true; return; }
+  const xs = ids.map(id => MINI.pos[id][0]), ys = ids.map(id => MINI.pos[id][1]);
+  const minX = Math.min(...xs), minY = Math.min(...ys), cols = Math.max(...xs) - minX + 1, rows = Math.max(...ys) - minY + 1;
+  const cw = miniBig ? 46 : 20, chh = miniBig ? 28 : 12, gap = miniBig ? 18 : 8, pad = miniBig ? 12 : 6;
+  const W2 = pad * 2 + cols * cw + (cols - 1) * gap, H2 = pad * 2 + rows * chh + (rows - 1) * gap + (miniBig ? 0 : 0);
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  if (c.width !== W2 * dpr || c.height !== H2 * dpr) { c.width = W2 * dpr; c.height = H2 * dpr; c.style.width = W2 + 'px'; c.style.height = H2 + 'px'; }
+  c.hidden = false;
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W2, H2);
+  const at = id => { const [x, y] = MINI.pos[id]; return [pad + (x - minX) * (cw + gap), pad + (y - minY) * (chh + gap)]; };
+  g.strokeStyle = 'rgba(200,210,220,.45)'; g.lineWidth = 1.5;
+  for (const e of edges) { if (!MINI.pos[e.a] || !MINI.pos[e.b]) continue; const [ax, ay] = at(e.a), [bx, by] = at(e.b); g.beginPath(); g.moveTo(ax + cw / 2, ay + chh / 2); g.lineTo(bx + cw / 2, by + chh / 2); g.stroke(); }
+  for (const id of ids) {
+    const [x, y] = at(id), cur = id === G.room, seen = vis.has(id);
+    g.fillStyle = cur ? '#5a4628' : seen ? '#2c333c' : 'rgba(20,22,28,.9)';
+    g.fillRect(x, y, cw, chh);
+    g.strokeStyle = cur ? '#e8b860' : seen ? '#8a96a4' : 'rgba(140,150,160,.5)';
+    g.setLineDash(seen ? [] : [3, 2]); g.lineWidth = cur ? 2 : 1; g.strokeRect(x + 0.5, y + 0.5, cw - 1, chh - 1); g.setLineDash([]);
+    if (cur) {   // 部屋の中での自分の位置
+      const r = room(); g.fillStyle = '#fff4c0';
+      g.beginPath(); g.arc(x + G.x / r.w * cw, y + chh / 2, miniBig ? 3 : 2, 0, 7); g.fill();
+    }
+    if (miniBig) { g.fillStyle = seen ? '#d8e0e8' : '#7a828c'; g.font = '12px DenkiChip, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'top';
+      const nm = seen ? (W.rooms[id].name || id) : '？'; g.fillText(nm.length > 7 ? nm.slice(0, 7) : nm, x + cw / 2, y + chh + 2); }
+  }
+}
+$('#mini').addEventListener('click', e => { e.stopPropagation(); miniBig = !miniBig; drawMini(); });
+$('#mini').addEventListener('pointerdown', e => e.stopPropagation());
+function updateGoal(changed) {
+  const el = $('#goal'), txt = G && G.goal && S.mode === 'play' ? sub(G.goal) : '';
+  if (el.hidden !== !txt) { el.hidden = !txt; resize(); }
+  el.textContent = txt;
+  if (changed && txt) { el.classList.remove('new'); void el.offsetWidth; el.classList.add('new'); toast('目的が更新された'); }
+}
+function hurt(scripted) {
+  if (!scripted && RT.inv > 0) return;
+  G.light -= 1; RT.inv = 1.4; RT.flash = 0.4; shake(); updateHud();
+  if (G.light <= 0 && RT.chase && RT.chase.fail) { G.light = 0; endChase('fail'); return; }   // 失敗イベントのある追跡は、ゲームオーバーにしない
+  if (G.light <= 0) gameOver('灯が、すべて消えた。');
+}
+function openInv() {
+  if (!G) return;
+  const ul = $('#invList'); ul.innerHTML = '';
+  if (!G.items.length) ul.innerHTML = '<li><span class="tx">何も持っていない。</span></li>';
+  const lim = itemLimit();
+  $('#invHead').textContent = isFinite(lim) ? `消耗品 ${consumableCount()} / ${lim}` : '';
+  [...new Set(G.items)].forEach(n => {
+    const it = W.items[n] || {}, cnt = G.items.filter(x => x === n).length;
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="ic">${itemIcon(n)}</span><span class="tx"><b></b><span></span></span>`;
+    li.querySelector('b').textContent = n + (cnt > 1 ? ` ×${cnt}` : '') + (it['分類'] ? `（${it['分類']}）` : '');
+    li.querySelector('.tx span').textContent = it['説明'] || '';
+    if (isConsumable(n)) {
+      const b = document.createElement('button'); b.textContent = '使う';
+      b.onclick = () => useItem(n);
+      li.appendChild(b);
+    }
+    ul.appendChild(li);
+  });
+  if (!$('#invDlg').open) $('#invDlg').showModal();
+}
+
+/* ====================== 入力 ====================== */
+const keys = new Set();
+let joy = null;   // {sx, sy, dx, dy, moved, t}
+const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r' };
+addEventListener('keydown', e => {
+  if (document.querySelector('dialog[open]') || /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const k = KEYMAP[e.code];
+  if (choiceKey) {
+    if (k === 'u') choiceKey('up'); else if (k === 'd') choiceKey('down');
+    else if (/^(Space|Enter|KeyZ)$/.test(e.code)) choiceKey('ok');
+    else if (/^Digit[1-9]$/.test(e.code)) choiceKey(e.code.slice(5));
+    e.preventDefault(); return;
+  }
+  if (/^(Space|Enter|KeyZ)$/.test(e.code)) { e.preventDefault(); if (e.repeat) return; if (titleNext) titleNext(); else action(); return; }
+  if (e.code === 'KeyI') { openInv(); return; }
+  if (k) { keys.add(k); e.preventDefault(); }
+});
+addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+addEventListener('blur', () => keys.clear());
+const cv = $('#cv');
+// タッチ：押した所からのドラッグ方向へ進む（仮想スティック）。マウス：押している間、カーソルの方へ進む。
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); joy = { sx: e.clientX, sy: e.clientY, cx: e.clientX, cy: e.clientY, dx: 0, dy: 0, moved: false, t: performance.now(), mouse: e.pointerType === 'mouse' }; });
+cv.addEventListener('pointermove', e => {
+  if (!joy) return;
+  joy.cx = e.clientX; joy.cy = e.clientY;
+  joy.dx = e.clientX - joy.sx; joy.dy = e.clientY - joy.sy;
+  if (Math.hypot(joy.dx, joy.dy) > 14) joy.moved = true;
+});
+cv.addEventListener('pointerup', () => { if (joy && !joy.moved && performance.now() - joy.t < 300) action(); joy = null; });
+cv.addEventListener('pointercancel', () => joy = null);
+$('#dlg').addEventListener('click', () => { if (dlgNext) dlgNext(); });
+// ---- スマホ用スティックとボタン ----
+const stick = { id: null, x: 0, y: 0 };
+if (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window) document.body.classList.add('touch');
+addEventListener('touchstart', () => document.body.classList.add('touch'), { once: true, passive: true });
+(() => {
+  const base = $('#stick'), knob = base.querySelector('.knob');
+  const set = e => {
+    const r = base.getBoundingClientRect(), R = r.width / 2;
+    let dx = e.clientX - (r.left + R), dy = e.clientY - (r.top + R);
+    const l = Math.hypot(dx, dy), max = R - 14;
+    if (l > max) { dx *= max / l; dy *= max / l; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const k = Math.hypot(dx, dy) / max;
+    if (k < 0.22) { stick.x = stick.y = 0; } else { stick.x = dx / max; stick.y = dy / max; }
+  };
+  const end = e => { if (e.pointerId !== stick.id) return; stick.id = null; stick.x = stick.y = 0; knob.style.transform = ''; };
+  base.addEventListener('pointerdown', e => { e.preventDefault(); try { base.setPointerCapture(e.pointerId); } catch (_) {} stick.id = e.pointerId; set(e); });
+  base.addEventListener('pointermove', e => { if (e.pointerId === stick.id) set(e); });
+  base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
+  // ボタンは押した瞬間に反応させる（click を待たない）
+  const press = (el, fn) => {
+    el.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); el.classList.add('on'); fn(); });
+    const off = () => el.classList.remove('on');
+    el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
+    el.addEventListener('click', e => e.stopPropagation());
+  };
+  press($('#act'), () => { if (choiceKey) choiceKey('ok'); else action(); });
+  press($('#bInv'), () => { if (S.mode === 'play' && (!RT.busy || RT.chase)) openInv(); });
+})();
+
+/* ====================== 調べる・扉 ====================== */
+function action() {
+  if (dlgNext) { dlgNext(); return; }
+  if (S.mode !== 'play') return;
+  if (RT.chase) { const t = nearObj(true); if (t) interact(t); return; }   // 追跡中は扉と階段だけ使える
+  if (RT.busy) return;
+  examine();
+}
+// 主人公の前にある、いちばん近い調べられる物。onlyDoor：扉と階段だけ。wall：壁の物を優先（↑ キー）
+function nearObj(onlyDoor, wall) {
+  let best = null, bd = Infinity;
+  for (const ob of room().objs) {
+    const k = ob.o['種類'];
+    if (!KIND_USE.test(k) || !shown(ob)) continue;
+    if (onlyDoor && !/扉|階段/.test(k)) continue;
+    if (k === '置物' && !ob.o['対象']) continue;
+    if (k === '障害' && cond(ob.o['条件'])) continue;   // もう通れる障害は調べない
+    const lim = k === '障害' ? 1.05 : 0.8;
+    let d = Math.abs(ob.x + 0.5 - G.x);
+    if (d > lim) continue;
+    if (Math.sign(ob.x + 0.5 - G.x) === -G.face[0]) d += 0.15;   // 向いている側を少し優先
+    if ((ob.layer === 'wall') === !!wall) d -= 0.05;             // 同じ位置なら、調べるは手前（床の物）、↑ は壁の物を優先
+    if (d < bd) { bd = d; best = ob; }
+  }
+  return best;
+}
+function interact(ob) {
+  const o = ob.o, k = o['種類'];
+  if (/扉|階段/.test(k)) {
+    if (!cond(o['条件'])) { if (o['だめなとき']) runEvent(o['だめなとき']); else toast('開かない。'); return; }
+    goDoor(o['対象'], o['通ったら']);
+    return;
+  }
+  if (k === '隠れる') {
+    if (!cond(o['条件'])) { if (o['だめなとき']) runEvent(o['だめなとき']); return; }
+    // すぐ近くで、こちらを向いて追ってきている敵に見られていたら、隠れられない
+    const seer = RT.enemies.find(e => e.d['害'] !== 'いいえ' && RT.stun <= 0 && Math.abs(e.x - G.x) < 2.5 && e.face === Math.sign(G.x - e.x)
+      && (e.st === 'chase' || e.st === 'learn' || e.st === 'move' || e.st === 'wake'));
+    if (seer) { toast('見られていた！'); hurt(); return; }
+    for (const e of RT.enemies) if (e.st === 'chase') { e.st = 'lost'; e.timer = 3; e.lx = e.x; }
+    RT.hide = true; RT.hideAt = ob; G.x = ob.x + 0.5; keys.clear(); joy = null;
+    toast(isLocker(ob) ? 'ロッカーに隠れた（左右に動くと出る）' : '隠れた（左右に動くと出る）');
+    if (o['対象'] && W.events[o['対象']]) runEvent(o['対象']);   // 隠れたときに動くイベント（中に何かいる、など）
+    return;
+  }
+  if (cond(o['条件'])) { if (o['対象']) runEvent(o['対象']); }
+  else if (o['だめなとき']) runEvent(o['だめなとき']);
+}
+function examine() {
+  if (RT.hide) { RT.hide = false; return; }
+  const t = nearObj();
+  if (t) { interact(t); return; }
+  const talker = RT.enemies.find(e => e.d['話す'] && Math.abs(e.x - G.x) < 1.3);
+  if (talker && W.events[talker.d['話す']]) { runEvent(talker.d['話す']); return; }
+  if (RT.comp && Math.abs(RT.comp.x - G.x) < 1.4 && W.events['同行者と話す']) runEvent('同行者と話す');
+}
+function inputVec() {
+  let x = 0, y = 0;
+  if (keys.has('l')) x -= 1; if (keys.has('r')) x += 1; if (keys.has('u')) y -= 1; if (keys.has('d')) y += 1;
+  if (stick.x || stick.y) { x = stick.x; y = stick.y; }
+  else if (joy && joy.mouse && G && (joy.moved || performance.now() - joy.t > 180)) {   // マウス：押している間、カーソルの方へ歩く
+    const r = cv.getBoundingClientRect(), [ox] = cam();
+    const dx = joy.cx - r.left - (ox + G.x * TS);
+    joy.moved = true;
+    if (Math.abs(dx) > TS * 0.25) x = Math.sign(dx);
+  } else if (joy && joy.moved) { const l = Math.hypot(joy.dx, joy.dy); x = joy.dx / l; y = joy.dy / l; }
+  return [Math.abs(x) < 0.25 ? 0 : Math.max(-1, Math.min(1, x)), y];
+}
+
+/* ====================== 移動 ====================== */
+const PR = 0.3, SPD = 3.4;
+function blocked(x, r = PR) { return isSolid(Math.floor(x - r)) || isSolid(Math.floor(x + r)); }
+// 横に動かす。ふさがれたら、ぶつかった所まで寄せて true を返す
+function moveX(e, dx, r = PR) {
+  if (!blocked(e.x + dx, r)) { e.x += dx; return false; }
+  if (dx > 0) { const c = Math.floor(e.x + r + dx); e.x = Math.max(e.x, Math.min(e.x + dx, c - r - 0.001)); }
+  else if (dx < 0) { const c = Math.floor(e.x - r + dx); e.x = Math.min(e.x, Math.max(e.x + dx, c + 1 + r + 0.001)); }
+  return true;
+}
+function updatePlayer(dt) {
+  const [vx, vy] = inputVec();
+  // 上（↑・W・スティックを上へ）：前にある扉・階段に入る。壁の物を調べる（追跡中は扉と階段だけ）
+  const up = vy < -0.6 && Math.abs(vy) > Math.abs(vx);
+  if (up && !RT.upHeld) { RT.upHeld = true; const t = nearObj(!!RT.chase, true); if (t && (RT.chase || /扉|階段/.test(t.o['種類']) || t.layer === 'wall')) { interact(t); return; } }
+  if (!up) RT.upHeld = false;
+  if (RT.hide) { if (Math.abs(vx) > 0.5) RT.hide = false; else { RT.pv = [0, 0]; return; } }
+  RT.pv = [vx * SPD, 0];
+  RT.walk = vx ? (RT.walk || 0) + dt : 0;
+  if (!vx) return;
+  G.face = [Math.sign(vx), 0];
+  if (moveX(G, vx * SPD * dt)) {   // ふさがれた。障害なら「だめなとき」を 1 回だけ動かす
+    const col = Math.floor(G.x + Math.sign(vx) * (PR + 0.05));
+    if (RT.bumpCol !== col) {
+      RT.bumpCol = col;
+      const ob = objsAt(col).find(b => b.o['種類'] === '障害' && !cond(b.o['条件']));
+      if (ob && ob.o['だめなとき'] && !RT.chase) runEvent(ob.o['だめなとき']);
+    }
+    return;
+  }
+  const col = Math.floor(G.x);
+  if (col === RT.lastCol) return;
+  RT.lastCol = col; RT.bumpCol = null;
+  if (RT.chase) return;
+  for (const ob of objsAt(col)) {   // 種類「床」：その位置まで歩くとイベント
+    if (ob.o['種類'] !== '床') continue;
+    if (cond(ob.o['条件'])) { if (ob.o['対象']) { runEvent(ob.o['対象']); return; } }
+    else if (ob.o['だめなとき']) { runEvent(ob.o['だめなとき']); return; }
+  }
+}
+async function goDoor(target, after) {
+  const [rid, sym] = (target || '').split(/[:：]/).map(s => s && s.trim());
+  if (!W.rooms[rid]) { toast(`扉の行き先「${target}」がありません`); return; }
+  const prev = RT.busy;
+  RT.busy = true; RT.hide = false;
+  if (RT.chase) endChase('escaped');
+  await fade(true); enterRoom(rid, sym); await fade(false);
+  RT.busy = prev;
+  if (prev) return;   // 追跡中に扉から逃げた場合は、元のイベントが続きを進める
+  toast(room().name);
+  // 扉の「通ったら」→ 部屋の「入室:ID」の順に動かす
+  const evs = [after, '入室:' + rid].filter(e => e && W.events[e]);
+  if (evs.length) runEvent(evs);
+}
+
+/* ====================== 敵（横の動き） ====================== */
+function moveDef(name) { return W.moves[name] || { 値1: 0, 値2: 0 }; }
+// 見回り：歩く・立ち止まって振り返る → 前に見つけると「!」で追う → 隠れる・離れると「?」で探す → 持ち場へ戻る
+// 敵は向いている方しか見ない。隠れている主人公には気づかず、すり抜けていく
+function patrolStep(e, dt, sp, v1, v2, dist, ux) {
+  const see = RT.grace <= 0 && !RT.hide && dist < v1 && (ux === e.face || dist < 0.9);
+  let v = 0;
+  if (see && e.st !== 'chase') { e.st = 'chase'; e.mark = 0.9; }
+  if (e.st === 'chase') {
+    if (!RT.hide && dist < v1 + 2) { e.lx = G.x; v = ux * sp * v2; }
+    else { e.st = 'lost'; e.timer = 3; }
+  } else if (e.st === 'lost') {
+    const d = e.lx - e.x; v = Math.abs(d) > 0.3 ? Math.sign(d) * sp * 0.7 : 0;
+    if (!v && Math.floor(e.timer * 1.5) !== Math.floor((e.timer - dt) * 1.5)) e.face = -e.face;   // きょろきょろする
+    e.timer -= dt; if (e.timer <= 0) e.st = 'return';
+  } else if (e.st === 'return') {
+    const d = e.hx - e.x; v = Math.sign(d) * sp * 0.5; if (Math.abs(d) < 0.3) e.st = 'patrol';
+  } else {
+    e.st = 'patrol';
+    if (e.pause > 0) { const before = e.pause; e.pause -= dt; if (before >= 0.7 && e.pause < 0.7) e.face = -e.face; }   // 立ち止まって振り返る
+    else {
+      if (e.wp == null) {   // 持ち場の左右 5 マスの端から端へ歩く（端で立ち止まって振り返る）
+        const near = floorTiles().map(([x]) => x + 0.5).filter(x => Math.abs(x - e.hx) <= 5.01);
+        const lo = Math.min(...near, e.hx), hi = Math.max(...near, e.hx);
+        e.goR = e.goR == null ? e.face > 0 : !e.goR;
+        e.wp = e.goR ? hi : lo;
+        if (Math.abs(e.wp - e.x) < 0.2) { e.goR = !e.goR; e.wp = e.goR ? hi : lo; }
+      }
+      if (Math.abs(e.wp - e.x) < 0.15) { e.wp = null; e.pause = 2 + Math.random(); }
+      else v = Math.sign(e.wp - e.x) * sp * 0.45;
+    }
+  }
+  return v;
+}
+function updateEnemies(dt) {
+  if (RT.stun > 0) { RT.shots = RT.shots.filter(s => (s.life -= dt) > 0); return; }   // 気をそらしている間は止まる
+  for (const e of RT.enemies) {
+    e.t += dt; e.mark = Math.max(0, (e.mark || 0) - dt);
+    const dx = G.x - e.x, dist = Math.abs(dx) || 0.001, ux = Math.sign(dx) || 1;
+    const sp = num(e.d['速さ'], 1.2), mv = e.d['動き'] || '', md = moveDef(mv), v1 = num(md['値1'], 0), v2 = num(md['値2'], 0);
+    const patrol = /^見回り/.test(mv);   // 「見回り」で始まる名前の動きは、値だけ違う見回りとして扱う
+    let v = 0;
+    if (e.recover > 0) { e.recover -= dt; continue; }   // 主人公に触れたあとは、少しよろけて止まる（その間に逃げられる）
+    switch (patrol ? '見回り' : mv) {
+      case 'ふらふら': v = ux * sp * (0.7 + Math.sin(e.t * (v2 || 3)) * (v1 || 0.8) * 0.6); break;
+      case '突進':
+        if (e.st !== 'wind' && e.st !== 'dash') { v = ux * sp * 0.4; if (dist < 4.5) { e.st = 'wind'; e.timer = v1 || 0.8; } }
+        else if (e.st === 'wind') { e.timer -= dt; if (e.timer <= 0) { e.st = 'dash'; e.timer = 0.7; e.vx = ux; } }
+        else { v = e.vx * sp * (v2 || 4); e.timer -= dt; if (e.timer <= 0) e.st = 'idle'; }
+        break;
+      case '撃つ':
+        v = ux * sp * (dist > v1 + 0.5 ? 1 : dist < v1 - 0.5 ? -1 : 0);
+        e.cd -= dt; if (e.cd <= 0) { e.cd = v2 || 2; RT.shots.push({ x: e.x, vx: ux * 4, life: 4 }); }
+        break;
+      case '見張り': if (e.st === 'wake' || (dist < v1 && !RT.hide)) { e.st = 'wake'; v = ux * sp; } break;
+      case 'うしろ': e.st = G.face[0] === -ux ? 'freeze' : 'move'; if (e.st === 'move') v = ux * sp; break;   // こちらが見ている間は止まる
+      case '見回り': v = patrolStep(e, dt, sp, v1, v2 || 1, dist, ux); break;
+      case '止まる': break;
+      case '先回り': {   // 5 マス以内に入ると、主人公の動きを学習して行く先へ回り込む。向きを急に変えると読みが外れる
+        const pv = (RT.pv || [0])[0], pdir = Math.sign(pv);
+        if (dist >= 5) { e.learn = Math.max(0, (e.learn || 0) - dt); const d = e.hx - e.x; v = Math.abs(d) > 0.2 ? Math.sign(d) * sp * 0.4 : 0; e.st = 'idle'; break; }
+        if (pdir && e.lastDir && pdir !== e.lastDir) e.learn = 0;
+        if (pdir) e.lastDir = pdir;
+        e.learn = Math.min(v2 || 1.2, (e.learn || 0) + (v1 || 0.6) * dt);
+        const d = G.x + pv * e.learn - e.x;
+        v = Math.abs(d) > 0.1 ? Math.sign(d) * Math.min(sp, Math.abs(d) * 4) : 0;
+        e.st = e.learn > 0.3 ? 'learn' : 'move';
+        break;
+      }
+      case '広がる': {   // その場から動かず、値2 秒ごとに近くへ分体を増やす（値1 体まで）。すぐ近くに来ると寄ってくる
+        if (dist < 1.6) v = ux * sp;
+        if (!e.parent) {
+          e.cd -= dt;
+          const kids = RT.enemies.filter(k => k.parent === e.key);
+          if (e.cd <= 0 && kids.length < v1) {
+            e.cd = v2 || 4;
+            const spots = floorTiles().filter(([x]) => Math.abs(x + 0.5 - e.hx) < 2.6 && !RT.enemies.some(k => Math.floor(k.x) === x));
+            const s0 = spots[Math.floor(Math.random() * spots.length)];
+            if (s0) RT.enemies.push({ key: e.key + '#' + RT.t.toFixed(2), parent: e.key, d: e.d, x: s0[0] + 0.5, y: 0, hx: s0[0] + 0.5, face: -1, t: 0, st: 'idle', timer: 0, vx: 0, cd: 1, mark: 0, grow: 0 });
+          }
+        }
+        e.grow = Math.min(1, (e.grow ?? 1) + dt);
+        break;
+      }
+      default: v = ux * sp;   // 近づく
+    }
+    if (RT.hide && !patrol && !/止まる|広がる/.test(mv)) { const d = e.hx - e.x; v = Math.abs(d) > 0.2 ? Math.sign(d) * sp * 0.6 : 0; e.st = 'idle'; }   // 隠れていると、見回り以外の敵は持ち場へ戻る
+    if (Math.abs(v) > 0.01) e.face = Math.sign(v);
+    else if (!patrol && mv !== '止まる') e.face = ux;
+    if (moveX(e, v * dt, 0.25) && e.st === 'patrol') e.wp = null;
+    if (e.d['害'] !== 'いいえ' && !RT.hide && dist < 0.45 + num(e.d['大きさ'], 1) * 0.15 && RT.inv <= 0) {
+      hurt(); moveX(G, ux * 1.1); moveX(e, -ux * 0.6, 0.25); e.recover = 1.2;
+      if (e.st === 'dash') e.st = 'idle';
+    }
+  }
+  for (const s of RT.shots) {
+    s.x += s.vx * dt; s.life -= dt;
+    if (isSolid(Math.floor(s.x))) s.life = 0;
+    if (!RT.hide && Math.abs(s.x - G.x) < 0.3) { hurt(); s.life = 0; }
+  }
+  RT.shots = RT.shots.filter(s => s.life > 0);
+}
+// 壁から伸びる手（[手 記号]）。0.9 秒の予兆のあと 1.3 秒伸びる。その間に近くにいると灯が 1 つ消える
+function updateHazards(dt) {
+  for (const h of RT.hazards) {
+    h.t += dt;
+    if (!h.hit && h.t > 0.9 && h.t < 2.2 && Math.abs(G.x - h.x) < 1.15 && !RT.hide) { h.hit = true; hurt(); }
+  }
+  RT.hazards = RT.hazards.filter(h => h.t < 2.8);
+}
+
+/* ====================== 追跡（番人が横から迫る） ====================== */
+function chase(name, secs, fail) {
+  return new Promise(res => {
+    const gd = W.guards[name] || Object.values(W.guards)[0];
+    if (!gd) { res('none'); return; }
+    // 出る場所：番人位置 → 入ってきた扉（すぐ背後）→ 背中側の少し離れた所
+    const gp = room().objs.find(ob => ob.o['種類'] === '番人位置');
+    let x;
+    if (gp) x = gp.x + 0.5;
+    else if (RT.entryX != null && Math.abs(RT.entryX - G.x) < 2.5) x = RT.entryX;
+    else {
+      const cols = floorTiles().map(t => t[0] + 0.5), back = -G.face[0];
+      const behind = cols.filter(c => Math.sign(c - G.x) === back && Math.abs(c - G.x) >= 3);
+      x = behind.length ? behind.sort((a, b) => Math.abs(a - G.x - back * 5) - Math.abs(b - G.x - back * 5))[0]
+        : (cols.sort((a, b) => Math.abs(b - G.x) - Math.abs(a - G.x))[0] ?? G.x);
+    }
+    RT.guard = { d: gd, x, y: 0, alpha: 0, cd: 1.4, act: null, wait: 1.2, face: Math.sign(G.x - x) || 1 };
+    RT.chase = { t: secs, total: secs, res, fail };
+    $('#chase').hidden = false;
+    keys.clear(); RT.hide = false;
+  });
+}
+function endChase(result) {
+  if (!RT.chase) return;
+  const r = RT.chase.res; RT.chase = null; RT.guard = null; RT.warns = [];
+  RT.shots = []; $('#chase').hidden = true;
+  r(result);
+}
+function updateChase(dt) {
+  const c = RT.chase, g = RT.guard;
+  c.t -= dt;
+  $('#chase div').style.width = Math.max(0, c.t / c.total * 100) + '%';
+  if (c.t <= 0) { endChase('survived'); return; }
+  g.alpha = Math.min(1, g.alpha + dt * 1.2);
+  if (g.wait > 0) { g.wait -= dt; return; }   // 出てきてすぐは動かない（逃げ出す間）
+  if (RT.stun > 0) return;
+  const dx = G.x - g.x, dist = Math.abs(dx), ux = Math.sign(dx) || 1;
+  const size = num(g.d['大きさ'], 1.6);
+  if (!g.act) {
+    g.face = ux;
+    moveX(g, ux * num(g.d['速さ'], 1) * dt, 0.3);
+    g.cd -= dt;
+    if (g.cd <= 0) {
+      const list = (g.d['技'] || '').split(/[・,、]/).map(s => s.trim()).filter(s => W.skills[s]);
+      if (list.length) {
+        const sk = W.skills[list[Math.floor(Math.random() * list.length)]];
+        g.act = { sk, t: num(sk['構え'], 1), total: num(sk['構え'], 1), dir: ux, ox: g.x };
+        RT.warns = [g.act];
+      } else g.cd = 2;
+    }
+  } else {
+    const a = g.act; a.t -= dt;
+    if (a.t <= 0) {
+      const kind = a.sk['種類'], L = num(a.sk['長さ'], 3);
+      if (kind === '前') { const along = (G.x - a.ox) * a.dir; if (along > -0.3 && along < L) hurt(); }
+      else if (kind === '円') { if (Math.abs(G.x - a.ox) < L + 0.2) hurt(); }
+      else if (kind === '弾') { const n = Math.max(1, Math.round(L)); for (let i = 0; i < n; i++) { const sp2 = 3 + i * 1.3; RT.shots.push({ x: a.ox, vx: a.dir * sp2, life: 6 / sp2 }); } }   // 弾は 6 マスまで
+      RT.flash = Math.max(RT.flash, kind === '弾' ? 0 : 0.15);
+      g.cd = num(a.sk['間隔'], 1.6); g.act = null; RT.warns = [];
+    }
+  }
+  if (RT.chase && !g.act && dist < 0.35 + size * 0.2) hurt();   // 技を構えている間は、体に触れても平気（すり抜けられる）
+}
+
+
+/* ====================== 画面遷移 ====================== */
+function newGame() {
+  G = { room: setting('開始部屋', Object.keys(W.rooms)[0]), x: 1.5, y: 0, face: [1, 0], looks: {}, writes: {}, light: num(setting('最初の灯', 3), 3), items: [], flags: {}, aff: 0, done: {}, companion: null, vars: {}, areas: [], buff: 0, buffLv: 0, goal: setting('最初の目的', ''), visited: [] };
+  RT.comp = null;
+  startPlay();
+  enterRoom(G.room);
+  updateHud();
+  const ev = setting('開始イベント', '');
+  if (ev) runEvent(ev);
+}
+function startPlay() {
+  document.body.classList.remove('titling');
+  S.mode = 'play'; $('#screen').hidden = true; $('#screen').onclick = null; titleNext = null; hideDlg();
+  $('#fade').style.opacity = 0;   // エンディングの [暗く] が残っていても、始めるときは明るくする
+  RT.busy = false; RT.chase = null; RT.guard = null; RT.inv = 0; RT.stun = 0; $('#chase').hidden = true;
+}
+function loadState(st, noSave) {
+  G = normalizeState(JSON.parse(JSON.stringify(st)));
+  startPlay();
+  RT.comp = G.companion ? { x: G.x, y: G.y } : null;
+  enterRoom(G.room, null, true, noSave);
+  updateHud();
+}
+function showScreen(html) { const s = $('#screen'); s.innerHTML = html; s.hidden = false; $('#goal').hidden = true; $('#mini').hidden = true; }
+let titleNext = null;
+// タイトルは 1 枚だけ。「はじめる」を押すと、同じ画面の下にメニューが出る
+function titleScreen() {
+  S.mode = 'title'; hideDlg(); $('#chase').hidden = true; $('#fade').style.opacity = 0;
+  const t = setting('タイトル', '灯の館（仮）');
+  $('#title').textContent = t; document.title = t; $('#roomName').textContent = '';
+  document.body.classList.add('titling');   // タイトル中はヘッダーの題名を隠す（2 重にしない）
+  showScreen(`<h2 class="big"></h2><p class="catch"></p><div class="menu"><p class="press">クリック または スペースキーで はじめる</p></div>`);
+  $('#screen h2').textContent = t; $('#screen .catch').textContent = setting('キャッチ', '');
+  const go = () => { titleNext = null; $('#screen').onclick = null; titleMenu(); };
+  titleNext = go; $('#screen').onclick = go;
+}
+function titleMenu() {
+  const saved = loadSaved();
+  const m = $('#screen .menu');
+  m.innerHTML = `<div class="row"><button class="primary" id="sNew">はじめから</button><button id="sCont" ${saved ? '' : 'disabled'}>つづきから</button><button id="sMd">Markdown を読み込む</button></div><p class="desc"></p>`;
+  m.querySelector('.desc').textContent = setting('説明', '');
+  $('#sNew').onclick = () => { if (saved && !confirm('今のセーブを消して、最初から始めますか？')) return; newGame(); };
+  if (saved) $('#sCont').onclick = () => { if (W.rooms[saved.room]) loadState(saved); else newGame(); };
+  $('#sMd').onclick = openMd;
+  $('#sNew').focus();
+}
+function ending(name) {
+  S.mode = 'end';
+  try { localStorage.removeItem(saveKey()); } catch (e) {}
+  showScreen(`<p>END</p><h2></h2><div class="row"><button class="primary" id="sTitle">タイトルへ</button></div>`);
+  $('#screen h2').textContent = name || 'おわり';
+  $('#sTitle').onclick = titleScreen;
+}
+function gameOver(msg) {
+  if (S.mode !== 'play') return;
+  S.mode = 'end';
+  if (RT.chase) endChase('dead');
+  showScreen(`<h2 style="color:var(--danger)">GAME OVER</h2><p></p><div class="row"><button class="primary" id="sRetry">部屋の入口からやり直す</button><button id="sTitle">タイトルへ</button></div>`);
+  $('#screen p').textContent = msg || '';
+  $('#sRetry').onclick = () => loadState(checkpoint, true);   // セーブは上書きしない
+  $('#sTitle').onclick = titleScreen;
+}
+let toastT = 0;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => t.style.opacity = 0, 2200); }
+
+/* ====================== 描画（横から見た部屋） ====================== */
+const ctx = cv.getContext('2d');
+const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
+let VW = 0, VH = 0, TS = 64, DPR = 1, FLOOR_Y = 0, PSX = 0;
+const ACT = 2.1;   // 人物の大きさ（1 マスに対する倍率）
+function resize() {
+  const r = $('#stage').getBoundingClientRect();
+  DPR = Math.min(2, devicePixelRatio || 1); VW = r.width; VH = r.height;
+  cv.width = dark.width = VW * DPR; cv.height = dark.height = VH * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  TS = Math.max(40, Math.min(104, Math.floor(Math.min((VH - 40) / 4.4, VW / 7))));
+  const lift = document.body.classList.contains('touch') ? TS * 0.7 : TS * 0.35;   // 会話欄やスティックに隠れないよう、少し上に寄せる
+  FLOOR_Y = Math.max(10, (VH - TS * 4.1) / 2 - lift) + TS * 3.1;
+}
+addEventListener('resize', resize);
+// 返すのは [部屋の左端の画面 x, 床の画面 y]
+function cam() {
+  const rm = room(), ww = rm.w * TS;
+  const cx = ww <= VW ? (VW - ww) / 2 : Math.min(0, Math.max(VW - ww, VW / 2 - G.x * TS));
+  return [cx, FLOOR_Y];
+}
+
+function drawPerson(x, y, cloth, hair, scale, face, alpha = 1, plain = false) {
+  const s = TS * scale;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, s * 0.32, s * 0.28, s * 0.1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = cloth; ctx.beginPath(); ctx.moveTo(-s * 0.24, s * 0.3); ctx.lineTo(s * 0.24, s * 0.3); ctx.lineTo(s * 0.14, -s * 0.12); ctx.lineTo(-s * 0.14, -s * 0.12); ctx.fill();
+  // 頭（少し大きめにして顔を見やすくする）
+  const hy = -s * 0.27, hr = s * 0.2;
+  if (face[1] < 0) {   // 後ろ姿：髪だけ
+    ctx.fillStyle = '#efd9c8'; ctx.beginPath(); ctx.arc(0, hy, hr, 0, 7); ctx.fill();
+    ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(0, hy, hr * 1.06, 0, 7); ctx.fill();
+    ctx.restore(); return;
+  }
+  const fx = face[0] * hr * 0.35;   // 横を向くと顔が寄る
+  // 後ろ髪
+  ctx.fillStyle = hair; ctx.beginPath(); ctx.ellipse(-fx * 0.3, hy + hr * 0.15, hr * 1.08, hr * 1.05, 0, 0, 7); ctx.fill();
+  // 顔
+  ctx.fillStyle = '#efd9c8'; ctx.beginPath(); ctx.ellipse(fx * 0.4, hy + hr * 0.12, hr * 0.86, hr * 0.84, 0, 0, 7); ctx.fill();
+  // 前髪
+  ctx.fillStyle = hair; ctx.beginPath();
+  ctx.moveTo(-hr * 1.05, hy + hr * 0.1);
+  ctx.quadraticCurveTo(-hr * 0.9, hy - hr * 1.15, 0, hy - hr * 1.05);
+  ctx.quadraticCurveTo(hr * 0.9, hy - hr * 1.15, hr * 1.05, hy + hr * 0.1);
+  ctx.lineTo(hr * 0.6 + fx, hy - hr * 0.15); ctx.lineTo(hr * 0.25 + fx, hy - hr * 0.3); ctx.lineTo(fx, hy - hr * 0.12);
+  ctx.lineTo(-hr * 0.3 + fx, hy - hr * 0.32); ctx.lineTo(-hr * 0.65 + fx, hy - hr * 0.12);
+  ctx.closePath(); ctx.fill();
+  // 目（瞬きあり）
+  const blinkNow = Math.sin(RT.t * 0.9 + x * 0.37) > 0.985;
+  const eh = blinkNow ? hr * 0.05 : hr * 0.24, ew = hr * 0.16, ey = hy + hr * 0.2;
+  const ea = fx * 1.2, eyes = face[0] === 0 ? [-hr * 0.35, hr * 0.35] : [ea - hr * 0.28, ea + hr * 0.28];
+  if (plain) { ctx.restore(); return; }   // 人形は顔を描かない（うつろな目は drawEnemy で描く）
+  for (const exx of eyes) {
+    ctx.fillStyle = '#2a1e2a'; ctx.beginPath(); ctx.ellipse(exx, ey, ew, eh, 0, 0, 7); ctx.fill();
+    if (!blinkNow) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(exx + ew * 0.3, ey - eh * 0.35, ew * 0.38, 0, 7); ctx.fill(); }
+  }
+  // 頬と口
+  ctx.fillStyle = 'rgba(230,120,130,.35)';
+  for (const exx of eyes) { ctx.beginPath(); ctx.ellipse(exx + (exx < fx ? -1 : 1) * hr * 0.08, ey + hr * 0.32, ew * 0.9, ew * 0.45, 0, 0, 7); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(120,60,60,.7)'; ctx.lineWidth = Math.max(1, s * 0.012);
+  ctx.beginPath(); ctx.moveTo(fx * 1.1 - hr * 0.08, hy + hr * 0.6); ctx.lineTo(fx * 1.1 + hr * 0.08, hy + hr * 0.6); ctx.stroke();
+  ctx.restore();
+}
+// 燭台（真鍮の台とろうそく）
+function drawCandleStand(cx, cy) {
+  const s = TS;
+  ctx.fillStyle = '#7a5a2a'; ctx.beginPath(); ctx.ellipse(cx, cy + s * 0.32, s * 0.26, s * 0.08, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#a07a38'; ctx.fillRect(cx - s * 0.04, cy - s * 0.02, s * 0.08, s * 0.34);
+  ctx.fillStyle = '#b8904a'; ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.02, s * 0.16, s * 0.05, 0, 0, 7); ctx.fill();
+  const g = ctx.createLinearGradient(cx - s * 0.07, 0, cx + s * 0.07, 0);
+  g.addColorStop(0, '#cbbf9f'); g.addColorStop(0.45, '#f6efdc'); g.addColorStop(1, '#b8aa88');
+  ctx.fillStyle = g; ctx.fillRect(cx - s * 0.07, cy - s * 0.24, s * 0.14, s * 0.23);
+  ctx.fillStyle = '#efe6cc'; ctx.beginPath(); ctx.ellipse(cx, cy - s * 0.24, s * 0.07, s * 0.025, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, s * 0.015); ctx.beginPath(); ctx.moveTo(cx, cy - s * 0.24); ctx.lineTo(cx, cy - s * 0.29); ctx.stroke();
+}
+// ゆらめく炎：外の光・炎の本体・芯の近くの青・舞い上がる火の粉
+function drawFlame(x, y, size, seed) {
+  const t = RT.t + seed;
+  const h = size * (1.25 + Math.sin(t * 11) * 0.12 + Math.sin(t * 23.7) * 0.08 + Math.sin(t * 5.3) * 0.06);
+  const sway = (Math.sin(t * 4.1) * 0.5 + Math.sin(t * 9.7) * 0.3) * size * 0.18;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(x, y - h * 0.3, 0, x, y - h * 0.3, size * 3.2);
+  glow.addColorStop(0, 'rgba(255,170,70,.35)'); glow.addColorStop(0.4, 'rgba(255,120,40,.12)'); glow.addColorStop(1, 'rgba(255,90,20,0)');
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y - h * 0.3, size * 3.2, 0, 7); ctx.fill();
+  const w = size * 0.42;
+  const flame = (k, c0, c1) => {
+    const hh = h * k, ww = w * k, tx = x + sway * k;
+    const g = ctx.createLinearGradient(x, y, x, y - hh);
+    g.addColorStop(0, c0); g.addColorStop(1, c1);
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.moveTo(x, y + ww * 0.5);
+    ctx.bezierCurveTo(x - ww * 1.2, y + ww * 0.3, x - ww * 0.8, y - hh * 0.55, tx, y - hh);
+    ctx.bezierCurveTo(x + ww * 0.8, y - hh * 0.55, x + ww * 1.2, y + ww * 0.3, x, y + ww * 0.5);
+    ctx.fill();
+  };
+  flame(1, 'rgba(255,110,30,.9)', 'rgba(255,60,10,0)');
+  flame(0.72, 'rgba(255,200,80,.95)', 'rgba(255,150,40,.1)');
+  flame(0.42, 'rgba(255,250,220,1)', 'rgba(255,230,150,.3)');
+  ctx.fillStyle = 'rgba(90,140,255,.45)'; ctx.beginPath(); ctx.ellipse(x, y + w * 0.15, w * 0.35, w * 0.3, 0, 0, 7); ctx.fill();
+  for (let i = 0; i < 3; i++) {   // 火の粉
+    const ph = ((RT.t * 0.6 + i / 3 + seed * 0.13) % 1 + 1) % 1;
+    const ex = x + sway + Math.sin(ph * 7 + i * 2 + seed) * size * 0.5, ey = y - h - ph * size * 2.6;
+    ctx.fillStyle = `rgba(255,${160 + i * 30},80,${(1 - ph) * 0.8})`;
+    ctx.beginPath(); ctx.arc(ex, ey, Math.max(0.8, size * 0.07 * (1 - ph)), 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawEnemy(e, ox, oy) {
+  const x = ox + e.x * TS, y = oy + e.y * TS, s = TS * num(e.d['大きさ'], 1), col = e.d['色'] || '#ddd';
+  const shape = e.d['形'] || '';
+  const who = /^人[:：](.+)$/.exec(shape);
+  if (who) {   // 人:名前 … characters.md のその人の色で描く（会話の相手など）
+    const c = charByName(who[1].trim()) || {}, dx = G.x - e.x, dy = G.y - e.y;
+    const face = Math.hypot(dx, dy) < 4 ? (Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy) || 1]) : [0, 1];
+    drawPerson(x, y, c['服'] || col, c['髪'] || '#333', num(c['背'], 1), face);
+  } else if (shape === '影') {
+    ctx.save(); ctx.globalAlpha = 0.85;
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, s * 0.5); gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 7); ctx.fill();
+    const fo = (e.face || 0) * s * 0.12;   // 横スクロール版：目が向いている方へ寄る
+    ctx.fillStyle = '#e03040'; ctx.fillRect(x - s * 0.12 + fo, y - s * 0.08, s * 0.06, s * 0.04); ctx.fillRect(x + s * 0.06 + fo, y - s * 0.08, s * 0.06, s * 0.04);
+    ctx.restore();
+  } else if (shape === '獣') {   // 四つ足の融合生物
+    const fx = (G.x - e.x) >= 0 ? 1 : -1, step = Math.sin(e.t * 10) * s * 0.06;
+    ctx.save(); ctx.translate(x, y); ctx.scale(fx, 1);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0, s * 0.3, s * 0.4, s * 0.1, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
+    for (const [lx, ph] of [[-0.22, 1], [-0.1, -1], [0.14, -1], [0.26, 1]]) { ctx.beginPath(); ctx.moveTo(s * lx, s * 0.05); ctx.lineTo(s * lx + step * ph, s * 0.28); ctx.stroke(); }
+    ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.34, s * 0.17, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.05); ctx.quadraticCurveTo(-s * 0.55, -s * 0.2, -s * 0.5, s * 0.05); ctx.lineWidth = s * 0.05; ctx.stroke();   // しっぽ
+    ctx.beginPath(); ctx.arc(s * 0.36, -s * 0.12, s * 0.15, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s * 0.3, -s * 0.24); ctx.lineTo(s * 0.34, -s * 0.38); ctx.lineTo(s * 0.4, -s * 0.25); ctx.fill();   // 耳
+    ctx.fillStyle = '#e8d040'; ctx.fillRect(s * 0.4, -s * 0.16, s * 0.05, s * 0.04);
+    ctx.fillStyle = '#c03040'; ctx.fillRect(s * 0.33, -s * 0.15, s * 0.04, s * 0.04);   // 色の違う目
+    ctx.restore();
+  } else if (shape === '菌') {   // 菌糸のかたまり。触手がうねる
+    const g = e.grow ?? 1, r = s * 0.32 * (0.4 + 0.6 * g);
+    ctx.save(); ctx.translate(x, y);
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, s * 0.04); ctx.globalAlpha = 0.8;
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * Math.PI * 2 + Math.sin(e.t * 1.3 + i) * 0.3, l = r * (1.6 + Math.sin(e.t * 2 + i * 1.7) * 0.3);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(Math.cos(a + 0.6) * l * 0.6, Math.sin(a + 0.6) * l * 0.6, Math.cos(a) * l, Math.sin(a) * l); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,180,.5)';
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(Math.cos(i * 1.9) * r * 0.5, Math.sin(i * 1.9) * r * 0.5, r * 0.15, 0, 7); ctx.fill(); }
+    ctx.restore();
+  } else if (shape === '鏡') {   // 主人公と同じ姿の、銀色の写し
+    const hero = roleChar('主人公') || {}, dx = G.x - e.x, dy = G.y - e.y;
+    const face = Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy) || 1];
+    drawPerson(x, y, col, hero['髪'] || '#888', num(e.d['大きさ'], 1), face, 0.75);
+    if (e.st === 'learn') { ctx.strokeStyle = 'rgba(180,220,255,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, s * 0.5 + Math.sin(RT.t * 6) * 2, 0, 7); ctx.stroke(); }
+  } else if (shape === '目玉') {
+    const lx = (G.x - e.x), ly = (G.y - e.y), l = Math.hypot(lx, ly) || 1;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, s * 0.36, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#a03040'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = e.st === 'wake' ? '#d02030' : '#6a3040'; ctx.beginPath(); ctx.arc(x + lx / l * s * 0.14, y + ly / l * s * 0.14, s * 0.15, 0, 7); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(x + lx / l * s * 0.17, y + ly / l * s * 0.17, s * 0.06, 0, 7); ctx.fill();
+  } else {
+    const jitter = e.st === 'freeze' ? 0 : Math.sin(e.t * 9) * 1.2;
+    drawPerson(x + jitter, y, col, '#3a2a30', num(e.d['大きさ'], 0.8), [0, 1], 1, true);
+    ctx.fillStyle = '#000'; ctx.fillRect(x - s * 0.1, y - s * 0.22, s * 0.05, s * 0.07); ctx.fillRect(x + s * 0.05, y - s * 0.22, s * 0.05, s * 0.07);
+    if (e.st === 'wind') { ctx.fillStyle = '#e03040'; ctx.font = `24px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.fillText('!', x, y - s * 0.55); }
+  }
+}
+function drawMarks(e, ox, oy) {
+  const x = ox + e.x * TS, y = oy + e.y * TS - TS * num(e.d['大きさ'], 1) * 0.7;
+  let ch = '', col = '#e03040';
+  if (RT.stun > 0) { ch = '…'; col = '#a0c0ff'; }
+  else if (e.mark > 0) ch = '!';
+  else if (e.st === 'lost') { ch = '?'; col = '#ffd060'; }
+  if (!ch) return;
+  ctx.fillStyle = col; ctx.font = `24px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ch, x, y);
+}
+function drawGuard(g, ox, oy) {
+  const x = ox + g.x * TS, y = oy + g.y * TS, s = TS * num(g.d['大きさ'], 1.6);
+  const c = charByName(g.d['名前']);   // 番人ごとの色（characters.md に同名がいればその服の色）
+  ctx.save(); ctx.globalAlpha = g.alpha;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.3, s * 0.32, s * 0.1, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = (c && c['服']) || g.d['色'] || '#222';
+  ctx.beginPath(); ctx.moveTo(x - s * 0.3, y + s * 0.3); ctx.lineTo(x + s * 0.3, y + s * 0.3); ctx.lineTo(x + s * 0.12, y - s * 0.45); ctx.lineTo(x - s * 0.12, y - s * 0.45); ctx.fill();
+  ctx.strokeStyle = '#c8a860'; ctx.lineWidth = 2; const sw = Math.sin(RT.t * 3) * 0.6;
+  ctx.beginPath(); ctx.moveTo(x, y - s * 0.1); ctx.lineTo(x + Math.sin(sw) * s * 0.35, y - s * 0.1 + Math.cos(sw) * s * 0.35); ctx.stroke();
+  ctx.fillStyle = '#c8a860'; ctx.beginPath(); ctx.arc(x + Math.sin(sw) * s * 0.35, y - s * 0.1 + Math.cos(sw) * s * 0.35, s * 0.06, 0, 7); ctx.fill();
+  ctx.fillStyle = '#f04050'; ctx.fillRect(x - s * 0.08, y - s * 0.36, s * 0.04, s * 0.03); ctx.fillRect(x + s * 0.04, y - s * 0.36, s * 0.04, s * 0.03);
+  ctx.restore();
+}
+
+/* ---- 研究所の見た目（scientists-side で足した物） ---- */
+// 見た目「槽」：液体の円筒の槽。:空（中に誰もいない）
+function drawTank(cx, fy, st) {
+  const s = TS, w = s * 0.9, h = s * 2.3, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = '#2a3034'; ctx.fillRect(x - s * 0.06, fy - s * 0.25, w + s * 0.12, s * 0.25); ctx.fillRect(x - s * 0.06, y - s * 0.12, w + s * 0.12, s * 0.16);
+  const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, 'rgba(60,160,170,.55)'); g.addColorStop(0.5, 'rgba(120,220,220,.35)'); g.addColorStop(1, 'rgba(40,120,130,.6)');
+  ctx.fillStyle = g; ctx.fillRect(x, y + s * 0.04, w, h - s * 0.29);
+  if (st !== '空') {   // 中の少女
+    const bob = Math.sin(RT.t * 1.3) * s * 0.04;
+    el(cx, y + h * 0.32 + bob, s * 0.13, s * 0.15, 'rgba(230,220,210,.8)');
+    el(cx, y + h * 0.27 + bob, s * 0.16, s * 0.12, 'rgba(230,215,160,.7)');
+    ctx.fillStyle = 'rgba(220,230,240,.65)'; ctx.fillRect(cx - s * 0.12, y + h * 0.4 + bob, s * 0.24, h * 0.33);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  for (let i = 0; i < 4; i++) { const ph = (RT.t * 0.4 + i * 0.27) % 1; el(x + w * (0.25 + 0.17 * i), fy - s * 0.3 - ph * (h - s * 0.5), s * 0.025, s * 0.025, 'rgba(255,255,255,.4)'); }
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(x + w * 0.12, y + s * 0.1, w * 0.08, h - s * 0.45);
+}
+// 見た目「モニター」：心拍の波形。:消（真っ暗）
+function drawMonitor(cx, cy, st) {
+  const s = TS, w = s * 0.78, h = s * 0.56;
+  ctx.fillStyle = '#1a1c20'; ctx.fillRect(cx - w / 2 - 3, cy - h / 2 - 3, w + 6, h + 6);
+  ctx.fillStyle = st === '消' ? '#050607' : '#061a12'; ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+  if (st === '消') return;
+  ctx.strokeStyle = '#40e090'; ctx.lineWidth = Math.max(1, s * 0.02); ctx.beginPath();
+  for (let i = 0; i <= 30; i++) {
+    const k = i / 30, ph = (k * 2 + RT.t * 0.8) % 1, beat = ph > 0.45 && ph < 0.55 ? Math.sin((ph - 0.45) * 10 * Math.PI) * 0.8 : 0;
+    const px = cx - w / 2 + k * w, py = cy - beat * h * 0.4;
+    i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+  }
+  ctx.stroke();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(40,200,120,.12)'; ctx.fillRect(cx - w / 2, cy - h / 2, w, h); ctx.restore();
+}
+// 見た目「檻」：:壊れ（内側から壊されている）
+function drawCage(cx, fy, st) {
+  const s = TS, w = s * 1.0, h = s * 1.3, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#6a6a74'; ctx.lineWidth = Math.max(1.5, s * 0.03);
+  ctx.strokeRect(x, y, w, h);
+  for (let i = 1; i < 6; i++) {
+    const bx = x + w * i / 6; ctx.beginPath();
+    if (st === '壊れ' && (i === 2 || i === 3)) { ctx.moveTo(bx, y); ctx.quadraticCurveTo(bx + (i === 2 ? -1 : 1) * s * 0.2, y + h * 0.5, bx, y + h * 0.4); }
+    else { ctx.moveTo(bx, y); ctx.lineTo(bx, fy); }
+    ctx.stroke();
+  }
+}
+function drawBed(cx, fy) {
+  const s = TS, w = s * 1.6;
+  ctx.fillStyle = '#6a6e74'; ctx.fillRect(cx - w / 2, fy - s * 0.55, s * 0.06, s * 0.55); ctx.fillRect(cx + w / 2 - s * 0.06, fy - s * 0.85, s * 0.06, s * 0.85);
+  ctx.fillStyle = '#c8c4bc'; ctx.fillRect(cx - w / 2, fy - s * 0.55, w, s * 0.14);
+  ctx.fillStyle = '#e0dcd4'; el(cx + w * 0.32, fy - s * 0.6, s * 0.2, s * 0.08, '#e0dcd4');
+  ctx.fillStyle = 'rgba(110,80,60,.45)'; el(cx - w * 0.05, fy - s * 0.52, s * 0.35, s * 0.04, 'rgba(110,80,60,.45)');
+}
+function drawSafe(cx, cy) {
+  const s = TS, w = s * 0.6;
+  ctx.fillStyle = '#2a2c30'; ctx.fillRect(cx - w / 2, cy - w / 2, w, w); ctx.strokeStyle = '#4a4e54'; ctx.lineWidth = 2; ctx.strokeRect(cx - w / 2 + 3, cy - w / 2 + 3, w - 6, w - 6);
+  el(cx, cy, w * 0.2, w * 0.2, '#8a8a80'); el(cx, cy, w * 0.12, w * 0.12, '#3a3a36');
+  ctx.fillStyle = '#c0c0b0'; ctx.fillRect(cx - 1, cy - w * 0.2, 2, w * 0.08);
+}
+function drawConsole(cx, fy) {
+  const s = TS, w = s * 1.5, h = s * 0.95;
+  ctx.fillStyle = '#2a2e38'; ctx.beginPath(); ctx.moveTo(cx - w / 2, fy); ctx.lineTo(cx - w / 2, fy - h * 0.7); ctx.lineTo(cx - w / 2 + s * 0.2, fy - h); ctx.lineTo(cx + w / 2 - s * 0.2, fy - h); ctx.lineTo(cx + w / 2, fy - h * 0.7); ctx.lineTo(cx + w / 2, fy); ctx.fill();
+  const cs = ['#e04040', '#40e090', '#e0c040', '#4090e0'];
+  for (let i = 0; i < 8; i++) el(cx - w * 0.35 + i * w * 0.1, fy - h * 0.82, s * 0.03, s * 0.03, Math.sin(RT.t * 3 + i * 1.7) > 0 ? cs[i % 4] : '#202228');
+  ctx.fillStyle = '#9a3a3a'; ctx.fillRect(cx + w * 0.25, fy - h * 1.15, s * 0.05, h * 0.4); el(cx + w * 0.25 + s * 0.025, fy - h * 1.15, s * 0.06, s * 0.06, '#d04040');
+}
+function drawBoard(cx, cy, col) {
+  const s = TS, w = s * 1.8, h = s * 0.9;
+  ctx.fillStyle = '#5a4028'; ctx.fillRect(cx - w / 2 - 4, cy - h / 2 - 4, w + 8, h + 8);
+  ctx.fillStyle = col || '#1e3024'; ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+  ctx.fillStyle = 'rgba(230,230,220,.45)'; for (let i = 0; i < 3; i++) ctx.fillRect(cx - w * 0.4, cy - h * 0.25 + i * h * 0.22, w * (0.7 - i * 0.15), 2);
+}
+function drawShoebox(cx, fy, col) {
+  const s = TS, w = s * 1.1, h = s * 1.3; ctx.fillStyle = col || '#4a3a28'; ctx.fillRect(cx - w / 2, fy - h, w, h);
+  ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) ctx.strokeRect(cx - w / 2 + s * 0.05 + j * (w - s * 0.1) / 3, fy - h + s * 0.05 + i * (h - s * 0.1) / 4, (w - s * 0.1) / 3, (h - s * 0.1) / 4);
+}
+function drawDisinfector(cx, fy, st) {
+  const s = TS; ctx.fillStyle = '#3a4a4e'; ctx.fillRect(cx - s * 0.4, fy - s * 1.2, s * 0.8, s * 1.2);
+  ctx.fillStyle = st === '動' ? '#60e0c0' : '#1a2224'; ctx.fillRect(cx - s * 0.25, fy - s * 1.05, s * 0.5, s * 0.35);
+  ctx.strokeStyle = '#6a7a7e'; ctx.lineWidth = Math.max(2, s * 0.05); ctx.beginPath(); ctx.moveTo(cx + s * 0.4, fy - s * 0.9); ctx.lineTo(cx + s * 0.55, fy - s * 0.9); ctx.lineTo(cx + s * 0.55, fy - s * 2.4); ctx.stroke();
+}
+function drawRubble(cx, fy) {
+  const s = TS; for (const [dx, r, c] of [[-0.25, 0.22, '#3a3a40'], [0.15, 0.3, '#2e2e34'], [0.35, 0.16, '#44444a']]) el(cx + dx * s, fy - r * s * 0.6, r * s, r * s * 0.65, c);
+}
+function drawBookshelf(cx, fy, col) {
+  const s = TS, w = s * 1.0, h = s * 2.1; ctx.fillStyle = col || '#3a2a20'; ctx.fillRect(cx - w / 2, fy - h, w, h);
+  const cs = ['#6a3030', '#304a6a', '#5a5a30', '#4a3060', '#306a4a'];
+  for (let i = 0; i < 4; i++) { const sy = fy - h + s * 0.08 + i * h / 4; ctx.fillStyle = '#120c0a'; ctx.fillRect(cx - w / 2 + s * 0.05, sy, w - s * 0.1, h / 4 - s * 0.08);
+    for (let j = 0; j < 6; j++) { ctx.fillStyle = cs[(i * 3 + j) % 5]; ctx.fillRect(cx - w / 2 + s * 0.07 + j * s * 0.14, sy + s * 0.06 + (j % 2) * s * 0.04, s * 0.11, h / 4 - s * 0.18 - (j % 2) * s * 0.04); } }
+}
+function drawPlant(cx, fy) {
+  const s = TS; ctx.fillStyle = '#5a3a2a'; ctx.fillRect(cx - s * 0.18, fy - s * 0.4, s * 0.36, s * 0.4);
+  for (const [a, l] of [[-0.6, 0.7], [-0.2, 0.9], [0.25, 0.8], [0.6, 0.6]]) { ctx.save(); ctx.translate(cx, fy - s * 0.4); ctx.rotate(a); el(0, -l * s * 0.5, s * 0.1, l * s * 0.5, '#2a4a30'); ctx.restore(); }
+}
+function drawSink(cx, fy) {
+  const s = TS; ctx.fillStyle = '#5a5e64'; ctx.fillRect(cx - s * 0.45, fy - s * 0.85, s * 0.9, s * 0.85); ctx.fillStyle = '#8a8e94'; ctx.fillRect(cx - s * 0.5, fy - s * 0.9, s, s * 0.08);
+  ctx.strokeStyle = '#9a9ea4'; ctx.lineWidth = Math.max(2, s * 0.04); ctx.beginPath(); ctx.moveTo(cx, fy - s * 0.9); ctx.lineTo(cx, fy - s * 1.2); ctx.lineTo(cx + s * 0.18, fy - s * 1.2); ctx.stroke();
+  const ph = (RT.t * 0.8) % 1; el(cx + s * 0.18, fy - s * 1.15 + ph * s * 0.2, s * 0.02, s * 0.03, 'rgba(160,200,230,.8)');
+}
+function drawExitSign(cx, cy) {
+  const s = TS; ctx.fillStyle = '#1a6a3a'; ctx.fillRect(cx - s * 0.3, cy - s * 0.12, s * 0.6, s * 0.24);
+  ctx.fillStyle = '#e0f0e0'; ctx.fillRect(cx - s * 0.2, cy - s * 0.07, s * 0.08, s * 0.14); ctx.fillRect(cx - s * 0.08, cy - s * 0.02, s * 0.25, s * 0.04);
+}
+function drawWicket(cx, cy) {   // 見た目「窓口」：受付の小窓
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.95, s * 0.7, '#4a4038');
+  ctx.fillStyle = '#10161a'; ctx.fillRect(ix, iy, iw, ih); ctx.fillStyle = 'rgba(160,190,200,.12)'; ctx.fillRect(ix, iy, iw * 0.3, ih);
+  ctx.fillStyle = '#3a3028'; ctx.fillRect(cx - s * 0.55, cy + s * 0.35, s * 1.1, s * 0.08);
+}
+function drawPanel(cx, cy, ok) {   // 見た目「パネル」：テンキーの操作盤
+  const s = TS; ctx.fillStyle = '#20262a'; ctx.fillRect(cx - s * 0.2, cy - s * 0.28, s * 0.4, s * 0.56);
+  ctx.fillStyle = ok ? '#40e090' : '#e04040'; ctx.fillRect(cx - s * 0.14, cy - s * 0.22, s * 0.28, s * 0.08);
+  ctx.fillStyle = '#6a7276'; for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) ctx.fillRect(cx - s * 0.13 + j * s * 0.1, cy - s * 0.08 + i * s * 0.08, s * 0.07, s * 0.055);
+}
+// 見た目「人:名前」：characters.md のその人を、その場に描く（鎖につながれた少年など）
+function drawSomeone(name, cx, fy) {
+  const c = charByName(name) || {}, k = num(c['背'], 1);
+  ctx.save(); ctx.translate(cx, fy - TS * 0.05); ctx.scale(ACT, ACT);
+  drawPerson(0, -TS * 0.32 * k, c['服'] || '#555', c['髪'] || '#222', k, [Math.sign(PSX - cx) || -1, 0]); ctx.restore();
+}
+
+/* ---- 壁と床の物（見た目） ---- */
+const el = (x, y, rx, ry, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, 7); ctx.fill(); };
+const lookTo = cx => Math.max(-1, Math.min(1, (PSX - cx) / (TS * 3)));   // 主人公の方を見る向き（-1〜1）
+// 額縁を描いて、内側の [x, y, w, h] を返す
+function frame(cx, cy, w, h, col = '#7a5a2a') {
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(cx - w / 2 + 3, cy - h / 2 + 4, w, h);
+  ctx.fillStyle = col; ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
+  ctx.fillStyle = 'rgba(255,230,160,.22)'; ctx.fillRect(cx - w / 2, cy - h / 2, w, 2);
+  const b = Math.max(3, w * 0.09);
+  return [cx - w / 2 + b, cy - h / 2 + b, w - b * 2, h - b * 2];
+}
+// 見た目「絵」：肖像画。:目（目が主人公を追う）:泣く :笑う :無い（人物が抜け出た）
+function drawPortrait(cx, cy, st, bg) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.78, s * 1.0);
+  ctx.fillStyle = bg || '#3a2c2a'; ctx.fillRect(ix, iy, iw, ih);
+  const hx = cx, hy = iy + ih * 0.38, hr = iw * 0.2;
+  if (st === '無い') {
+    ctx.strokeStyle = 'rgba(230,220,210,.3)'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.moveTo(ix + iw * 0.1, iy + ih); ctx.quadraticCurveTo(hx, iy + ih * 0.52, ix + iw * 0.9, iy + ih); ctx.stroke(); ctx.setLineDash([]);
+    return;
+  }
+  ctx.fillStyle = '#1e1a22'; ctx.beginPath(); ctx.moveTo(ix + iw * 0.06, iy + ih); ctx.quadraticCurveTo(hx, iy + ih * 0.5, ix + iw * 0.94, iy + ih); ctx.fill();
+  el(hx, hy, hr * 1.25, hr * 1.35, '#1a1416');
+  el(hx, hy + hr * 0.12, hr * 0.88, hr * 1.02, '#d8c4b0');
+  ctx.fillStyle = '#1a1416'; ctx.beginPath(); ctx.ellipse(hx, hy - hr * 0.45, hr * 0.95, hr * 0.6, 0, Math.PI, 0); ctx.fill();
+  const ey = hy + hr * 0.1, gap = hr * 0.4, er = hr * 0.2;
+  if (st === '目' || st === '笑う') {
+    const lk = lookTo(cx);
+    for (const k of [-1, 1]) { el(hx + k * gap, ey, er, er * 0.75, '#f4ece4'); el(hx + k * gap + lk * er * 0.5, ey, er * 0.5, er * 0.55, '#3a0808'); }
+  } else {   // 伏せた目
+    ctx.strokeStyle = '#3a2420'; ctx.lineWidth = Math.max(1, s * 0.012);
+    for (const k of [-1, 1]) { ctx.beginPath(); ctx.arc(hx + k * gap, ey - er * 0.3, er * 0.8, 0.3, Math.PI - 0.3); ctx.stroke(); }
+  }
+  if (st === '泣く') { ctx.fillStyle = '#a01010'; for (const k of [-1, 1]) ctx.fillRect(hx + k * gap - 1, ey + er * 0.5, 2, ih * 0.45); }
+  if (st === '笑う') { ctx.fillStyle = '#5a0a0a'; ctx.beginPath(); ctx.moveTo(hx - hr * 0.6, hy + hr * 0.55); ctx.quadraticCurveTo(hx, hy + hr * 1.2, hx + hr * 0.6, hy + hr * 0.55); ctx.quadraticCurveTo(hx, hy + hr * 0.85, hx - hr * 0.6, hy + hr * 0.55); ctx.fill(); }
+  else { ctx.fillStyle = '#7a4040'; ctx.fillRect(hx - hr * 0.15, hy + hr * 0.62, hr * 0.3, Math.max(1, s * 0.012)); }
+}
+// 見た目「写真」：家族の集合写真（セピア）。:目（全員がこちらを見る）:欠け（まん中の一人がいない）:空き（右に一人分の空白）
+function drawPhoto(cx, cy, st) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.92, s * 0.72, '#4a3a2a');
+  const g = ctx.createLinearGradient(0, iy, 0, iy + ih); g.addColorStop(0, '#b89a70'); g.addColorStop(1, '#7a6040');
+  ctx.fillStyle = g; ctx.fillRect(ix, iy, iw, ih);
+  const slots = st === '空き' ? [-0.34, -0.12, 0.1, 0.32] : [-0.28, 0, 0.28], sizes = [1, 0.72, 1, 0.72];
+  const lk = lookTo(cx);
+  slots.forEach((p, i) => {
+    const fx = cx + p * iw, k = slots.length === 4 ? [1, 0.7, 0.6, 0.6][i] : sizes[i], hr = iw * 0.075 * k, fy2 = iy + ih * (0.42 + (1 - k) * 0.35);
+    const empty = (st === '欠け' && i === 1) || (st === '空き' && i === 3);
+    if (empty) {
+      ctx.strokeStyle = 'rgba(60,40,20,.55)'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(fx, fy2, hr, 0, 7); ctx.rect(fx - hr * 1.3, fy2 + hr * 1.1, hr * 2.6, iy + ih - fy2 - hr * 1.1); ctx.stroke(); ctx.setLineDash([]);
+      return;
+    }
+    ctx.fillStyle = '#3a2a1a'; ctx.fillRect(fx - hr * 1.3, fy2 + hr * 1.1, hr * 2.6, iy + ih - fy2 - hr * 1.1);
+    el(fx, fy2, hr, hr * 1.1, '#e0c8a0');
+    el(fx, fy2 - hr * 0.55, hr * 1.05, hr * 0.6, '#2a1e14');
+    const ex = st === '目' ? lk * hr * 0.35 : 0;
+    ctx.fillStyle = st === '目' ? '#000' : '#5a4030';
+    ctx.fillRect(fx - hr * 0.42 + ex, fy2 + hr * 0.05, Math.max(1, hr * 0.22), Math.max(1, hr * (st === '目' ? 0.3 : 0.12)));
+    ctx.fillRect(fx + hr * 0.2 + ex, fy2 + hr * 0.05, Math.max(1, hr * 0.22), Math.max(1, hr * (st === '目' ? 0.3 : 0.12)));
+  });
+}
+// 見た目「風景」：海辺の絵。:赤（海が赤い）
+function drawLandscape(cx, cy, st) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.95, s * 0.62);
+  const red = st === '赤', g = ctx.createLinearGradient(0, iy, 0, iy + ih);
+  g.addColorStop(0, red ? '#3a0a0a' : '#506878'); g.addColorStop(0.55, red ? '#6a1010' : '#8aa0a8'); g.addColorStop(0.56, red ? '#8a0808' : '#2a4a5a'); g.addColorStop(1, red ? '#400404' : '#1a3040');
+  ctx.fillStyle = g; ctx.fillRect(ix, iy, iw, ih);
+  el(ix + iw * 0.72, iy + ih * 0.25, iw * 0.06, iw * 0.06, red ? '#e0d0c0' : '#f0e8d0');
+}
+// 見た目「張り紙」：:白（何も書いていない）:血
+function drawPaper(cx, cy, st) {
+  const s = TS, w = s * 0.46, h = s * 0.6;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.04);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(-w / 2 + 2, -h / 2 + 3, w, h);
+  ctx.fillStyle = '#d6cdb4'; ctx.fillRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = '#8a8070'; el(0, -h / 2 + 3, 2, 2, '#8a8070');
+  if (st !== '白' && st !== '血') { ctx.fillStyle = 'rgba(40,30,30,.55)'; for (let i = 0; i < 5; i++) ctx.fillRect(-w * 0.36, -h * 0.3 + i * h * 0.13, w * (i === 0 ? 0.72 : 0.6 - (i % 2) * 0.15), Math.max(1, s * 0.015)); }
+  if (st === '血') { ctx.fillStyle = 'rgba(150,10,10,.85)'; el(-w * 0.05, -h * 0.05, w * 0.32, h * 0.22, 'rgba(150,10,10,.8)'); for (const dx of [-0.2, 0.02, 0.18]) ctx.fillRect(w * dx, 0, 2, h * (0.25 + Math.abs(dx))); }
+  ctx.restore();
+}
+function drawSwitch(cx, cy, on) {
+  const s = TS;
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(cx - s * 0.08 + 2, cy - s * 0.13 + 2, s * 0.16, s * 0.26);
+  ctx.fillStyle = '#c4baa6'; ctx.fillRect(cx - s * 0.08, cy - s * 0.13, s * 0.16, s * 0.26);
+  ctx.fillStyle = '#6a6258'; ctx.fillRect(cx - s * 0.03, cy - s * 0.07, s * 0.06, s * 0.14);
+  ctx.fillStyle = '#e8e0d0'; ctx.fillRect(cx - s * 0.035, on ? cy - s * 0.08 : cy, s * 0.07, s * 0.08);
+  if (on) el(cx, cy - s * 0.18, s * 0.025, s * 0.025, '#ff3030');
+}
+// 見た目「覗き穴」：:目（向こうから目が覗いている）
+function drawPeep(cx, cy, st) {
+  const s = TS;
+  el(cx, cy, s * 0.11, s * 0.11, '#6a5028'); el(cx, cy, s * 0.085, s * 0.085, '#b08a40');
+  if (st === '目') {
+    el(cx, cy, s * 0.07, s * 0.06, '#f0e6e0');
+    el(cx + lookTo(cx) * s * 0.02, cy, s * 0.035, s * 0.04, '#8a1010'); el(cx + lookTo(cx) * s * 0.02, cy, s * 0.015, s * 0.02, '#000');
+  } else el(cx, cy, s * 0.045, s * 0.045, '#050305');
+}
+// 見た目「窓」：:手（手形）:顔 :白（外が白く光る）
+function drawWindow(cx, cy, st) {
+  const s = TS, [ix, iy, iw, ih] = frame(cx, cy, s * 0.82, s * 1.05, '#3a3028');
+  const g = ctx.createLinearGradient(0, iy, 0, iy + ih);
+  if (st === '白') { g.addColorStop(0, '#f0f0f4'); g.addColorStop(1, '#c8ccd8'); } else { g.addColorStop(0, '#060a16'); g.addColorStop(1, '#162238'); }
+  ctx.fillStyle = g; ctx.fillRect(ix, iy, iw, ih);
+  if (!st) el(ix + iw * 0.7, iy + ih * 0.22, iw * 0.07, iw * 0.07, '#c8ccd0');
+  if (st === '顔') { el(cx, cy, iw * 0.2, iw * 0.26, 'rgba(220,210,200,.7)'); el(cx - iw * 0.07, cy - iw * 0.03, iw * 0.03, iw * 0.04, '#000'); el(cx + iw * 0.07, cy - iw * 0.03, iw * 0.03, iw * 0.04, '#000'); }
+  ctx.fillStyle = '#3a3028'; ctx.fillRect(cx - 1.5, iy, 3, ih); ctx.fillRect(ix, cy - 1.5, iw, 3);
+  if (st === '手') {
+    for (const [px, py, a] of [[0.25, 0.3, -0.3], [0.7, 0.2, 0.2], [0.4, 0.65, 0.1], [0.78, 0.7, -0.2], [0.18, 0.82, 0.3]]) {
+      ctx.save(); ctx.translate(ix + iw * px, iy + ih * py); ctx.rotate(a); ctx.fillStyle = 'rgba(210,200,190,.55)';
+      el(0, 0, iw * 0.07, iw * 0.08, 'rgba(210,200,190,.55)');
+      for (let f = 0; f < 5; f++) ctx.fillRect(-iw * 0.07 + f * iw * 0.033, -iw * 0.19, iw * 0.022, iw * 0.11);
+      ctx.restore();
+    }
+  }
+}
+// 見た目「時計」：:逆（針が逆に回る）
+function drawClock(cx, cy, st) {
+  const s = TS, r = s * 0.28;
+  el(cx + 2, cy + 3, r, r, 'rgba(0,0,0,.4)'); el(cx, cy, r, r, '#5a3e24'); el(cx, cy, r * 0.8, r * 0.8, '#e6dcc4');
+  ctx.fillStyle = '#3a2a1a';
+  for (let i = 0; i < 12; i++) { const a = i / 6 * Math.PI; ctx.fillRect(cx + Math.sin(a) * r * 0.68 - 1, cy - Math.cos(a) * r * 0.68 - 1, 2, 2); }
+  const t = st === '逆' ? -RT.t * 2 : 0, hA = (7 + 12 / 60) / 6 * Math.PI + t / 12, mA = 12 / 30 * Math.PI + t;
+  ctx.strokeStyle = '#1a1010'; ctx.lineCap = 'round';
+  ctx.lineWidth = Math.max(1.5, s * 0.025); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(hA) * r * 0.42, cy - Math.cos(hA) * r * 0.42); ctx.stroke();
+  ctx.lineWidth = Math.max(1, s * 0.015); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(mA) * r * 0.62, cy - Math.cos(mA) * r * 0.62); ctx.stroke();
+}
+// 見た目「鏡」：近づくと自分が映る。:影（後ろに黒い人影）
+function drawMirror(cx, cy, st) {
+  const s = TS, rx = s * 0.3, ry = s * 0.5;
+  el(cx + 2, cy + 3, rx, ry, 'rgba(0,0,0,.45)'); el(cx, cy, rx, ry, '#8a6a30');
+  const g = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry); g.addColorStop(0, '#9aa4ac'); g.addColorStop(0.5, '#5a646c'); g.addColorStop(1, '#3a4248');
+  ctx.save(); ctx.beginPath(); ctx.ellipse(cx, cy, rx * 0.86, ry * 0.9, 0, 0, 7); ctx.fillStyle = g; ctx.fill(); ctx.clip();
+  if (st === '影') { el(cx + rx * 0.25, cy + ry * 0.2, rx * 0.45, ry * 0.8, 'rgba(5,0,5,.9)'); el(cx + rx * 0.25, cy - ry * 0.45, rx * 0.28, rx * 0.3, 'rgba(5,0,5,.95)'); ctx.fillStyle = '#e02020'; ctx.fillRect(cx + rx * 0.14, cy - ry * 0.47, 2, 2); ctx.fillRect(cx + rx * 0.32, cy - ry * 0.47, 2, 2); }
+  const d = PSX - cx;
+  if (Math.abs(d) < s * 1.3) {   // 自分が映る
+    const hero = roleChar('主人公') || {}, mx = cx - d * 0.3, a = 0.55 * (1 - Math.abs(d) / (s * 1.3));
+    ctx.globalAlpha = a; el(mx, cy + ry * 0.45, rx * 0.4, ry * 0.5, hero['服'] || '#334'); el(mx, cy - ry * 0.1, rx * 0.26, rx * 0.3, '#d8c4b0'); el(mx, cy - ry * 0.2, rx * 0.3, rx * 0.22, hero['髪'] || '#222');
+  }
+  ctx.restore();
+  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.ellipse(cx - rx * 0.35, cy - ry * 0.4, rx * 0.12, ry * 0.25, 0.4, 0, 7); ctx.fill();
+}
+// 見た目「ランプ」：壁の灯り。:赤 :消（消えている）
+function drawLamp(cx, cy, st) {
+  const s = TS;
+  ctx.fillStyle = '#4a3a2a'; ctx.fillRect(cx - s * 0.02, cy, s * 0.04, s * 0.16); ctx.fillRect(cx - s * 0.1, cy + s * 0.14, s * 0.2, s * 0.04);
+  const c = st === '消' ? '#3a3430' : st === '赤' ? '#ff3a30' : '#ffd890';
+  el(cx, cy, s * 0.08, s * 0.1, c);
+  if (st !== '消') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, s * 0.5); g.addColorStop(0, st === '赤' ? 'rgba(255,40,30,.5)' : 'rgba(255,200,120,.45)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(cx - s * 0.5, cy - s * 0.5, s, s); ctx.restore(); }
+}
+function drawDoor(cx, fy, st, col, usable) {
+  const s = TS, w = s * 0.92, h = s * 2.15, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = '#120c0a'; ctx.fillRect(x - s * 0.07, y - s * 0.07, w + s * 0.14, h + s * 0.07);
+  ctx.fillStyle = col || (st === '鉄' ? '#4a4e54' : '#4a3020'); ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = Math.max(1, s * 0.02);
+  ctx.strokeRect(x + w * 0.15, y + h * 0.08, w * 0.7, h * 0.36); ctx.strokeRect(x + w * 0.15, y + h * 0.52, w * 0.7, h * 0.4);
+  ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(x, y, w, 2);
+  el(cx + w * 0.34, fy - h * 0.47, s * 0.05, s * 0.05, usable ? '#d8b060' : '#6a4a38');
+  if (!usable) { ctx.fillStyle = '#0a0606'; ctx.fillRect(cx + w * 0.34 - 1, fy - h * 0.42, 2, s * 0.06); }
+  if (st === 'カード' || st === 'テンキー') {   // 扉の横の読み取り機。開くと緑
+    const rx = x + w + s * 0.16, ry = fy - h * 0.55;
+    ctx.fillStyle = '#1a1e22'; ctx.fillRect(rx - s * 0.08, ry - s * 0.13, s * 0.16, s * 0.26);
+    el(rx, ry - s * 0.08, s * 0.025, s * 0.025, usable ? '#40e090' : '#e04040');
+    ctx.fillStyle = '#5a6266'; if (st === 'カード') ctx.fillRect(rx - s * 0.05, ry, s * 0.1, s * 0.02); else for (let i = 0; i < 3; i++) ctx.fillRect(rx - s * 0.05, ry - s * 0.01 + i * s * 0.04, s * 0.1, s * 0.025);
+  }
+  if (st === '門') { ctx.fillStyle = 'rgba(200,210,230,.25)'; for (let i = 1; i < 5; i++) ctx.fillRect(x + w * i / 5 - 1, y, 2, h); }
+  if (st === '開') { ctx.fillStyle = '#030204'; ctx.fillRect(x + 2, y + 2, w - 4, h - 2); }
+}
+function drawStairs(cx, fy, down) {
+  const s = TS, w = s * 1.1, h = s * 2.3, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = '#120c0a'; ctx.fillRect(x - s * 0.06, y - s * 0.06, w + s * 0.12, h + s * 0.06);
+  ctx.fillStyle = '#050406'; ctx.fillRect(x, y, w, h);
+  const n = 6;
+  for (let i = 0; i < n; i++) {
+    const k = i / n, sh = Math.floor(40 + (down ? -k : k) * 30);
+    ctx.fillStyle = `rgb(${sh},${sh - 10},${sh - 16})`;
+    if (down) ctx.fillRect(x + w * k * 0.9, fy - s * 0.12 + k * s * 0.5 - s * 0.5 + s * 0.5, w * 0.16, s * 0.08);
+    else ctx.fillRect(x + w * k * 0.85, fy - s * 0.12 - k * h * 0.8, w * 0.22, s * 0.1);
+  }
+  ctx.strokeStyle = '#5a4030'; ctx.lineWidth = Math.max(1.5, s * 0.025);
+  ctx.beginPath();
+  if (down) { ctx.moveTo(x + w * 0.05, fy - s * 0.85); ctx.lineTo(x + w * 0.95, fy - s * 0.55); }
+  else { ctx.moveTo(x + w * 0.05, fy - s * 0.75); ctx.lineTo(x + w * 0.95, fy - h * 0.92); }
+  ctx.stroke();
+}
+function drawCounter(cx, fy, col) {
+  const s = TS, w = s * 1.7, h = s * 0.95;
+  ctx.fillStyle = col || '#4a3424'; ctx.fillRect(cx - w / 2, fy - h, w, h);
+  ctx.fillStyle = '#5e4630'; ctx.fillRect(cx - w / 2 - s * 0.05, fy - h - s * 0.06, w + s * 0.1, s * 0.08);
+  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) ctx.strokeRect(cx - w / 2 + s * 0.08 + i * w / 3, fy - h + s * 0.12, w / 3 - s * 0.16, h - s * 0.24);
+  ctx.fillStyle = '#c8a050'; el(cx + w * 0.3, fy - h - s * 0.1, s * 0.07, s * 0.04, '#b89040');
+}
+function drawDesk(cx, fy, col) {
+  const s = TS, w = s * 1.2; ctx.fillStyle = col || '#4a3424';
+  ctx.fillRect(cx - w / 2, fy - s * 0.72, w, s * 0.08); ctx.fillRect(cx - w / 2 + s * 0.05, fy - s * 0.64, s * 0.06, s * 0.64); ctx.fillRect(cx + w / 2 - s * 0.11, fy - s * 0.64, s * 0.06, s * 0.64);
+}
+function drawBench(cx, fy, col) {
+  const s = TS, w = s * 1.5; ctx.fillStyle = col || '#3a2a20';
+  ctx.fillRect(cx - w / 2, fy - s * 0.48, w, s * 0.1); ctx.fillRect(cx - w / 2, fy - s * 0.95, w, s * 0.08); ctx.fillRect(cx - w / 2, fy - s * 0.95, s * 0.06, s * 0.95); ctx.fillRect(cx + w / 2 - s * 0.06, fy - s * 0.95, s * 0.06, s * 0.95);
+  ctx.fillStyle = '#5a2a2a'; ctx.fillRect(cx - w / 2 + s * 0.06, fy - s * 0.56, w - s * 0.12, s * 0.08);
+}
+function drawChair(cx, fy, col) {
+  const s = TS; ctx.fillStyle = col || '#4a3020';
+  ctx.fillRect(cx - s * 0.22, fy - s * 0.45, s * 0.44, s * 0.07); ctx.fillRect(cx - s * 0.22, fy - s * 1.0, s * 0.06, s * 1.0); ctx.fillRect(cx + s * 0.16, fy - s * 0.45, s * 0.06, s * 0.45);
+}
+function drawShelf(cx, fy, col) {
+  const s = TS, w = s * 0.9, h = s * 1.9; ctx.fillStyle = col || '#3a2a20'; ctx.fillRect(cx - w / 2, fy - h, w, h);
+  ctx.fillStyle = '#120c0a'; for (let i = 0; i < 4; i++) ctx.fillRect(cx - w / 2 + s * 0.05, fy - h + s * 0.08 + i * h / 4, w - s * 0.1, h / 4 - s * 0.1);
+  const cs = ['#4a6a5a', '#6a4a3a', '#5a5a7a', '#7a6a3a'];
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { ctx.fillStyle = cs[(i + j) % 4]; ctx.fillRect(cx - w * 0.36 + j * w * 0.26, fy - h + (i + 1) * h / 4 - s * 0.26, s * 0.1, s * 0.22); }
+}
+function drawCurtain(cx, fy, col) {
+  const s = TS, w = s * 1.05, h = s * 2.45, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = '#3a3028'; ctx.fillRect(x - s * 0.08, y - s * 0.05, w + s * 0.16, s * 0.06);
+  const g = ctx.createLinearGradient(x, 0, x + w, 0), c = col || '#3a1420';
+  for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, i % 2 ? 'rgba(0,0,0,.55)' : c);
+  ctx.fillStyle = c; ctx.fillRect(x, y, w, h); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x, fy - s * 0.1, w, s * 0.1);
+}
+function drawCamera(cx, fy) {
+  const s = TS;
+  ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = Math.max(2, s * 0.04);
+  ctx.beginPath(); ctx.moveTo(cx, fy - s * 1.15); ctx.lineTo(cx - s * 0.35, fy); ctx.moveTo(cx, fy - s * 1.15); ctx.lineTo(cx + s * 0.35, fy); ctx.moveTo(cx, fy - s * 1.15); ctx.lineTo(cx, fy); ctx.stroke();
+  ctx.fillStyle = '#2a1e16'; ctx.fillRect(cx - s * 0.32, fy - s * 1.6, s * 0.4, s * 0.45);
+  ctx.fillStyle = '#1a1210'; ctx.beginPath(); ctx.moveTo(cx + s * 0.08, fy - s * 1.55); ctx.lineTo(cx + s * 0.36, fy - s * 1.48); ctx.lineTo(cx + s * 0.36, fy - s * 1.27); ctx.lineTo(cx + s * 0.08, fy - s * 1.2); ctx.fill();
+  el(cx + s * 0.4, fy - s * 1.375, s * 0.06, s * 0.1, '#0a0a10'); el(cx + s * 0.41, fy - s * 1.4, s * 0.02, s * 0.03, 'rgba(180,200,255,.6)');
+  ctx.fillStyle = '#0a0606'; ctx.fillRect(cx - s * 0.42, fy - s * 1.7, s * 0.2, s * 0.5);   // 黒い布
+}
+function drawTable(cx, fy, col) {
+  drawDesk(cx, fy, col);
+  const s = TS; ctx.fillStyle = '#6a6a70'; ctx.fillRect(cx - s * 0.42, fy - s * 0.8, s * 0.84, s * 0.08); ctx.fillStyle = 'rgba(160,140,60,.6)'; ctx.fillRect(cx - s * 0.38, fy - s * 0.78, s * 0.76, s * 0.04);
+}
+function drawFlowers(cx, fy) {
+  const s = TS; ctx.fillStyle = '#3a2a20'; ctx.fillRect(cx - s * 0.04, fy - s * 0.9, s * 0.08, s * 0.9); ctx.fillRect(cx - s * 0.2, fy - s * 0.92, s * 0.4, s * 0.05);
+  el(cx, fy - s * 1.08, s * 0.12, s * 0.17, '#5a6a7a');
+  ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = Math.max(1, s * 0.015);
+  for (const a of [-0.5, -0.15, 0.2, 0.5]) { ctx.beginPath(); ctx.moveTo(cx, fy - s * 1.2); ctx.quadraticCurveTo(cx + a * s * 0.3, fy - s * 1.5, cx + a * s * 0.55, fy - s * 1.45); ctx.stroke(); el(cx + a * s * 0.55, fy - s * 1.45, s * 0.04, s * 0.03, '#5a3a2a'); }
+}
+function drawBox(cx, fy, col) {
+  const s = TS; ctx.fillStyle = col || '#4a3a28'; ctx.fillRect(cx - s * 0.34, fy - s * 0.6, s * 0.68, s * 0.6);
+  ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.strokeRect(cx - s * 0.34, fy - s * 0.6, s * 0.68, s * 0.6); ctx.beginPath(); ctx.moveTo(cx - s * 0.34, fy - s * 0.3); ctx.lineTo(cx + s * 0.34, fy - s * 0.3); ctx.stroke();
+}
+// 見た目「ロッカー」：鉄のロッカー。:開（扉が半開き）。隠れると中から扉のすき間ごしに外を見る
+const isLocker = ob => /^ロッカー/.test(lookOf(ob));
+function drawLocker(cx, fy, col, st, inside) {
+  const s = TS, w = s * 0.8, h = s * 2.35, x = cx - w / 2, y = fy - h;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(x + 4, y + 4, w, h);
+  ctx.fillStyle = col || '#4a5458'; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(x, y, w, 2); ctx.fillRect(x, y, 2, h);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x + w - 3, y, 3, h);
+  if (st === '開') {   // 半開きの扉と、真っ暗な中
+    ctx.fillStyle = '#050406'; ctx.fillRect(x + w * 0.08, y + h * 0.04, w * 0.84, h * 0.92);
+    ctx.fillStyle = col || '#4a5458'; ctx.beginPath(); ctx.moveTo(x + w, y + h * 0.03); ctx.lineTo(x + w * 1.35, y + h * 0.08); ctx.lineTo(x + w * 1.35, y + h * 0.92); ctx.lineTo(x + w, y + h * 0.97); ctx.fill();
+    return;
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = Math.max(1, s * 0.015); ctx.strokeRect(x + w * 0.08, y + h * 0.04, w * 0.84, h * 0.92);
+  ctx.fillStyle = '#0c0a0c';   // 通気口のすき間
+  for (let i = 0; i < 5; i++) ctx.fillRect(x + w * 0.22, y + h * 0.1 + i * s * 0.07, w * 0.56, Math.max(2, s * 0.03));
+  if (inside) {   // 中にいる：すき間からこちらの目がのぞく
+    for (const k of [-0.12, 0.12]) { el(cx + k * w, y + h * 0.1 + s * 0.085, s * 0.03, s * 0.014, '#e8e0d8'); }
+  }
+  ctx.fillStyle = '#9a9a90'; ctx.fillRect(x + w * 0.78, y + h * 0.48, s * 0.04, s * 0.18);
+}
+const OBJ_TOP = { 槽: 2.45, 檻: 1.4, ベッド: 0.95, 制御盤: 1.25, 下駄箱: 1.4, 消毒装置: 1.3, 瓦礫: 0.6, 本棚: 2.2, 植木: 1.0, 流し: 1.25, 人: 1.9, ロッカー: 2.45, カーテン: 2.45, 暗幕: 2.45, 棚: 1.9, カメラ: 1.7, カウンター: 1.05, 机: 0.8, 長椅子: 1.0, 椅子: 1.0, 台: 0.9, 花台: 1.5, 箱: 0.6 };
+function objTop(ob) {   // 物のてっぺん（床から何マス上か）。調べられる印をここに出す
+  const L = lookOf(ob), base = L.split(/[:：]/)[0], k = ob.o['種類'];
+  if (/扉/.test(k) || base === '扉') return 2.25;
+  if (k === '階段' || base === '階段') return 2.4;
+  if (ob.layer === 'wall') return base === 'ランプ' || base === '非常灯' ? 2.75 : base === '時計' ? 2.45 : /スイッチ|金庫|パネル/.test(base) ? 1.95 : base === 'モニター' ? 2.1 : 2.45;
+  return OBJ_TOP[base] ?? (k === '隠れる' ? 2.45 : 1.0);
+}
+function drawObj(ob, cx, fy) {
+  const k = ob.o['種類'], L = lookOf(ob), [base, st = ''] = L.split(/[:：]/), col = ob.o['色'], s = TS, wy = fy - s * 1.85;
+  if (/扉/.test(k) || base === '扉') return drawDoor(cx, fy, st, col, !/扉/.test(k) || cond(ob.o['条件']));
+  if (k === '階段' || base === '階段') return drawStairs(cx, fy, /下/.test(L));
+  switch (base) {
+    case '絵': return drawPortrait(cx, wy, st, col);
+    case '写真': return drawPhoto(cx, wy, st);
+    case '額縁': { const [ix, iy, iw, ih] = frame(cx, wy, s * 0.8, s * 0.95); ctx.fillStyle = col || '#141014'; ctx.fillRect(ix, iy, iw, ih); return; }
+    case '風景': return drawLandscape(cx, wy, st);
+    case '張り紙': return drawPaper(cx, wy + s * 0.1, st);
+    case 'スイッチ': return drawSwitch(cx, fy - s * 1.5, st === '入');
+    case '覗き穴': return drawPeep(cx, fy - s * 1.75, st);
+    case '窓': return drawWindow(cx, wy, st);
+    case '時計': return drawClock(cx, fy - s * 2.1, st);
+    case '鏡': return drawMirror(cx, wy, st);
+    case 'ランプ': return drawLamp(cx, fy - s * 2.45, st);
+    case 'カウンター': return drawCounter(cx, fy, col);
+    case '机': drawDesk(cx, fy, col); return onTop(ob, cx, fy - s * 0.72);
+    case '長椅子': return drawBench(cx, fy, col);
+    case '椅子': return drawChair(cx, fy, col);
+    case '棚': return drawShelf(cx, fy, col);
+    case 'カーテン': case '暗幕': return drawCurtain(cx, fy, col);
+    case 'カメラ': return drawCamera(cx, fy);
+    case '台': drawTable(cx, fy, col); return onTop(ob, cx, fy - s * 0.8);
+    case '花台': return drawFlowers(cx, fy);
+    case '箱': return drawBox(cx, fy, col);
+    case 'ロッカー': drawLocker(cx, fy, col, st, RT.hide && RT.hideAt === ob); return onTop(ob, cx, fy);
+    case '槽': return drawTank(cx, fy, st);
+    case 'モニター': return drawMonitor(cx, wy + s * 0.15, st);
+    case '檻': return drawCage(cx, fy, st);
+    case 'ベッド': return drawBed(cx, fy);
+    case '金庫': return drawSafe(cx, fy - s * 1.6);
+    case '制御盤': return drawConsole(cx, fy);
+    case '黒板': return drawBoard(cx, wy, col);
+    case '下駄箱': return drawShoebox(cx, fy, col);
+    case '消毒装置': return drawDisinfector(cx, fy, st);
+    case '瓦礫': return drawRubble(cx, fy);
+    case '本棚': return drawBookshelf(cx, fy, col);
+    case '植木': return drawPlant(cx, fy);
+    case '流し': return drawSink(cx, fy);
+    case '非常灯': return drawExitSign(cx, fy - s * 2.55);
+    case '窓口': return drawWicket(cx, wy);
+    case 'パネル': return drawPanel(cx, fy - s * 1.6, st === '開');
+    case '人': return drawSomeone(st, cx, fy);
+  }
+  if (ob.o['絵']) {
+    ctx.font = `${Math.floor(s * 0.7)}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ddd';
+    ctx.fillText(ob.o['絵'], cx, ob.layer === 'wall' ? wy : fy - s * 0.4);
+  } else if (k === '隠れる') drawCurtain(cx, fy, col);
+  else if (k === '障害') drawBox(cx, fy, col || '#3a3028');
+  else if (col) { if (ob.layer === 'wall') { ctx.fillStyle = col; ctx.fillRect(cx - s * 0.3, wy - s * 0.3, s * 0.6, s * 0.6); } else drawBox(cx, fy, col); }
+}
+// 見た目と「絵」の両方があるとき、家具の上に絵を小さく置く（机の上の日誌など）
+function onTop(ob, cx, y) {
+  if (!ob.o['絵'] || /^ロッカー/.test(lookOf(ob))) return;
+  ctx.font = `${Math.floor(TS * 0.4)}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = '#ddd';
+  ctx.fillText(ob.o['絵'], cx, y);
+}
+// [落書き] の文字（壁に残る赤い字）
+function drawWriting(text, cx, y) {
+  ctx.save(); ctx.font = `${TS >= 80 ? 36 : 24}px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(170,16,16,.9)'; ctx.fillText(text, cx, y);
+  const w = ctx.measureText(text).width; ctx.fillStyle = 'rgba(150,10,10,.7)';
+  for (let i = 0; i < 4; i++) { const dx = -w / 2 + w * (i * 0.29 + 0.08); ctx.fillRect(cx + dx, y + 8, 2, 6 + (i * 7) % 13); }
+  ctx.restore();
+}
+// [手] 壁から伸びる白い腕
+function drawHands(h, x, y) {
+  const s = TS, t = h.t;
+  const reach = t < 0.9 ? t / 0.9 * 0.12 : t < 2.2 ? Math.min(1, 0.12 + (t - 0.9) * 3) : Math.max(0, 1 - (t - 2.2) / 0.6);
+  for (let i = 0; i < 6; i++) {
+    const side = i % 2 ? 1 : -1, row = (i >> 1) - 1, wob = Math.sin(RT.t * 6 + i * 2 + h.seed) * s * 0.05;
+    const sx = x + side * s * 0.08, sy = y + row * s * 0.32, ex = sx + side * s * (1.0 + (i % 3) * 0.15) * reach, ey = sy + (row * 0.2 + 0.25) * s * reach + wob;
+    ctx.strokeStyle = 'rgba(40,30,30,.8)'; ctx.lineWidth = s * 0.11; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo((sx + ex) / 2, sy - s * 0.15 * reach, ex, ey); ctx.stroke();
+    ctx.strokeStyle = '#d8d0c8'; ctx.lineWidth = s * 0.08; ctx.stroke();
+    if (reach > 0.05) {
+      el(ex, ey, s * 0.07, s * 0.06, '#e0d8d0');
+      ctx.strokeStyle = '#e0d8d0'; ctx.lineWidth = Math.max(1, s * 0.022);
+      for (let f = -2; f <= 2; f++) { ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex + side * s * 0.12, ey + f * s * 0.035); ctx.stroke(); }
+    }
+  }
+}
+function drawMark(ch, col, x, y) { ctx.fillStyle = col; ctx.font = `36px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(ch, x, y); }
+
+function draw() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, VW, VH);
+  if (!G || !W.rooms[G.room] || S.mode === 'title') return;
+  const rm = room(), [ox, fy] = cam(), s = TS, top = fy - s * 3, ww = rm.w * s;
+  PSX = ox + G.x * s;
+  // 壁・腰板・床
+  ctx.fillStyle = rm.props['壁の色'] || '#2c2430'; ctx.fillRect(ox, top, ww, s * 3);
+  ctx.fillStyle = 'rgba(255,255,255,.03)'; for (let i = 0; i < rm.w * 2; i += 2) ctx.fillRect(ox + i * s / 2, top, s / 4, s * 2.2);
+  ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.fillRect(ox, fy - s * 0.8, ww, s * 0.8);
+  ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(ox, fy - s * 0.8, ww, 2);
+  const cg = ctx.createLinearGradient(0, top, 0, top + s); cg.addColorStop(0, 'rgba(0,0,0,.7)'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = cg; ctx.fillRect(ox, top, ww, s);
+  ctx.fillStyle = rm.props['床の色'] || '#221a16'; ctx.fillRect(ox, fy, ww, s * 1.1);
+  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ox, fy, ww, 3);
+  ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1;
+  for (const k of [0.22, 0.5, 0.85]) { ctx.beginPath(); ctx.moveTo(ox, fy + s * k); ctx.lineTo(ox + ww, fy + s * k); ctx.stroke(); }
+  for (let x = 0; x < rm.w; x++) if (/[#|]/.test(colCh('wall', x) + colCh('floor', x))) { ctx.fillStyle = '#09070b'; ctx.fillRect(ox + x * s, top - s * 0.2, s, s * 4.4); }
+  // 物
+  const lights = [], tints = [];
+  let hideOb = null;
+  for (const ob of rm.objs) {
+    if (!shown(ob)) continue;
+    const k = ob.o['種類'], cx = ox + (ob.x + 0.5) * s, look = lookOf(ob);
+    if (k === '隠れる' && RT.hide && RT.hideAt === ob) hideOb = ob;
+    else if (k !== '敵' && k !== '番人位置' && cx > -s * 2 && cx < VW + s * 2) drawObj(ob, cx, fy);
+    const lr = num(ob.o['光'], 0);
+    if (lr > 0 && !/消/.test(look)) {
+      const ly = ob.layer === 'wall' ? fy - s * 2.0 : fy - s * 0.6;
+      lights.push([cx, ly, lr * s * (1 + Math.sin(RT.t * 9 + ob.x * 3) * 0.04 + Math.sin(RT.t * 23 + ob.x) * 0.02)]);
+      if (/赤/.test(look)) tints.push([cx, ly, lr * s * 1.8]);
+    }
+    const wr = G.writes[lookKey(G.room, ob.sym)];
+    if (wr) drawWriting(wr, cx, ob.layer === 'wall' ? fy - s * 2.62 : fy - s * 2.2);
+  }
+  for (const h of RT.hazards) drawHands(h, ox + h.x * s, fy - s * 1.75);
+  // 人物（e.x の位置を 0 にして、ACT 倍で描く。既存の人物・敵の絵をそのまま使う）
+  const actor = (x, sz, fn) => { ctx.save(); ctx.translate(ox + x * s, fy - s * 0.05); ctx.scale(ACT, ACT); fn(-x * s, -s * 0.32 * sz); ctx.restore(); };
+  RT.enemies.forEach(e => actor(e.x, num(e.d['大きさ'], 1), (a, b) => drawEnemy(e, a, b)));
+  // 番人は 1.25 倍（大きさ 2 で、ちょうど壁の 3 分の 2 ほど）
+  const guardAt = () => { const g = RT.guard; ctx.save(); ctx.translate(ox + g.x * s, fy - s * 0.05); ctx.scale(1.25, 1.25); drawGuard(g, -g.x * s, -s * 0.3 * num(g.d['大きさ'], 1.6)); ctx.restore(); };
+  if (RT.guard) guardAt();
+  if (RT.comp && G.companion) {
+    const c = charByName(G.companion) || roleChar('同行者');
+    if (c) actor(RT.comp.x, num(c['背'], 1), (a, b) => drawPerson(0, b, c['服'], c['髪'], num(c['背'], 1), RT.comp.face || [1, 0]));
+  }
+  const hero = roleChar('主人公') || { 服: '#aaa', 髪: '#333', 背: 1 };
+  const blink = RT.inv > 0 && Math.floor(RT.t * 12) % 2;
+  const bob = RT.walk ? -Math.abs(Math.sin(RT.walk * 9)) * s * 0.012 : 0;
+  const inLocker = RT.hide && RT.hideAt && isLocker(RT.hideAt);
+  if (!inLocker) actor(G.x, num(hero['背'], 1), (a, b) => drawPerson(0, b + bob, hero['服'], hero['髪'], num(hero['背'], 1), G.face, RT.hide || blink ? 0.35 : 1));
+  if (hideOb && !inLocker) drawObj(hideOb, ox + (hideOb.x + 0.5) * s, fy);   // 隠れている物は手前に描く（ロッカーは中から見るので描かない）
+  ctx.fillStyle = '#ffd0a0';
+  for (const sh of RT.shots) { ctx.beginPath(); ctx.arc(ox + sh.x * s, fy - s * 0.9, s * 0.1, 0, 7); ctx.fill(); }
+  // 闇と灯
+  dctx.globalCompositeOperation = 'source-over';
+  dctx.clearRect(0, 0, VW, VH);
+  const bright = Math.max(0, Math.min(1, num(rm.props['明るさ'], 0)));
+  dctx.fillStyle = `rgba(4,2,8,${(0.95 * (1 - bright)).toFixed(3)})`; dctx.fillRect(0, 0, VW, VH);
+  dctx.globalCompositeOperation = 'destination-out';
+  const flick = Math.sin(RT.t * 7) * 0.04 + Math.sin(RT.t * 13) * 0.03;
+  lights.push([PSX, fy - s * 0.95, s * (1.3 + effLight() * 0.5) * (1 + flick)]);
+  for (const [x, y, r] of lights) {
+    const gr = dctx.createRadialGradient(x, y, r * 0.15, x, y, r);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.6, 'rgba(0,0,0,.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    dctx.fillStyle = gr; dctx.beginPath(); dctx.arc(x, y, r, 0, 7); dctx.fill();
+  }
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(dark, 0, 0); ctx.restore();
+  for (const [x, y, r] of tints) {   // 赤い灯りは部屋を赤く染める
+    ctx.save(); ctx.globalCompositeOperation = 'multiply';
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(255,70,60,1)'); g.addColorStop(1, 'rgba(255,70,60,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); ctx.restore();
+  }
+  // 見回りの視線（向いている方を、うっすら赤く）
+  for (const e of RT.enemies) {
+    if (!/^見回り/.test(e.d['動き'] || '') || RT.stun > 0) continue;
+    const v1 = num(moveDef(e.d['動き'])['値1'], 0), x0 = ox + e.x * s, x1 = x0 + e.face * v1 * s;
+    const g = ctx.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, `rgba(255,40,40,${e.st === 'chase' ? 0.22 : 0.1})`); g.addColorStop(1, 'rgba(255,40,40,0)');
+    ctx.fillStyle = g; ctx.fillRect(Math.min(x0, x1), fy - s * 1.6, Math.abs(x1 - x0), s * 1.6);
+  }
+  for (const e of RT.enemies) {   // ! ? …
+    const x = ox + e.x * s, y = fy - s * ACT * num(e.d['大きさ'], 1) * 0.95;
+    if (RT.stun > 0) drawMark('…', '#a0c0ff', x, y);
+    else if (e.mark > 0) drawMark('!', '#e03040', x, y);
+    else if (e.st === 'lost') drawMark('?', '#ffd060', x, y);
+  }
+  // 番人の技の予告（赤い範囲）
+  for (const a of RT.warns) {
+    const k = 1 - a.t / a.total, L = num(a.sk['長さ'], 3) * s, x0 = ox + a.ox * s, y0 = fy - s * 2, hh = s * 2;
+    ctx.fillStyle = `rgba(220,40,60,${0.12 + k * 0.3})`; ctx.strokeStyle = 'rgba(255,80,90,.8)'; ctx.lineWidth = 1;
+    if (a.sk['種類'] === '前') { ctx.fillRect(a.dir > 0 ? x0 : x0 - L * k, y0, L * k, hh); ctx.strokeRect(a.dir > 0 ? x0 : x0 - L, y0, L, hh); }
+    else if (a.sk['種類'] === '円') { ctx.fillRect(x0 - L * k, y0, L * k * 2, hh); ctx.strokeRect(x0 - L, y0, L * 2, hh); }
+    else ctx.fillRect(a.dir > 0 ? x0 : x0 - s * 1.5 * k, fy - s * 0.95, s * 1.5 * k, s * 0.1);
+  }
+  if (RT.guard) { const a0 = RT.guard.alpha; RT.guard.alpha = a0 * 0.35; guardAt(); RT.guard.alpha = a0; }   // 闇の中でも少し見せる
+  // 浮かぶ文字（[文字]）
+  for (const f of RT.floats) {
+    const a = f.t < 0.4 ? f.t / 0.4 : f.t > f.dur - 0.6 ? Math.max(0, (f.dur - f.t) / 0.6) : 1, n = Math.min(f.text.length, Math.floor(f.t * 7) + 1);
+    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#e02828'; ctx.shadowColor = 'rgba(255,0,0,.7)'; ctx.shadowBlur = 14;
+    ctx.font = `${TS >= 80 ? 48 : 36}px DenkiChip, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.text.slice(0, n), ox + f.x * s + Math.sin(RT.t * 40) * 1.5, fy - s * 2.3); ctx.restore();
+  }
+  // 調べられる物の印
+  if (S.mode === 'play' && (!RT.busy || RT.chase) && !RT.hide) {
+    const t = nearObj(!!RT.chase);
+    if (t) {
+      const hx = ox + (t.x + 0.5) * s, hy = fy - s * objTop(t) - 6 + Math.sin(RT.t * 5) * 3;
+      ctx.fillStyle = `rgba(232,184,96,${0.6 + Math.sin(RT.t * 5) * 0.3})`;
+      ctx.beginPath(); ctx.moveTo(hx - 7, hy - 9); ctx.lineTo(hx + 7, hy - 9); ctx.lineTo(hx, hy); ctx.fill();
+    }
+  }
+  if (inLocker) drawLockerView(fy);
+  if (RT.flash > 0) { ctx.fillStyle = `rgba(200,30,50,${RT.flash})`; ctx.fillRect(0, 0, VW, VH); }
+}
+
+// ロッカーの中から見た画面：横に細いすき間だけが見える。敵が近いほど、心臓の音に合わせて赤く脈打つ
+function drawLockerView(fy) {
+  const s = TS, n = 5, sh = Math.max(8, s * 0.22), gap = Math.max(4, s * 0.1), top = fy - s * 2.0;
+  const near = RT.enemies.reduce((m, e) => Math.min(m, Math.abs(e.x - G.x)), RT.guard ? Math.abs(RT.guard.x - G.x) : 99);
+  const fear = Math.max(0, 1 - near / 4), beat = fear ? Math.pow(Math.max(0, Math.sin(RT.t * (5 + fear * 6))), 6) : 0;
+  const jx = fear * Math.sin(RT.t * 37) * 1.5;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, VW, VH);
+  for (let i = 0; i < n; i++) ctx.rect(VW * 0.1 + jx, top + i * (sh + gap), VW * 0.8, sh);
+  ctx.fillStyle = 'rgba(6,5,7,.96)'; ctx.fill('evenodd');
+  ctx.strokeStyle = 'rgba(90,96,100,.5)'; ctx.lineWidth = 1;   // すき間のふち（鉄板）
+  for (let i = 0; i < n; i++) ctx.strokeRect(VW * 0.1 + jx, top + i * (sh + gap), VW * 0.8, sh);
+  const g = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.2, VW / 2, VH / 2, VH * 0.8);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(140,0,12,${(beat * 0.5 * fear).toFixed(3)})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  ctx.fillStyle = 'rgba(200,190,180,.55)'; ctx.font = '12px DenkiChip, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('左右に動くと出る', VW / 2, top + n * (sh + gap) + 28);
+  ctx.restore();
+}
+
+/* ====================== ループ ====================== */
+let last = performance.now(), lastTalking = false;
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; RT.t += dt;
+  const paused = !!document.querySelector('dialog[open]');
+  if (S.mode === 'play' && G && !paused) {
+    if (G.buff > 0) { G.buff = Math.max(0, G.buff - dt); const b = $('#buff'), txt = G.buff > 0 ? `光+${G.buffLv} ${Math.floor(G.buff / 60)}:${String(Math.floor(G.buff % 60)).padStart(2, '0')}` : ''; if (b.textContent !== txt) b.textContent = txt; }
+    else if ($('#buff').textContent) $('#buff').textContent = '';
+    RT.stun = Math.max(0, RT.stun - dt);
+    if (!RT.busy || RT.chase) RT.grace = Math.max(0, (RT.grace || 0) - dt);
+    const free = !RT.busy || RT.chase;
+    if (free) { updatePlayer(dt); updateEnemies(dt); if (S.mode === 'play') updateHazards(dt); }
+    if (RT.chase && S.mode === 'play') updateChase(dt);
+    RT.floats.forEach(f => f.t += dt); RT.floats = RT.floats.filter(f => f.t < f.dur);
+    RT.inv = Math.max(0, RT.inv - dt); RT.flash = Math.max(0, RT.flash - dt);
+    if (RT.comp) {   // 同行者は少し後ろをついてくる
+      const d = G.x - G.face[0] * 0.9 - RT.comp.x;
+      if (Math.abs(d) > 0.1) { RT.comp.x += d * Math.min(1, dt * 4); RT.comp.face = [Math.sign(d), 0]; }
+      else RT.comp.face = [Math.sign(G.x - RT.comp.x) || 1, 0];
+      if (Math.abs(d) > 4) RT.comp.x = G.x - G.face[0] * 0.9;
+    }
+  }
+  const talking = S.mode === 'play' && RT.busy && !RT.chase;
+  if (talking !== lastTalking) { lastTalking = talking; document.body.classList.toggle('talking', talking); }
+  draw();
+  if (++miniTick % 6 === 0) drawMini();
+  requestAnimationFrame(loop);
+}
+
+
+/* ====================== Markdown 読み込み UI ====================== */
+function openMd() { $('#mdInfo').textContent = loadedInfo(); $('#mdDlg').showModal(); }
+function loadedInfo() {
+  const by = {};
+  Object.values(RAW).forEach(s => (by[s.src] = by[s.src] || []).push(s.head));
+  return Object.entries(by).map(([k, v]) => `${k}: ${v.length} 見出し`).join(' / ');
+}
+function applyUser(text, src) {
+  const heads = applyText(text, src);
+  if (!heads.length) { toast('## 見出しが見つかりませんでした'); return; }
+  rebuild();
+  toast(`${src}: ${heads.length} 見出しを反映`);
+}
+function rebuild() {
+  W = buildWorld(); MINI = null;
+  if (S.mode === 'title') { titleScreen(); return; }
+  if (G && W.rooms[G.room]) {
+    const rm = room();
+    if (G.x > rm.w || blocked(G.x)) enterRoom(G.room, null); else enterRoom(G.room, null, true);
+  } else if (G) { enterRoom(setting('開始部屋', Object.keys(W.rooms)[0])); }
+  updateHud();
+}
+$('#btnMd').onclick = openMd;
+$('#mdClose').onclick = () => $('#mdDlg').close();
+$('#mdApply').onclick = () => { const t = $('#mdText').value; if (t.trim()) { applyUser(t, '貼り付け'); $('#mdText').value = ''; $('#mdInfo').textContent = loadedInfo(); } };
+$('#mdReset').onclick = () => { RAW = { ...DEFAULT_RAW }; rebuild(); toast('最初の定義に戻しました'); $('#mdInfo').textContent = loadedInfo(); };
+$('#mdRestart').onclick = () => { $('#mdDlg').close(); newGame(); };
+$('#mdFile').onchange = async e => { for (const f of e.target.files) applyUser(await f.text(), f.name); e.target.value = ''; $('#mdInfo').textContent = loadedInfo(); };
+$('#btnInv').onclick = openInv;
+$('#invClose').onclick = () => $('#invDlg').close();
+addEventListener('dragover', e => { e.preventDefault(); $('#drop').style.display = 'flex'; });
+addEventListener('dragleave', e => { if (!e.relatedTarget) $('#drop').style.display = 'none'; });
+addEventListener('drop', async e => {
+  e.preventDefault(); $('#drop').style.display = 'none';
+  for (const f of e.dataTransfer.files) if (/\.(md|markdown|txt)$/i.test(f.name)) applyUser(await f.text(), f.name);
+});
+
+/* ====================== 起動 ====================== */
+async function boot() {
+  for (const f of FILES) {
+    let text = null;
+    try { const r = await fetch(f, { cache: 'no-cache' }); if (r.ok) text = await r.text(); } catch (e) {}
+    if (text == null) { const el = document.querySelector(`script[type="text/markdown"][data-file="${f}"]`); if (el) text = el.textContent; }
+    if (text != null) applyText(text, f, DEFAULT_RAW);
+  }
+  RAW = { ...DEFAULT_RAW };
+  W = buildWorld();
+  resize();
+  titleScreen();
+  requestAnimationFrame(loop);
+}
+boot();
+</script>
+</body>
+</html>

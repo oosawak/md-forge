@@ -355,14 +355,21 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 ## イベント gate_panel
 
 [分岐 解放:研究棟A → gate_panel_open]
-パネルに「合言葉を入力してください」と表示されている。
+パネルに「合言葉を入力してください（カタカナ2文字）」と表示されている。
 [入力 トワ|TOWA|永遠 → gate_ok]
 ブザーが鳴った。違うらしい。
 [分岐 !済:diary → gate_hint]
+[数値 合言葉ミス +1]
+[分岐 数値:合言葉ミス>=2 → gate_hint2]
+{主人公}「職員室の日誌には『あの子の名前を合言葉にした』とあった。最初の被験者の名前……」
 
 ## イベント gate_hint
 
-{主人公}「合言葉……職員室に、何か手がかりがあるかもしれない」
+{主人公}「合言葉……職員室（中央棟の西）に、何か手がかりがあるかもしれない」
+
+## イベント gate_hint2
+
+{主人公}「最初の被験者。永遠に生きるはずだった子。日誌には『トワ』と書いてあった」
 
 ## イベント gate_ok
 
@@ -402,7 +409,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 消毒液と、何かが腐った匂い。
 病床の間を、何かがゆっくり歩いている。
 {主人公}「見つからないように……。音を立てれば、あっちへ気を引けるかも」
-【ヒント】実験体は、見つけると頭の上に「!」が出て追ってくる。壁の陰に入れば見失う（「?」）。持ち物の空き瓶や発煙筒を使うと、しばらく足が止まる。
+【ヒント】実験体は、見つけると頭の上に「!」が出て追ってくる。壁の陰に入るか、ロッカー（🗄）を調べて中に隠れれば見失う（「?」）。ただし、目の前で隠れると見つかる。持ち物の空き瓶や発煙筒を使うと、しばらく足が止まる。
 
 ## イベント ward_after
 
@@ -710,6 +717,12 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 [分岐 持つ:薬品 → disinfect]
 消毒装置だ。薬品を入れる口があるが、中は空っぽだ。
 {主人公}「強い消毒薬があれば、動かせそう」
+[分岐 フラグ:薬品_取った → disinfector_hint_used]
+{主人公}「消毒薬……研究棟Bの飼育区画に、ロッカーがあった。探してみよう」
+
+## イベント disinfector_hint_used
+
+{主人公}「持っていた薬品は……持ち物から『使う』で、ここで使えるはず」
 
 ## イベント use_chemical
 
@@ -901,6 +914,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 ## イベント licht_door
 
 扉に鍵がかかっている。
+{主人公}「先に、ここにいる青年と話してみよう」
 
 ## イベント 入室:licht_lab
 
@@ -1011,6 +1025,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 「生命の価値は、科学が決める。私はそう信じて、この研究所を作った」
 「だが N-0 と L-1 を見て、分からなくなった。あの二人の約束に、私は値段をつけられなかった」
 「後のことは L-1 に託す。彼なら、迷わないだろう」
+「制御室の鍵は、この部屋の金庫に入れた。文字は、N-0 の名前にしてある」
 [数値 資料 +1]
 [数値 真相 +1]
 資料を手に入れた。（回収した資料 {数値:資料}）
@@ -1018,13 +1033,32 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 ## イベント final_report_after
 
 「あの二人の約束に、私は値段をつけられなかった」
+「金庫の文字は、N-0 の名前にしてある」
+
+## イベント director_photo
+
+伏せられた写真立てを起こした。
+幼い女の子と男の子が、手をつないで笑っている。
+裏に、細い字で「N-0 ノワ　L-1 リヒト」と書かれている。
 
 ## イベント director_safe
 
 [分岐 持つ:中枢キー → director_safe_after]
-金庫だ。文字を入れるダイヤルがついている。
+金庫だ。カタカナを入れるダイヤルがついている。2文字らしい。
 [入力 ノワ|NOIR|乃和|N-0 → director_safe_open]
 ダイヤルは動かない。違うらしい。
+[分岐 !済:final_report → director_safe_hint]
+[数値 金庫ミス +1]
+[分岐 数値:金庫ミス>=2 → director_safe_hint2]
+{主人公}「報告書には『N-0 の名前にした』とあった。N-0……リヒトは、わたしをそう呼んだ」
+
+## イベント director_safe_hint
+
+{主人公}「机の上の報告書に、何か書いてあるかもしれない」
+
+## イベント director_safe_hint2
+
+{主人公}「N-0 は、わたし。……わたしの名前は、ノワ」
 
 ## イベント director_safe_open
 
@@ -1067,6 +1101,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 ## イベント escape_locked
 
 通用門への扉。まだ、外へ出るときではない。
+{主人公}「この扉は、研究所を止めないと開かない。制御室の制御盤を調べよう」
 
 ## イベント escape_back
 
@@ -1192,6 +1227,7 @@ N-0 の記録。読み返すと、なぜか胸がざわつく。
 # map.md — エデン生命科学研究所（全 16 部屋）
 
 書き方は horror/map.md と同じです。scientists/ 版では種類 `隠し扉` が増えました（条件が合うまでは壁に見え、合うと扉として通れる）。
+種類 `隠れる` も増えました（ロッカーなど。調べると中に隠れ、実験体に見つからなくなる。追ってきていた実験体は見失って「?」になり、持ち場へ戻る。すぐ近くで見られていると引きずり出されて灯が 1 つ減る。番人の追跡中は隠れられない。動くか、もう一度調べると出る。対象にイベントを書くと、隠れたときに動く。条件・だめなときも使える）。
 
 ## 部屋 entrance エントランス（旧校舎の玄関ホール）
 
@@ -1304,8 +1340,8 @@ L.........#
 #########N#########
 #bb.....#.....bb..#
 #.....r.#.........#
-#.......#.........#
-#.................#
+#.......#........L#
+#L................#
 #..............x..#
 #bb...............#
 #.......v.........#
@@ -1320,6 +1356,7 @@ L.........#
 | v | 調べる | ward_shelf | | | 💊 | #1e2a2a | |
 | r | 敵 | ロスト | | | | | |
 | x | 敵 | キメラ | | | | | |
+| L | 隠れる | | | | 🗄 | #2a3434 | |
 
 ## 部屋 labA_room 研究棟A・延命実験室
 
@@ -1347,7 +1384,7 @@ L.........#
 
 ```
 #########N#########
-#.................#
+#................L#
 #..oo.....oo..h...#
 #.................#
 #.....oo....oo....#
@@ -1355,7 +1392,7 @@ L.........#
 #.........oo....i.#
 #.k...............#
 #..oo.........oo..#
-#.................#
+#L................#
 #########S#########
 ```
 
@@ -1367,6 +1404,7 @@ L.........#
 | i | 調べる | breeding_log | | | 📋 | #2a2a30 | 1.2 |
 | k | 調べる | labB_locker | | | 🗄 | #2a3030 | |
 | h | 敵 | ハウンド | | | | | |
+| L | 隠れる | | | | 🗄 | #2a3434 | |
 
 ## 部屋 labB_room 研究棟B・観察室
 
@@ -1420,7 +1458,7 @@ L.........#
 ###############
 #.............#
 #..m......m...#
-#.............#
+#............L#
 #......r......#
 #.............#
 #..q.......k..#
@@ -1436,6 +1474,7 @@ L.........#
 | q | 調べる | release_plan | | | 📁 | #2a2a30 | |
 | k | 調べる | labC_desk | | | 🗃 | #3a2e22 | |
 | m | 敵 | ミラー | | | | | |
+| L | 隠れる | | | | 🗄 | #2a3434 | |
 | B | 番人位置 | | | | | | |
 
 ## 部屋 holding 収容エリア（地下）
@@ -1489,7 +1528,7 @@ L.........#
 #####C#####
 #bb.....bb#
 #.........#
-W....t....#
+W....tp...#
 #.........#
 #.r.......#
 ###########
@@ -1501,6 +1540,7 @@ W....t....#
 | C | 扉 | control:S | 持つ:中枢キー | control_locked | | #303848 | |
 | b | 置物 | director_shelf | | | 📚 | #2a2018 | |
 | t | 調べる | final_report | | | 📁 | #3a2e22 | 1.4 |
+| p | 調べる | director_photo | | | 🖼 | #3a2e22 | |
 | r | 調べる | director_safe | | | 🔐 | #2a2a30 | |
 
 ## 部屋 control 中枢・制御室
@@ -1742,7 +1782,7 @@ function buildRoom(id, name, sec) {
 const S = { mode: 'title' };       // title | play | end
 let G = null;                       // 保存する状態
 let checkpoint = null;
-const RT = { enemies: [], shots: [], warns: [], guard: null, chase: null, inv: 0, busy: false, lastTile: '', t: 0, comp: null, flash: 0, stun: 0 };
+const RT = { enemies: [], shots: [], warns: [], guard: null, chase: null, inv: 0, busy: false, lastTile: '', t: 0, comp: null, flash: 0, stun: 0, hide: null };
 const roleChar = role => W.chars.find(c => c['役'] === role);
 const charByName = n => W.chars.find(c => c['名前'] === n);
 const room = () => W.rooms[G.room];
@@ -1775,7 +1815,7 @@ function isSolid(x, y) {
   if (ch === '#' || ch === ' ') return true;
   const o = room().legend[ch];
   if (o && o['種類'] === '隠し扉') return !cond(o['条件']);   // 条件が合うまでは壁
-  return !!(o && (o['種類'] === '調べる' || o['種類'] === '置物'));
+  return !!(o && (o['種類'] === '調べる' || o['種類'] === '置物' || o['種類'] === '隠れる'));
 }
 function findSym(sym) {
   const r = room();
@@ -1799,7 +1839,7 @@ function enterRoom(id, sym, keepPos, noSave) {
   RT.lastTile = Math.floor(G.x) + ',' + Math.floor(G.y);
   RT.grace = num(setting('入室の猶予', 2), 2);   // 部屋に入ってすぐは実験体に見つからない（秒）
   if (RT.chase) endChase('escaped');
-  RT.shots = []; RT.warns = []; RT.guard = null;
+  RT.shots = []; RT.warns = []; RT.guard = null; RT.hide = null;
   spawnEnemies();
   if (RT.comp) { RT.comp.x = G.x - G.face[0] * 0.6; RT.comp.y = G.y - G.face[1] * 0.6; }
   $('#roomName').textContent = room().name;
@@ -2209,13 +2249,26 @@ addEventListener('touchstart', () => document.body.classList.add('touch'), { onc
 function action() {
   if (dlgNext) { dlgNext(); return; }
   if (S.mode !== 'play' || RT.busy) return;
+  if (RT.hide) { leaveHide(); return; }
   examine();
 }
+// 隠れる：ロッカーなどに入る。中にいる間は実験体に見つからない（見られていたら引きずり出される）
+function enterHide(o, x, y) {
+  if (RT.chase) { if (o['だめなとき']) runEvent(o['だめなとき']); else toast('今は隠れる余裕がない！'); return; }
+  const seer = RT.enemies.find(e => e.d['害'] !== 'いいえ' && e.st === 'chase' && Math.hypot(e.x - G.x, e.y - G.y) < 2.5 && canSee(e.x, e.y, G.x, G.y));
+  if (seer) { toast('見られていた！'); hurt(); return; }
+  RT.hide = { x, y, t: 0 }; keys.clear(); joy = null;
+  for (const e of RT.enemies) if (e.st === 'chase') { e.st = 'lost'; e.timer = 3; e.mark = 0.9; }
+  toast((o['絵'] || '') + ' 隠れた（動くか、もう一度調べると出る）');
+  if (o['対象'] && W.events[o['対象']]) runEvent(o['対象']);
+}
+function leaveHide(byMove) { if (!RT.hide) return; RT.hide = null; if (!byMove) keys.clear(); toast('外に出た'); }
 function examine() {
   const fx = G.x + G.face[0] * 0.75, fy = G.y + G.face[1] * 0.75, px = -G.face[1] * 0.35, py = G.face[0] * 0.35;
   const cand = [[fx, fy], [fx + px, fy + py], [fx - px, fy - py], [G.x, G.y]].map(([x, y]) => [Math.floor(x), Math.floor(y)]);
   for (const [x, y] of cand) {
     const o = legendAt(x, y);
+    if (o && o['種類'] === '隠れる') { if (cond(o['条件'])) enterHide(o, x, y); else if (o['だめなとき']) runEvent(o['だめなとき']); return; }
     if (o && /調べる|置物/.test(o['種類'])) {
       if (cond(o['条件'])) { if (o['対象']) runEvent(o['対象']); }
       else if (o['だめなとき']) runEvent(o['だめなとき']);
@@ -2273,6 +2326,7 @@ function slideAssist(vx, vy, step) {
 }
 function updatePlayer(dt) {
   const [vx, vy] = inputVec();
+  if (RT.hide) { RT.pv = [0, 0]; RT.hide.t += dt; if ((vx || vy) && RT.hide.t > 0.35) leaveHide(true); return; }
   RT.pv = [vx * 4, vy * 4];
   if (!vx && !vy) return;
   if (Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3) G.face = Math.abs(vx) > Math.abs(vy) ? [Math.sign(vx), 0] : [0, Math.sign(vy)];
@@ -2346,7 +2400,8 @@ function updateEnemies(dt) {
   if (RT.stun > 0) { RT.shots = RT.shots.filter(s => (s.life -= dt) > 0); return; }   // 気をそらしている間は止まる
   for (const e of RT.enemies) {
     e.t += dt; e.mark = Math.max(0, (e.mark || 0) - dt);
-    const dx = G.x - e.x, dy = G.y - e.y, dist = Math.hypot(dx, dy) || 0.001, ux = dx / dist, uy = dy / dist;
+    const hd = RT.hide, tgx = hd ? e.hx : G.x, tgy = hd ? e.hy : G.y;   // 隠れている間は、持ち場へ戻る
+    const dx = tgx - e.x, dy = tgy - e.y, dist = hd ? 99 : (Math.hypot(dx, dy) || 0.001), dl = Math.hypot(dx, dy) || 0.001, ux = dx / dl, uy = dy / dl;
     const sp = num(e.d['速さ'], 1.2), mv = e.d['動き'], md = moveDef(mv), v1 = num(md['値1'], 0), v2 = num(md['値2'], 0);
     let vx = 0, vy = 0;
     switch (/^見回り/.test(mv) ? '見回り' : mv) {   // 「見回り」で始まる名前の動きは、値だけ違う見回りとして扱う
@@ -2392,12 +2447,13 @@ function updateEnemies(dt) {
       default: vx = ux * sp; vy = uy * sp;
     }
     if (moveBy(e, vx * dt, vy * dt, 0.25) && e.st === 'patrol') e.wp = null;
-    if (e.d['害'] !== 'いいえ' && dist < 0.55 + num(e.d['大きさ'], 1) * 0.2) { hurt(); e.x -= ux * 1.2; e.y -= uy * 1.2; if (blocked(e.x, e.y, 0.25)) { e.x += ux * 1.2; e.y += uy * 1.2; } if (e.st === 'dash') e.st = 'idle'; }
+    if (hd && Math.hypot(dx, dy) < 0.3 && !/^見回り|広がる|止まる/.test(mv)) { vx = vy = 0; }
+    if (!hd && e.d['害'] !== 'いいえ' && dist < 0.55 + num(e.d['大きさ'], 1) * 0.2) { hurt(); e.x -= ux * 1.2; e.y -= uy * 1.2; if (blocked(e.x, e.y, 0.25)) { e.x += ux * 1.2; e.y += uy * 1.2; } if (e.st === 'dash') e.st = 'idle'; }
   }
   for (const s of RT.shots) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
     if (isSolid(Math.floor(s.x), Math.floor(s.y))) s.life = 0;
-    if (Math.hypot(s.x - G.x, s.y - G.y) < 0.4) { hurt(); s.life = 0; }
+    if (!RT.hide && Math.hypot(s.x - G.x, s.y - G.y) < 0.4) { hurt(); s.life = 0; }
   }
   RT.shots = RT.shots.filter(s => s.life > 0);
 }
@@ -2410,6 +2466,7 @@ function chase(name, secs, fail) {
     let p = findSym((Object.entries(room().legend).find(([, o]) => o['種類'] === '番人位置') || [])[0] || '\u0000');
     if (!p) { const f = floorTiles(); f.sort((a, b) => Math.hypot(b[0] - G.x, b[1] - G.y) - Math.hypot(a[0] - G.x, a[1] - G.y)); p = f[0] || [1, 1]; }
     RT.guard = { d: gd, x: p[0] + 0.5, y: p[1] + 0.5, alpha: 0, cd: 1.2, act: null };
+    RT.hide = null;
     RT.chase = { t: secs, total: secs, res, fail };
     $('#chase').hidden = false;
     keys.clear();
@@ -2729,7 +2786,7 @@ function draw() {
     if (kind === '扉' || kind === '隠し扉') {
       ctx.fillStyle = o['色'] || '#4a3020'; ctx.fillRect(px + 2, py + 2, TS - 4, TS - 4);
       ctx.fillStyle = cond(o['条件']) ? '#d8b060' : '#705040'; ctx.beginPath(); ctx.arc(px + TS * 0.7, py + TS * 0.5, TS * 0.07, 0, 7); ctx.fill();
-    } else if (kind === '調べる' || kind === '置物') {
+    } else if (kind === '調べる' || kind === '置物' || kind === '隠れる') {
       ctx.fillStyle = o['色'] || '#2a2228'; ctx.fillRect(px + 1, py + 1, TS - 2, TS - 2);
       if (o['絵'] === '🕯') { drawCandleStand(px + TS / 2, py + TS / 2); flames.push([px + TS / 2, py + TS * 0.2, TS * 0.22, x * 7 + y * 13]); }
       else if (o['絵']) { ctx.font = `${TS * 0.68}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#ddd'; ctx.fillText(o['絵'], px + TS / 2, py + TS / 2 + 1); }
@@ -2758,7 +2815,7 @@ function draw() {
   }
   const hero = roleChar('主人公') || { 服: '#aaa', 髪: '#333', 背: 1 };
   const blink = RT.inv > 0 && Math.floor(RT.t * 12) % 2;
-  actors.push([G.y, () => drawPerson(ox + G.x * TS, oy + G.y * TS, hero['服'], hero['髪'], num(hero['背'], 1), G.face, blink ? 0.35 : 1)]);
+  if (!RT.hide) actors.push([G.y, () => drawPerson(ox + G.x * TS, oy + G.y * TS, hero['服'], hero['髪'], num(hero['背'], 1), G.face, blink ? 0.35 : 1)]);
   actors.sort((a, b) => a[0] - b[0]).forEach(a => a[1]());
   ctx.fillStyle = '#ffb060';
   for (const s of RT.shots) { ctx.beginPath(); ctx.arc(ox + s.x * TS, oy + s.y * TS, TS * 0.12, 0, 7); ctx.fill(); }
@@ -2768,7 +2825,7 @@ function draw() {
   dctx.fillStyle = 'rgba(4,2,8,0.94)'; dctx.fillRect(0, 0, VW, VH);
   dctx.globalCompositeOperation = 'destination-out';
   const flick = Math.sin(RT.t * 7) * 0.04 + Math.sin(RT.t * 13) * 0.03;
-  const pr = TS * (1.4 + effLight() * 0.65) * (1 + flick);
+  const pr = TS * (1.4 + effLight() * 0.65) * (1 + flick) * (RT.hide ? 0.8 : 1);
   lights.push([ox + G.x * TS, oy + G.y * TS, pr]);
   for (const [x, y, r] of lights) {
     const gr = dctx.createRadialGradient(x, y, r * 0.15, x, y, r);
@@ -2781,6 +2838,16 @@ function draw() {
   // 警告と番人は闇の上にも少し見せる
   if (RT.guard) { ctx.save(); ctx.globalAlpha = 0.35; drawGuard(RT.guard, ox, oy); ctx.restore(); }
   if (RT.flash > 0) { ctx.fillStyle = `rgba(200,30,50,${RT.flash})`; ctx.fillRect(0, 0, VW, VH); }
+  if (RT.hide) {   // 隠れている間は、すき間からのぞいているように上下を暗くする
+    ctx.save();
+    const g = ctx.createLinearGradient(0, 0, 0, VH);
+    g.addColorStop(0, 'rgba(0,0,0,.92)'); g.addColorStop(0.36, 'rgba(0,0,0,.6)'); g.addColorStop(0.44, 'rgba(0,0,0,0)');
+    g.addColorStop(0.56, 'rgba(0,0,0,0)'); g.addColorStop(0.64, 'rgba(0,0,0,.6)'); g.addColorStop(1, 'rgba(0,0,0,.92)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = 'rgba(220,210,200,.75)'; ctx.font = `${Math.max(12, TS * 0.38)}px "DenkiChip", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('隠れている', VW / 2, VH - 10);
+    ctx.restore();
+  }
 }
 
 /* ====================== ループ ====================== */
